@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">TimeManager</string>
+    <string name="categories_title">Категории</string>
+    <string name="tasks_title">Задачи</string>
+    <string name="add_category">Добавить категорию</string>
+    <string name="edit_category">Редактировать категорию</string>
+    <string name="add_task">Добавить задачу</string>
+    <string name="edit_task">Редактировать задачу</string>
+    <string name="category_name">Название категории</string>
+    <string name="task_title">Название задачи</string>
+    <string name="task_description">Описание</string>
+    <string name="save">Сохранить</string>
+    <string name="delete">Удалить</string>
+    <string name="cancel">Отмена</string>
+    <string name="no_categories">Пока нет категорий</string>
+    <string name="no_tasks">В этой категории пока нет задач</string>
+    <string name="choose_color">Выберите цвет</string>
+</resources>
