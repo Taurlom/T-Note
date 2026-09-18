@@ -7,4 +7,5 @@ sealed class CategoriesEvent {
     data class OnAddCategory(val name: String, val color: Long) : CategoriesEvent()
     data class OnEditCategory(val category: Category) : CategoriesEvent()
     data class OnDeleteCategory(val category: Category) : CategoriesEvent()
+    data class OnReorderCategories(val categories: List<Category>) : CategoriesEvent()
 }

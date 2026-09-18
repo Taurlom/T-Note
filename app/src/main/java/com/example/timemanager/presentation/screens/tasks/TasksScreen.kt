@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -36,8 +36,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Task
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
+import com.example.timemanager.presentation.components.ReorderableLazyColumn
 import com.example.timemanager.presentation.components.TaskInputDialog
 import com.example.timemanager.presentation.components.TaskItem
+import com.example.timemanager.presentation.theme.AddButtonBackground
+import com.example.timemanager.presentation.theme.AppBarBackground
+import com.example.timemanager.presentation.theme.OnSecondary
+import com.example.timemanager.presentation.theme.OnTertiary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,12 +71,27 @@ fun TasksScreen(
                         )
                     }
                 },
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AppBarBackground,
+                    titleContentColor = OnTertiary,
+                    navigationIconContentColor = OnTertiary,
+                    actionIconContentColor = OnTertiary
+                )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_task))
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                shape = RoundedCornerShape(3.dp),
+                containerColor = AddButtonBackground,
+                contentColor = OnSecondary
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.add_task),
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     ) { padding ->
@@ -88,25 +108,23 @@ fun TasksScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
-                LazyColumn(
+                ReorderableLazyColumn(
+                    items = uiState.tasks,
+                    key = { it.id },
+                    onReorder = { viewModel.onEvent(TasksEvent.OnReorderTasks(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    items(
-                        items = uiState.tasks,
-                        key = { it.id }
-                    ) { task ->
-                        TaskItem(
-                            task = task,
-                            onToggleCompletion = {
-                                viewModel.onEvent(TasksEvent.OnToggleTaskCompletion(task))
-                            },
-                            onEdit = { taskToEdit = task },
-                            onDelete = { taskToDelete = task },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                ) { task, _ ->
+                    TaskItem(
+                        task = task,
+                        onToggleCompletion = {
+                            viewModel.onEvent(TasksEvent.OnToggleTaskCompletion(task))
+                        },
+                        onEdit = { taskToEdit = task },
+                        onDelete = { taskToDelete = task },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
@@ -115,10 +133,14 @@ fun TasksScreen(
     if (showAddDialog) {
         TaskInputDialog(
             dialogTitle = stringResource(R.string.add_task),
+            hasExistingTasks = uiState.tasks.isNotEmpty(),
             onDismiss = { showAddDialog = false },
             onConfirm = { title, description ->
                 viewModel.onEvent(TasksEvent.OnAddTask(title, description))
                 showAddDialog = false
+            },
+            onNext = { title, description ->
+                viewModel.onEvent(TasksEvent.OnAddTask(title, description))
             }
         )
     }

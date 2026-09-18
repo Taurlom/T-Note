@@ -24,5 +24,6 @@ data class TaskEntity(
     val description: String,
     val isCompleted: Boolean,
     val categoryId: Long,
-    val createdAt: Long
+    val createdAt: Long,
+    val position: Int = 0
 )

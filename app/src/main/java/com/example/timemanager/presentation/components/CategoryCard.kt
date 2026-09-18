@@ -37,7 +37,7 @@ fun CategoryCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(3.dp))
             .background(Color(category.color).copy(alpha = 0.15f))
             .clickable(onClick = onClick)
             .padding(16.dp),
@@ -51,7 +51,7 @@ fun CategoryCard(
             Box(
                 modifier = Modifier
                     .size(20.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(3.dp))
                     .background(Color(category.color))
             )
             Text(

@@ -3,7 +3,11 @@ package com.example.timemanager.di
 import android.content.Context
 import androidx.room.Room
 import com.example.timemanager.data.local.AppDatabase
+import com.example.timemanager.data.local.AppDatabaseMigration
+import com.example.timemanager.data.local.CalendarNoteDao
+import com.example.timemanager.data.local.CalendarTaskDao
 import com.example.timemanager.data.local.CategoryDao
+import com.example.timemanager.data.local.DocumentDao
 import com.example.timemanager.data.local.TaskDao
 import dagger.Module
 import dagger.Provides
@@ -23,7 +27,10 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "time_manager.db"
-        ).build()
+        )
+            .addMigrations(AppDatabaseMigration.MIGRATION_5_6)
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -31,4 +38,13 @@ object DatabaseModule {
 
     @Provides
     fun provideTaskDao(database: AppDatabase): TaskDao = database.taskDao()
+
+    @Provides
+    fun provideCalendarNoteDao(database: AppDatabase): CalendarNoteDao = database.calendarNoteDao()
+
+    @Provides
+    fun provideCalendarTaskDao(database: AppDatabase): CalendarTaskDao = database.calendarTaskDao()
+
+    @Provides
+    fun provideDocumentDao(database: AppDatabase): DocumentDao = database.documentDao()
 }

@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,14 +33,24 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Category
+import com.example.timemanager.presentation.components.BottomNavBar
+import com.example.timemanager.presentation.components.BottomNavItem
 import com.example.timemanager.presentation.components.CategoryCard
 import com.example.timemanager.presentation.components.CategoryInputDialog
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
+import com.example.timemanager.presentation.components.ReorderableLazyColumn
+import com.example.timemanager.presentation.theme.AddButtonBackground
+import com.example.timemanager.presentation.theme.AppBarBackground
+import com.example.timemanager.presentation.theme.OnSecondary
+import com.example.timemanager.presentation.theme.OnTertiary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
     onCategoryClick: (Long) -> Unit,
+    onNavigateToCalendar: () -> Unit,
+    onNavigateToDocuments: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     viewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,13 +65,40 @@ fun CategoriesScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.categories_title)) },
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AppBarBackground,
+                    titleContentColor = OnTertiary,
+                    navigationIconContentColor = OnTertiary,
+                    actionIconContentColor = OnTertiary
+                )
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_category))
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                shape = RoundedCornerShape(3.dp),
+                containerColor = AddButtonBackground,
+                contentColor = OnSecondary
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.add_category),
+                    modifier = Modifier.size(28.dp)
+                )
             }
+        },
+        bottomBar = {
+            BottomNavBar(
+                selectedItem = null,
+                onItemSelected = { item ->
+                    when (item) {
+                        BottomNavItem.Calendar -> onNavigateToCalendar()
+                        BottomNavItem.Documents -> onNavigateToDocuments()
+                        BottomNavItem.Settings -> onNavigateToSettings()
+                    }
+                }
+            )
         }
     ) { padding ->
         Box(
@@ -77,23 +114,21 @@ fun CategoriesScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
-                LazyColumn(
+                ReorderableLazyColumn(
+                    items = uiState.categories,
+                    key = { it.id },
+                    onReorder = { viewModel.onEvent(CategoriesEvent.OnReorderCategories(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    items(
-                        items = uiState.categories,
-                        key = { it.id }
-                    ) { category ->
-                        CategoryCard(
-                            category = category,
-                            onClick = { onCategoryClick(category.id) },
-                            onEdit = { categoryToEdit = category },
-                            onDelete = { categoryToDelete = category },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                ) { category, _ ->
+                    CategoryCard(
+                        category = category,
+                        onClick = { onCategoryClick(category.id) },
+                        onEdit = { categoryToEdit = category },
+                        onDelete = { categoryToDelete = category },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

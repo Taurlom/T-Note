@@ -9,4 +9,5 @@ interface TaskRepository {
     suspend fun insert(task: Task): Long
     suspend fun update(task: Task)
     suspend fun delete(task: Task)
+    suspend fun updatePositions(tasks: List<Task>)
 }

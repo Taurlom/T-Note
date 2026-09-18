@@ -7,4 +7,5 @@ sealed class TasksEvent {
     data class OnEditTask(val task: Task) : TasksEvent()
     data class OnDeleteTask(val task: Task) : TasksEvent()
     data class OnToggleTaskCompletion(val task: Task) : TasksEvent()
+    data class OnReorderTasks(val tasks: List<Task>) : TasksEvent()
 }

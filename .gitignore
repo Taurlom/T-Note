@@ -8,7 +8,11 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+
+/assets
 /build
+*/build/
+**/build/
 captures
 .externalNativeBuild
 .cxx

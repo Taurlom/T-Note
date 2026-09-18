@@ -9,4 +9,5 @@ interface CategoryRepository {
     suspend fun insert(category: Category): Long
     suspend fun update(category: Category)
     suspend fun delete(category: Category)
+    suspend fun updatePositions(categories: List<Category>)
 }

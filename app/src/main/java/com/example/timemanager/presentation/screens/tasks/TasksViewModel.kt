@@ -8,6 +8,7 @@ import com.example.timemanager.domain.usecase.AddTaskUseCase
 import com.example.timemanager.domain.usecase.DeleteTaskUseCase
 import com.example.timemanager.domain.usecase.GetCategoryByIdUseCase
 import com.example.timemanager.domain.usecase.GetTasksByCategoryUseCase
+import com.example.timemanager.domain.usecase.ReorderTasksUseCase
 import com.example.timemanager.domain.usecase.UpdateTaskUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,8 @@ class TasksViewModel @Inject constructor(
     private val getCategoryByIdUseCase: GetCategoryByIdUseCase,
     private val addTaskUseCase: AddTaskUseCase,
     private val updateTaskUseCase: UpdateTaskUseCase,
-    private val deleteTaskUseCase: DeleteTaskUseCase
+    private val deleteTaskUseCase: DeleteTaskUseCase,
+    private val reorderTasksUseCase: ReorderTasksUseCase
 ) : ViewModel() {
 
     private val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
@@ -59,11 +61,13 @@ class TasksViewModel @Inject constructor(
         when (event) {
             is TasksEvent.OnAddTask -> {
                 viewModelScope.launch {
+                    val nextPosition = (_uiState.value.tasks.maxOfOrNull { it.position } ?: -1) + 1
                     addTaskUseCase(
                         Task(
                             title = event.title.trim(),
                             description = event.description.trim(),
-                            categoryId = categoryId
+                            categoryId = categoryId,
+                            position = nextPosition
                         )
                     )
                 }
@@ -81,6 +85,14 @@ class TasksViewModel @Inject constructor(
             is TasksEvent.OnToggleTaskCompletion -> {
                 viewModelScope.launch {
                     updateTaskUseCase(event.task.copy(isCompleted = !event.task.isCompleted))
+                }
+            }
+            is TasksEvent.OnReorderTasks -> {
+                viewModelScope.launch {
+                    val reordered = event.tasks.mapIndexed { index, task ->
+                        task.copy(position = index)
+                    }
+                    reorderTasksUseCase(reordered)
                 }
             }
         }

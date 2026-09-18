@@ -6,5 +6,6 @@ data class Task(
     val description: String = "",
     val isCompleted: Boolean = false,
     val categoryId: Long,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val position: Int = 0
 )

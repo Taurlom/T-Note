@@ -24,4 +24,8 @@ class CategoryRepositoryImpl @Inject constructor(
 
     override suspend fun delete(category: Category) =
         dao.delete(category.toEntity())
+
+    override suspend fun updatePositions(categories: List<Category>) {
+        categories.forEach { dao.update(it.toEntity()) }
+    }
 }

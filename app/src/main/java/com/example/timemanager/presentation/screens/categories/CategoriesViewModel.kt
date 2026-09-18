@@ -6,6 +6,7 @@ import com.example.timemanager.domain.model.Category
 import com.example.timemanager.domain.usecase.AddCategoryUseCase
 import com.example.timemanager.domain.usecase.DeleteCategoryUseCase
 import com.example.timemanager.domain.usecase.GetCategoriesUseCase
+import com.example.timemanager.domain.usecase.ReorderCategoriesUseCase
 import com.example.timemanager.domain.usecase.UpdateCategoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,8 @@ class CategoriesViewModel @Inject constructor(
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val addCategoryUseCase: AddCategoryUseCase,
     private val updateCategoryUseCase: UpdateCategoryUseCase,
-    private val deleteCategoryUseCase: DeleteCategoryUseCase
+    private val deleteCategoryUseCase: DeleteCategoryUseCase,
+    private val reorderCategoriesUseCase: ReorderCategoriesUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CategoriesUiState(isLoading = true))
@@ -47,8 +49,13 @@ class CategoriesViewModel @Inject constructor(
             }
             is CategoriesEvent.OnAddCategory -> {
                 viewModelScope.launch {
+                    val nextPosition = (_uiState.value.categories.maxOfOrNull { it.position } ?: -1) + 1
                     addCategoryUseCase(
-                        Category(name = event.name.trim(), color = event.color)
+                        Category(
+                            name = event.name.trim(),
+                            color = event.color,
+                            position = nextPosition
+                        )
                     )
                 }
             }
@@ -60,6 +67,14 @@ class CategoriesViewModel @Inject constructor(
             is CategoriesEvent.OnDeleteCategory -> {
                 viewModelScope.launch {
                     deleteCategoryUseCase(event.category)
+                }
+            }
+            is CategoriesEvent.OnReorderCategories -> {
+                viewModelScope.launch {
+                    val reordered = event.categories.mapIndexed { index, category ->
+                        category.copy(position = index)
+                    }
+                    reorderCategoriesUseCase(reordered)
                 }
             }
         }
