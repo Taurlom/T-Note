@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Иконка системного сплэш-экрана (Android 8.0+ / 12+).
+
+  Adaptive-icon подобран специально под круглую маску сплэша: арт в
+  splash_logo_foreground.png занимает центральные 66% холста (safe zone),
+  система масштабирует их во весь видимый круг. Кольцо логотипа больше не
+  срезается маской, а размер на экране совпадает с размером в SplashScreen().
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/splash_background" />
+    <foreground android:drawable="@drawable/splash_logo_foreground" />
+</adaptive-icon>

@@ -2,21 +2,18 @@ package com.example.timemanager.presentation.screens.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -37,8 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
-import com.example.timemanager.presentation.components.BottomNavBar
-import com.example.timemanager.presentation.components.BottomNavItem
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.theme.AppFont
 import com.example.timemanager.presentation.theme.AppBarBackground
@@ -51,11 +46,7 @@ import com.example.timemanager.presentation.theme.Tertiary
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBackClick: () -> Unit,
-    onNavigateToCalendar: () -> Unit,
-    onNavigateToDocuments: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateToCategories: () -> Unit
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pendingFont by remember { mutableStateOf(uiState.selectedFont) }
@@ -70,36 +61,18 @@ fun SettingsScreen(
     val hasChanges = pendingFont != uiState.selectedFont
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        // Нижний бар рендерится над NavHost в AppNavigation.
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AppBarBackground,
                     titleContentColor = OnTertiary,
                     navigationIconContentColor = OnTertiary,
                     actionIconContentColor = OnTertiary
                 )
-            )
-        },
-        bottomBar = {
-            BottomNavBar(
-                selectedItem = BottomNavItem.Settings,
-                onItemSelected = { item ->
-                    when (item) {
-                        BottomNavItem.Categories -> onNavigateToCategories()
-                        BottomNavItem.Calendar -> onNavigateToCalendar()
-                        BottomNavItem.Documents -> onNavigateToDocuments()
-                        else -> { /* Settings already active */ }
-                    }
-                }
             )
         }
     ) { padding ->

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Запас для Android 7.0 (API 24-25): там нет adaptive-icon и маска не применяется,
+  поэтому показываем foreground как есть — арт уже с отступами от краёв.
+-->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/splash_logo_foreground"
+    android:gravity="center" />

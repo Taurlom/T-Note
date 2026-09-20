@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,45 +37,33 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
-import com.example.timemanager.presentation.components.BottomNavBar
-import com.example.timemanager.presentation.components.BottomNavItem
 import com.example.timemanager.presentation.theme.Accent
 import com.example.timemanager.presentation.theme.AppBarBackground
 import com.example.timemanager.presentation.theme.Background
 import com.example.timemanager.presentation.theme.OnPrimaryContainer
 import com.example.timemanager.presentation.theme.OnSurfaceVariant
 import com.example.timemanager.presentation.theme.OnTertiary
-import com.example.timemanager.presentation.theme.Secondary
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
-    onBackClick: () -> Unit = {},
-    onNavigateToDocuments: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    viewModel: CalendarViewModel = hiltViewModel(),
-    onNavigateToCategories: () -> Unit
+    viewModel: CalendarViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDate by remember { mutableStateOf<CalendarDate?>(null) }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        // Нижний бар рендерится над NavHost в AppNavigation.
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.calendar_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад",
-                            tint = OnTertiary
-                        )
-                    }
-                },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = AppBarBackground,
@@ -84,19 +71,6 @@ fun CalendarScreen(
                     navigationIconContentColor = OnTertiary,
                     actionIconContentColor = OnTertiary
                 )
-            )
-        },
-        bottomBar = {
-            BottomNavBar(
-                selectedItem = BottomNavItem.Calendar,
-                onItemSelected = { item ->
-                    when (item) {
-                        BottomNavItem.Categories -> onNavigateToCategories()
-                        BottomNavItem.Documents -> onNavigateToDocuments()
-                        BottomNavItem.Settings -> onNavigateToSettings()
-                        else -> { /* Calendar уже активен */ }
-                    }
-                }
             )
         }
     ) { padding ->
@@ -157,7 +131,8 @@ private fun CalendarHeader(
             )
         }
         Text(
-            text = yearMonth.toDisplayName(),
+            // Название месяца форматируется один раз за перерисовку заголовка.
+            text = remember(yearMonth) { yearMonth.toDisplayName() },
             style = MaterialTheme.typography.headlineSmall,
             color = OnPrimaryContainer
         )
@@ -189,39 +164,43 @@ private fun WeekDayLabels() {
     }
 }
 
+/** Ячейка сетки: `date == null` — пустая заглушка до/после первого дня месяца. */
+private data class CalendarCell(val date: CalendarDate?, val dateKey: String?)
+
 @Composable
 private fun CalendarGrid(
     yearMonth: CalendarYearMonth,
     notes: Map<String, CalendarNote>,
     onDayClick: (CalendarDate) -> Unit
 ) {
-    val daysInMonth = yearMonth.daysInMonth()
-    val offset = yearMonth.firstDayOfWeekOffset()
-    val totalCells = ((offset + daysInMonth + 6) / 7) * 7
     val today = remember { LocalDate.now() }
 
+    // Даты и их ISO-ключи пересчитываются только при смене месяца: раньше на
+    // каждую перерисовку создавалось ~42 объекта и столько же строк.
+    val cells = remember(yearMonth) { buildMonthCells(yearMonth) }
+    val noteDates = remember(notes) { notes.keys }
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        for (week in 0 until totalCells / 7) {
+        cells.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
-                for (dayOfWeek in 0..6) {
-                    val cellIndex = week * 7 + dayOfWeek
-                    val dayNumber = cellIndex - offset + 1
-                    if (dayNumber in 1..daysInMonth) {
-                        val date = CalendarDate(yearMonth.year, yearMonth.month, dayNumber)
-                        val dateKey = date.toIsoString()
-                        val hasNote = notes.containsKey(dateKey)
-                        val isToday = date.year == today.year &&
-                                date.month == today.monthValue &&
-                                date.day == today.dayOfMonth
+                week.forEach { cell ->
+                    val date = cell.date
+                    if (date != null) {
                         DayCell(
-                            date = date,
-                            hasNote = hasNote,
-                            isToday = isToday,
+                            dayNumber = date.day,
+                            hasNote = noteDates.contains(cell.dateKey),
+                            isToday = date.year == today.year &&
+                                    date.month == today.monthValue &&
+                                    date.day == today.dayOfMonth,
                             onClick = { onDayClick(date) },
                             modifier = Modifier.weight(1f)
                         )
                     } else {
-                        Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                        )
                     }
                 }
             }
@@ -229,9 +208,25 @@ private fun CalendarGrid(
     }
 }
 
+private fun buildMonthCells(yearMonth: CalendarYearMonth): List<CalendarCell> {
+    val daysInMonth = yearMonth.daysInMonth()
+    val offset = yearMonth.firstDayOfWeekOffset()
+    val totalCells = ((offset + daysInMonth + 6) / 7) * 7
+
+    return List(totalCells) { index ->
+        val dayNumber = index - offset + 1
+        if (dayNumber in 1..daysInMonth) {
+            val date = CalendarDate(yearMonth.year, yearMonth.month, dayNumber)
+            CalendarCell(date = date, dateKey = date.toIsoString())
+        } else {
+            CalendarCell(date = null, dateKey = null)
+        }
+    }
+}
+
 @Composable
 private fun DayCell(
-    date: CalendarDate,
+    dayNumber: Int,
     hasNote: Boolean,
     isToday: Boolean,
     onClick: () -> Unit,
@@ -255,7 +250,7 @@ private fun DayCell(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = date.day.toString(),
+                text = dayNumber.toString(),
                 style = MaterialTheme.typography.bodyLarge,
                 color = textColor,
                 textAlign = TextAlign.Center
@@ -275,6 +270,3 @@ private fun DayCell(
         }
     }
 }
-
-
-

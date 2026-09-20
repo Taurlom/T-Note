@@ -3,6 +3,7 @@ package com.example.timemanager.presentation.screens.categories
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +31,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Category
-import com.example.timemanager.presentation.components.BottomNavBar
-import com.example.timemanager.presentation.components.BottomNavItem
 import com.example.timemanager.presentation.components.CategoryCard
 import com.example.timemanager.presentation.components.CategoryInputDialog
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
@@ -48,12 +47,9 @@ import com.example.timemanager.presentation.theme.OnTertiary
 @Composable
 fun CategoriesScreen(
     onCategoryClick: (Long) -> Unit,
-    onNavigateToCalendar: () -> Unit,
-    onNavigateToDocuments: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     viewModel: CategoriesViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -61,7 +57,12 @@ fun CategoriesScreen(
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier
+            .nestedScroll(scrollBehavior.nestedScrollConnection)
+            .fillMaxSize(),
+        // Нижний бар живёт вне экрана (см. AppNavigation), поэтому нижние
+        // системные отступы уже учтены им.
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.categories_title)) },
@@ -88,19 +89,6 @@ fun CategoriesScreen(
                 )
             }
         },
-        bottomBar = {
-            BottomNavBar(
-                selectedItem = BottomNavItem.Categories,
-                onItemSelected = { item ->
-                    when (item) {
-                        BottomNavItem.Calendar -> onNavigateToCalendar()
-                        BottomNavItem.Documents -> onNavigateToDocuments()
-                        BottomNavItem.Settings -> onNavigateToSettings()
-                        else -> { /* Categoties already active */ }
-                    }
-                }
-            )
-        }
     ) { padding ->
         Box(
             modifier = Modifier

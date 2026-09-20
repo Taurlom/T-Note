@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,10 +48,12 @@ fun <T> ReorderableLazyColumn(
     var draggingItemIndex by remember { mutableIntStateOf(-1) }
     var draggingOffset by remember { mutableFloatStateOf(0f) }
 
-    // Sync displayed list with the source-of-truth whenever we are not dragging.
-    // State-backed List guarantees LazyColumn recomposes immediately on add/remove/reorder.
-    if (draggingItemIndex == -1 && currentItems != latestItems) {
-        currentItems = latestItems
+    // Синхронизацию с источником данных вынесли из фазы композиции: запись в
+    // state прямо во время композиции запускала немедленный повторный проход.
+    LaunchedEffect(items, draggingItemIndex) {
+        if (draggingItemIndex == -1 && currentItems != items) {
+            currentItems = items
+        }
     }
 
     LazyColumn(
