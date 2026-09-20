@@ -46,6 +46,7 @@ import com.example.timemanager.presentation.theme.Background
 import com.example.timemanager.presentation.theme.OnPrimaryContainer
 import com.example.timemanager.presentation.theme.OnSurfaceVariant
 import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.Primary
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -164,8 +165,8 @@ private fun WeekDayLabels() {
     }
 }
 
-/** Ячейка сетки: `date == null` — пустая заглушка до/после первого дня месяца. */
-private data class CalendarCell(val date: CalendarDate?, val dateKey: String?)
+/** Ячейка сетки: `isAdjacentMonth` указывает на день из соседнего месяца. */
+private data class CalendarCell(val date: CalendarDate, val dateKey: String, val isAdjacentMonth: Boolean = false)
 
 @Composable
 private fun CalendarGrid(
@@ -184,24 +185,16 @@ private fun CalendarGrid(
         cells.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { cell ->
-                    val date = cell.date
-                    if (date != null) {
-                        DayCell(
-                            dayNumber = date.day,
-                            hasNote = noteDates.contains(cell.dateKey),
-                            isToday = date.year == today.year &&
-                                    date.month == today.monthValue &&
-                                    date.day == today.dayOfMonth,
-                            onClick = { onDayClick(date) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                        )
-                    }
+                    DayCell(
+                        dayNumber = cell.date.day,
+                        hasNote = noteDates.contains(cell.dateKey),
+                        isToday = cell.date.year == today.year &&
+                                cell.date.month == today.monthValue &&
+                                cell.date.day == today.dayOfMonth,
+                        isAdjacentMonth = cell.isAdjacentMonth,
+                        onClick = { onDayClick(cell.date) },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -212,16 +205,37 @@ private fun buildMonthCells(yearMonth: CalendarYearMonth): List<CalendarCell> {
     val daysInMonth = yearMonth.daysInMonth()
     val offset = yearMonth.firstDayOfWeekOffset()
     val totalCells = ((offset + daysInMonth + 6) / 7) * 7
-
-    return List(totalCells) { index ->
-        val dayNumber = index - offset + 1
-        if (dayNumber in 1..daysInMonth) {
-            val date = CalendarDate(yearMonth.year, yearMonth.month, dayNumber)
-            CalendarCell(date = date, dateKey = date.toIsoString())
-        } else {
-            CalendarCell(date = null, dateKey = null)
+    
+    // Получаем количество дней в предыдущем месяце
+    val prevMonth = yearMonth.plusMonths(-1)
+    val daysInPrevMonth = prevMonth.daysInMonth()
+    
+    // Создаем список ячеек
+    val cells = mutableListOf<CalendarCell>()
+    
+    // Дни из предыдущего месяца (заполняют начало первой недели)
+    for (i in offset downTo 1) {
+        val date = CalendarDate(prevMonth.year, prevMonth.month, daysInPrevMonth - i + 1)
+        cells.add(CalendarCell(date = date, dateKey = date.toIsoString(), isAdjacentMonth = true))
+    }
+    
+    // Дни текущего месяца
+    for (day in 1..daysInMonth) {
+        val date = CalendarDate(yearMonth.year, yearMonth.month, day)
+        cells.add(CalendarCell(date = date, dateKey = date.toIsoString(), isAdjacentMonth = false))
+    }
+    
+    // Дни следующего месяца (заполняют остаток последней недели)
+    val remainingCells = totalCells - cells.size
+    if (remainingCells > 0) {
+        val nextMonth = yearMonth.plusMonths(1)
+        for (day in 1..remainingCells) {
+            val date = CalendarDate(nextMonth.year, nextMonth.month, day)
+            cells.add(CalendarCell(date = date, dateKey = date.toIsoString(), isAdjacentMonth = true))
         }
     }
+    
+    return cells
 }
 
 @Composable
@@ -229,11 +243,12 @@ private fun DayCell(
     dayNumber: Int,
     hasNote: Boolean,
     isToday: Boolean,
+    isAdjacentMonth: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = if (isToday) OnSurfaceVariant else Background
-    val textColor = if (isToday) OnTertiary else OnSurfaceVariant
+    val textColor = if (isAdjacentMonth) Primary else if (isToday) OnTertiary else OnSurfaceVariant
     val shape = RoundedCornerShape(3.dp)
 
     Box(
