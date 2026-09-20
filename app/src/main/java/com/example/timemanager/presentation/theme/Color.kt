@@ -47,3 +47,5 @@ val AppBarBackground = Tertiary
 val AddButtonBackground = Secondary
 val DialogBackground = Tertiary
 val DialogButtonBackground = Primary
+
+val LounchBackground = Background

@@ -51,7 +51,7 @@ fun CategoriesScreen(
     onNavigateToCalendar: () -> Unit,
     onNavigateToDocuments: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    viewModel: CategoriesViewModel = hiltViewModel()
+    viewModel: CategoriesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -90,12 +90,13 @@ fun CategoriesScreen(
         },
         bottomBar = {
             BottomNavBar(
-                selectedItem = null,
+                selectedItem = BottomNavItem.Categories,
                 onItemSelected = { item ->
                     when (item) {
                         BottomNavItem.Calendar -> onNavigateToCalendar()
                         BottomNavItem.Documents -> onNavigateToDocuments()
                         BottomNavItem.Settings -> onNavigateToSettings()
+                        else -> { /* Categoties already active */ }
                     }
                 }
             )

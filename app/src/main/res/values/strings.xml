@@ -19,6 +19,7 @@
     <string name="bottom_nav_calendar">Календарь</string>
     <string name="bottom_nav_documents">Документы</string>
     <string name="bottom_nav_settings">Настройки</string>
+    <string name="bottom_nav_categories">Списки</string>
     <string name="calendar_title">Календарь</string>
     <string name="note_label">Заметка</string>
     <string name="settings_title">Настройки</string>

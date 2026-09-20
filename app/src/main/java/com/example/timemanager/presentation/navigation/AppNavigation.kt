@@ -43,7 +43,7 @@ fun AppNavigation() {
                 },
                 onNavigateToSettings = {
                     navController.navigate(Routes.SETTINGS)
-                }
+                },
             )
         }
         composable(
@@ -59,6 +59,9 @@ fun AppNavigation() {
         composable(Routes.CALENDAR) {
             CalendarScreen(
                 onBackClick = { navController.popBackStack() },
+                onNavigateToCategories = {
+                    navController.navigate(Routes.CATEGORIES)
+                },
                 onNavigateToDocuments = {
                     navController.navigate(Routes.DOCUMENTS)
                 },
@@ -70,6 +73,9 @@ fun AppNavigation() {
         composable(Routes.DOCUMENTS) {
             DocumentsScreen(
                 onBackClick = { navController.popBackStack() },
+                onNavigateToCategories = {
+                    navController.navigate(Routes.CATEGORIES)
+                },
                 onNavigateToCalendar = {
                     navController.navigate(Routes.CALENDAR)
                 },
@@ -92,6 +98,9 @@ fun AppNavigation() {
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
+                onNavigateToCategories = {
+                    navController.navigate(Routes.CATEGORIES)
+                },
                 onNavigateToCalendar = {
                     navController.navigate(Routes.CALENDAR)
                 },

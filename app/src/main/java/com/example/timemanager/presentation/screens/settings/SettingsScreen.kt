@@ -54,7 +54,8 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onNavigateToCalendar: () -> Unit,
     onNavigateToDocuments: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    onNavigateToCategories: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pendingFont by remember { mutableStateOf(uiState.selectedFont) }
@@ -93,6 +94,7 @@ fun SettingsScreen(
                 selectedItem = BottomNavItem.Settings,
                 onItemSelected = { item ->
                     when (item) {
+                        BottomNavItem.Categories -> onNavigateToCategories()
                         BottomNavItem.Calendar -> onNavigateToCalendar()
                         BottomNavItem.Documents -> onNavigateToDocuments()
                         else -> { /* Settings already active */ }

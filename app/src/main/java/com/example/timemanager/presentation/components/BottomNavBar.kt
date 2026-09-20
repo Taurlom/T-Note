@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -37,6 +38,11 @@ sealed class BottomNavItem(
         Icons.Default.Settings,
         R.string.bottom_nav_settings
     )
+
+    data object Categories : BottomNavItem(
+        Icons.Default.ListAlt,
+        R.string.bottom_nav_categories
+    )
 }
 
 @Composable
@@ -46,6 +52,7 @@ fun BottomNavBar(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
+        BottomNavItem.Categories,
         BottomNavItem.Calendar,
         BottomNavItem.Documents,
         BottomNavItem.Settings

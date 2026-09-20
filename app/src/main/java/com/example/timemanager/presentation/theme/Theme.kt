@@ -65,7 +65,7 @@ private val AppShapes = Shapes(
 )
 
 @Composable
-fun TimeManagerTheme(
+fun TNoteTheme(
     fontFamily: FontFamily = PtSansFontFamily,
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,

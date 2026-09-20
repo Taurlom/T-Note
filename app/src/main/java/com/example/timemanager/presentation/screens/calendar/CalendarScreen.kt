@@ -12,10 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,15 +40,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
-import com.example.timemanager.domain.model.CalendarTask
 import com.example.timemanager.presentation.components.BottomNavBar
 import com.example.timemanager.presentation.components.BottomNavItem
 import com.example.timemanager.presentation.theme.Accent
-import com.example.timemanager.presentation.theme.AddButtonBackground
 import com.example.timemanager.presentation.theme.AppBarBackground
+import com.example.timemanager.presentation.theme.Background
+import com.example.timemanager.presentation.theme.OnPrimaryContainer
 import com.example.timemanager.presentation.theme.OnSurfaceVariant
 import com.example.timemanager.presentation.theme.OnTertiary
 import com.example.timemanager.presentation.theme.Secondary
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +57,8 @@ fun CalendarScreen(
     onBackClick: () -> Unit = {},
     onNavigateToDocuments: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    viewModel: CalendarViewModel = hiltViewModel()
+    viewModel: CalendarViewModel = hiltViewModel(),
+    onNavigateToCategories: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -68,7 +71,7 @@ fun CalendarScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Назад",
                             tint = OnTertiary
                         )
@@ -88,6 +91,7 @@ fun CalendarScreen(
                 selectedItem = BottomNavItem.Calendar,
                 onItemSelected = { item ->
                     when (item) {
+                        BottomNavItem.Categories -> onNavigateToCategories()
                         BottomNavItem.Documents -> onNavigateToDocuments()
                         BottomNavItem.Settings -> onNavigateToSettings()
                         else -> { /* Calendar уже активен */ }
@@ -112,7 +116,6 @@ fun CalendarScreen(
             CalendarGrid(
                 yearMonth = uiState.yearMonth,
                 notes = uiState.notes,
-                tasks = uiState.tasks,
                 onDayClick = { selectedDate = it }
             )
         }
@@ -150,19 +153,19 @@ private fun CalendarHeader(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                 contentDescription = "Предыдущий месяц",
-                tint = Secondary
+                tint = OnPrimaryContainer
             )
         }
         Text(
             text = yearMonth.toDisplayName(),
             style = MaterialTheme.typography.headlineSmall,
-            color = Secondary
+            color = OnPrimaryContainer
         )
         IconButton(onClick = onNext) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                 contentDescription = "Следующий месяц",
-                tint = Secondary
+                tint = OnPrimaryContainer
             )
         }
     }
@@ -190,12 +193,12 @@ private fun WeekDayLabels() {
 private fun CalendarGrid(
     yearMonth: CalendarYearMonth,
     notes: Map<String, CalendarNote>,
-    tasks: Map<String, List<CalendarTask>>,
     onDayClick: (CalendarDate) -> Unit
 ) {
     val daysInMonth = yearMonth.daysInMonth()
     val offset = yearMonth.firstDayOfWeekOffset()
     val totalCells = ((offset + daysInMonth + 6) / 7) * 7
+    val today = remember { LocalDate.now() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         for (week in 0 until totalCells / 7) {
@@ -207,11 +210,13 @@ private fun CalendarGrid(
                         val date = CalendarDate(yearMonth.year, yearMonth.month, dayNumber)
                         val dateKey = date.toIsoString()
                         val hasNote = notes.containsKey(dateKey)
-                        val hasTasks = tasks[dateKey]?.isNotEmpty() == true
+                        val isToday = date.year == today.year &&
+                                date.month == today.monthValue &&
+                                date.day == today.dayOfMonth
                         DayCell(
                             date = date,
                             hasNote = hasNote,
-                            hasTasks = hasTasks,
+                            isToday = isToday,
                             onClick = { onDayClick(date) },
                             modifier = Modifier.weight(1f)
                         )
@@ -228,16 +233,21 @@ private fun CalendarGrid(
 private fun DayCell(
     date: CalendarDate,
     hasNote: Boolean,
-    hasTasks: Boolean,
+    isToday: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val backgroundColor = if (isToday) OnSurfaceVariant else Background
+    val textColor = if (isToday) OnTertiary else OnSurfaceVariant
+    val shape = RoundedCornerShape(3.dp)
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .aspectRatio(1f)
             .padding(4.dp)
-            .clip(CircleShape)
+            .clip(shape)
+            .background(backgroundColor)
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -247,7 +257,7 @@ private fun DayCell(
             Text(
                 text = date.day.toString(),
                 style = MaterialTheme.typography.bodyLarge,
-                color = OnSurfaceVariant,
+                color = textColor,
                 textAlign = TextAlign.Center
             )
             Row(
@@ -259,14 +269,6 @@ private fun DayCell(
                         modifier = Modifier
                             .size(5.dp)
                             .background(Accent, CircleShape)
-                    )
-                }
-                if (hasTasks) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = Secondary,
-                        modifier = Modifier.size(10.dp)
                     )
                 }
             }

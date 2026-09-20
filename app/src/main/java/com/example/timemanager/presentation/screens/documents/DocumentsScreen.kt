@@ -55,7 +55,8 @@ fun DocumentsScreen(
     onNavigateToCalendar: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onDocumentClick: (Long) -> Unit,
-    viewModel: DocumentsViewModel = hiltViewModel()
+    viewModel: DocumentsViewModel = hiltViewModel(),
+    onNavigateToCategories: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -105,6 +106,7 @@ fun DocumentsScreen(
                 selectedItem = BottomNavItem.Documents,
                 onItemSelected = { item ->
                     when (item) {
+                        BottomNavItem.Categories -> onNavigateToCategories()
                         BottomNavItem.Calendar -> onNavigateToCalendar()
                         BottomNavItem.Settings -> onNavigateToSettings()
                         else -> { /* Documents already active */ }

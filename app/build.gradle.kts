@@ -7,6 +7,11 @@ plugins {
 }
 
 android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
     namespace = "com.example.timemanager"
     compileSdk = 34
 
@@ -82,7 +87,8 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("io.coil-kt:coil-compose:2.6.0")
-    //implementation("com.github.yalantis:ucrop:2.2.11")
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

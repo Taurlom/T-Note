@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.TimeManager" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.TNote.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.TNote</item>
+    </style>
+
+    <style name="Theme.TNote" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
