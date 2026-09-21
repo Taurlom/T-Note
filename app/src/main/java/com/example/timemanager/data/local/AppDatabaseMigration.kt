@@ -5,6 +5,40 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigration {
 
+    /**
+     * Удаляет таблицу calendar_tasks — незавершённую функциональность
+     * «задачи календаря», которая никогда не была доступна в UI.
+     * Остальные таблицы (заметки, события, списки, документы) не затрагиваются.
+     */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP INDEX IF EXISTS index_calendar_tasks_eventDate")
+            db.execSQL("DROP TABLE IF EXISTS calendar_tasks")
+        }
+    }
+
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    eventDate TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    time TEXT,
+                    type TEXT NOT NULL,
+                    alarmEnabled INTEGER NOT NULL,
+                    position INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_events_eventDate " +
+                    "ON scheduled_events(eventDate)"
+            )
+        }
+    }
+
     val MIGRATION_5_6 = object : Migration(5, 6) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("PRAGMA foreign_keys = OFF")

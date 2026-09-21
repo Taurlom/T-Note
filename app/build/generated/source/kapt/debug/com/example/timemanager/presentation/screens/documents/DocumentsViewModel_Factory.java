@@ -6,10 +6,11 @@ import com.example.timemanager.domain.usecase.document.GetDocumentsUseCase;
 import com.example.timemanager.domain.usecase.document.UpdateDocumentUseCase;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -24,7 +25,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class DocumentsViewModel_Factory implements Factory<DocumentsViewModel> {
   private final Provider<GetDocumentsUseCase> getDocumentsUseCaseProvider;
@@ -48,6 +50,14 @@ public final class DocumentsViewModel_Factory implements Factory<DocumentsViewMo
   @Override
   public DocumentsViewModel get() {
     return newInstance(getDocumentsUseCaseProvider.get(), addDocumentUseCaseProvider.get(), updateDocumentUseCaseProvider.get(), deleteDocumentUseCaseProvider.get());
+  }
+
+  public static DocumentsViewModel_Factory create(
+      javax.inject.Provider<GetDocumentsUseCase> getDocumentsUseCaseProvider,
+      javax.inject.Provider<AddDocumentUseCase> addDocumentUseCaseProvider,
+      javax.inject.Provider<UpdateDocumentUseCase> updateDocumentUseCaseProvider,
+      javax.inject.Provider<DeleteDocumentUseCase> deleteDocumentUseCaseProvider) {
+    return new DocumentsViewModel_Factory(Providers.asDaggerProvider(getDocumentsUseCaseProvider), Providers.asDaggerProvider(addDocumentUseCaseProvider), Providers.asDaggerProvider(updateDocumentUseCaseProvider), Providers.asDaggerProvider(deleteDocumentUseCaseProvider));
   }
 
   public static DocumentsViewModel_Factory create(

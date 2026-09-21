@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import com.example.timemanager.R
-import com.example.timemanager.presentation.theme.LounchBackground
+import com.example.timemanager.presentation.theme.LaunchBackground
 
 @Composable
 fun SplashScreen() {
@@ -40,7 +40,7 @@ fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(LounchBackground),
+            .background(LaunchBackground),
         contentAlignment = Alignment.Center
     ) {
 

@@ -33,7 +33,7 @@ class TasksViewModel @Inject constructor(
 
     private val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
 
-    private val _uiState = MutableStateFlow(TasksUiState(isLoading = true))
+    private val _uiState = MutableStateFlow(TasksUiState())
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
 
     init {
@@ -52,7 +52,7 @@ class TasksViewModel @Inject constructor(
     private fun loadTasks() {
         getTasksByCategoryUseCase(categoryId)
             .onEach { tasks ->
-                _uiState.update { it.copy(tasks = tasks, isLoading = false) }
+                _uiState.update { it.copy(tasks = tasks) }
             }
             .launchIn(viewModelScope)
     }

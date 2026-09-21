@@ -4,10 +4,11 @@ import androidx.datastore.core.DataStore;
 import androidx.datastore.preferences.core.Preferences;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata
@@ -22,7 +23,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class SettingsRepositoryImpl_Factory implements Factory<SettingsRepositoryImpl> {
   private final Provider<DataStore<Preferences>> dataStoreProvider;
@@ -34,6 +36,11 @@ public final class SettingsRepositoryImpl_Factory implements Factory<SettingsRep
   @Override
   public SettingsRepositoryImpl get() {
     return newInstance(dataStoreProvider.get());
+  }
+
+  public static SettingsRepositoryImpl_Factory create(
+      javax.inject.Provider<DataStore<Preferences>> dataStoreProvider) {
+    return new SettingsRepositoryImpl_Factory(Providers.asDaggerProvider(dataStoreProvider));
   }
 
   public static SettingsRepositoryImpl_Factory create(

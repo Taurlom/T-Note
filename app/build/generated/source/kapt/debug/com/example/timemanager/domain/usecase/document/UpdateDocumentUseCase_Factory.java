@@ -4,10 +4,11 @@ import com.example.timemanager.data.local.DocumentPhotoSaver;
 import com.example.timemanager.domain.repository.DocumentRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -22,7 +23,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class UpdateDocumentUseCase_Factory implements Factory<UpdateDocumentUseCase> {
   private final Provider<DocumentRepository> repositoryProvider;
@@ -38,6 +40,12 @@ public final class UpdateDocumentUseCase_Factory implements Factory<UpdateDocume
   @Override
   public UpdateDocumentUseCase get() {
     return newInstance(repositoryProvider.get(), photoSaverProvider.get());
+  }
+
+  public static UpdateDocumentUseCase_Factory create(
+      javax.inject.Provider<DocumentRepository> repositoryProvider,
+      javax.inject.Provider<DocumentPhotoSaver> photoSaverProvider) {
+    return new UpdateDocumentUseCase_Factory(Providers.asDaggerProvider(repositoryProvider), Providers.asDaggerProvider(photoSaverProvider));
   }
 
   public static UpdateDocumentUseCase_Factory create(

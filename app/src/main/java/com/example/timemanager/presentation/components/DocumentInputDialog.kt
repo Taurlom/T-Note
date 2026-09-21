@@ -1,58 +1,55 @@
 ﻿package com.example.timemanager.presentation.components
 
+import android.content.Intent
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Document
-import com.example.timemanager.presentation.theme.DialogBackground
-import com.example.timemanager.presentation.theme.DialogButtonBackground
 import com.example.timemanager.presentation.theme.OnPrimary
-import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.PrimaryButtonContainer
 import java.io.File
 
 private const val MAX_PHOTOS = 4
+private const val CAMERA_CAPTURES_DIR = "camera_captures"
+private const val FILE_PROVIDER_AUTHORITY_SUFFIX = ".fileprovider"
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -70,6 +67,14 @@ fun DocumentInputDialog(
     val removedExistingPaths = remember { mutableStateListOf<String>() }
     val newPhotoUris = remember { mutableStateListOf<Uri>() }
 
+    val context = LocalContext.current
+    val isCameraAvailable = remember {
+        Intent(MediaStore.ACTION_IMAGE_CAPTURE).resolveActivity(context.packageManager) != null
+    }
+
+    // Путь к файлу для съёмки камерой; переживает перезапуск процесса ради камеры
+    var pendingCaptureUriString by rememberSaveable { mutableStateOf<String?>(null) }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_PHOTOS)
     ) { uris ->
@@ -77,62 +82,69 @@ fun DocumentInputDialog(
         newPhotoUris.addAll(uris.take(availableSlots.coerceAtLeast(0)))
     }
 
-    val textFieldColors = outlinedDialogTextFieldColors()
-    val buttonColors = dialogButtonColors()
-    val isConfirmEnabled = title.isNotBlank()
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val capturedUri = pendingCaptureUriString?.toUri()
+        pendingCaptureUriString = null
+        if (success && capturedUri != null) {
+            val availableSlots = MAX_PHOTOS - existingPhotoPaths.size + removedExistingPaths.size - newPhotoUris.size
+            if (availableSlots > 0) {
+                newPhotoUris.add(capturedUri)
+            }
+        }
+    }
 
-    AlertDialog(
+    fun launchCameraCapture() {
+        val capturesDir = File(context.cacheDir, CAMERA_CAPTURES_DIR).apply { mkdirs() }
+        val photoFile = File(capturesDir, "capture_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(
+            context,
+            context.packageName + FILE_PROVIDER_AUTHORITY_SUFFIX,
+            photoFile
+        )
+        pendingCaptureUriString = uri.toString()
+        cameraLauncher.launch(uri)
+    }
+
+    AppDialog(
+        title = stringResource(if (isEdit) R.string.edit_document else R.string.add_document),
         onDismissRequest = onDismiss,
-        containerColor = DialogBackground,
-        title = {
-            Text(
-                stringResource(if (isEdit) R.string.edit_document else R.string.add_document),
-                color = OnTertiary
+        text = {
+            AppTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = stringResource(R.string.document_name),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            AppTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = stringResource(R.string.document_description),
+                minLines = 3,
+                maxLines = 5,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            PhotoSection(
+                existingPhotoPaths = existingPhotoPaths,
+                removedExistingPaths = removedExistingPaths,
+                newPhotoUris = newPhotoUris,
+                isCameraAvailable = isCameraAvailable,
+                onAddClick = {
+                    photoPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                onCameraClick = { launchCameraCapture() },
+                onRemoveExisting = { removedExistingPaths.add(it) },
+                onRemoveNew = { newPhotoUris.remove(it) }
             )
         },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.document_name)) },
-                    singleLine = true,
-                    colors = textFieldColors,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text(stringResource(R.string.document_description)) },
-                    minLines = 3,
-                    maxLines = 5,
-                    colors = textFieldColors,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                PhotoSection(
-                    existingPhotoPaths = existingPhotoPaths,
-                    removedExistingPaths = removedExistingPaths,
-                    newPhotoUris = newPhotoUris,
-                    onAddClick = {
-                        photoPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                    onRemoveExisting = { removedExistingPaths.add(it) },
-                    onRemoveNew = { newPhotoUris.remove(it) },
-                    buttonColors = buttonColors
-                )
-            }
-        },
         confirmButton = {
-            Button(
+            AppButton(
                 onClick = {
                     val resultDocument = (document ?: Document()).copy(
                         title = title.trim(),
@@ -145,23 +157,12 @@ fun DocumentInputDialog(
                         removedExistingPaths.toList()
                     )
                 },
-                enabled = isConfirmEnabled,
-                shape = RoundedCornerShape(3.dp),
-                colors = buttonColors
+                enabled = title.isNotBlank()
             ) {
                 Text(stringResource(if (isEdit) R.string.save else R.string.create))
             }
         },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(3.dp),
-                colors = buttonColors
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-        shape = RoundedCornerShape(3.dp)
+        dismissButton = { AppCancelButton(onClick = onDismiss) }
     )
 }
 
@@ -171,10 +172,11 @@ private fun PhotoSection(
     existingPhotoPaths: List<String>,
     removedExistingPaths: List<String>,
     newPhotoUris: List<Uri>,
+    isCameraAvailable: Boolean,
     onAddClick: () -> Unit,
+    onCameraClick: () -> Unit,
     onRemoveExisting: (String) -> Unit,
     onRemoveNew: (Uri) -> Unit,
-    buttonColors: androidx.compose.material3.ButtonColors,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -204,21 +206,28 @@ private fun PhotoSection(
                 )
             }
             if (hasPhotos && canAddMore) {
-                AddPhotoButton(
-                    onClick = onAddClick,
-                    colors = buttonColors
-                )
+                AddPhotoButton(onClick = onAddClick)
+                if (isCameraAvailable) {
+                    CameraPhotoButton(onClick = onCameraClick)
+                }
             }
         }
 
         if (!hasPhotos) {
-            Button(
-                onClick = onAddClick,
-                shape = RoundedCornerShape(3.dp),
-                colors = buttonColors,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.add_photo))
+                AppButton(
+                    onClick = onAddClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.add_photo))
+                }
+                if (isCameraAvailable) {
+                    CameraPhotoButton(onClick = onCameraClick)
+                }
             }
         }
     }
@@ -240,7 +249,7 @@ private fun PhotoThumbnail(
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .matchParentSize()
-                .clip(RoundedCornerShape(3.dp))
+                .clip(MaterialTheme.shapes.small)
         )
         IconButton(
             onClick = onRemove,
@@ -249,12 +258,15 @@ private fun PhotoThumbnail(
                 .padding(4.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Close,
+                painter = painterResource(R.drawable.ic_close),
                 contentDescription = stringResource(R.string.delete),
                 tint = OnPrimary,
                 modifier = Modifier
                     .size(24.dp)
-                    .background(DialogButtonBackground, shape = RoundedCornerShape(3.dp))
+                    .background(
+                        PrimaryButtonContainer,
+                        shape = MaterialTheme.shapes.small
+                    )
                     .padding(4.dp)
             )
         }
@@ -264,42 +276,51 @@ private fun PhotoThumbnail(
 @Composable
 private fun AddPhotoButton(
     onClick: () -> Unit,
-    colors: androidx.compose.material3.ButtonColors,
     modifier: Modifier = Modifier
 ) {
-    Button(
+    PhotoActionButton(
+        iconRes = R.drawable.ic_add,
+        contentDescription = stringResource(R.string.add_photo),
         onClick = onClick,
-        shape = RoundedCornerShape(3.dp),
-        colors = colors,
-        modifier = modifier.size(40.dp)
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun CameraPhotoButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PhotoActionButton(
+        iconRes = R.drawable.ic_photo_camera,
+        contentDescription = stringResource(R.string.take_photo),
+        onClick = onClick,
+        modifier = modifier
+    )
+}
+
+// IconButton в Material3 сам применяет minimumInteractiveComponentSize (48dp)
+// и круглый clip, поэтому размер и форма получаются не теми, что просишь.
+// Обычный Box даёт ровно 40x40 с нужным скруглением.
+@Composable
+private fun PhotoActionButton(
+    @DrawableRes iconRes: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(MaterialTheme.shapes.small)
+            .background(PrimaryButtonContainer)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = stringResource(R.string.add_photo)
+            painter = painterResource(iconRes),
+            contentDescription = contentDescription,
+            tint = OnPrimary
         )
     }
 }
-
-
-@Composable
-private fun outlinedDialogTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = OnTertiary,
-    unfocusedTextColor = OnTertiary,
-    focusedContainerColor = DialogBackground,
-    unfocusedContainerColor = DialogBackground,
-    disabledContainerColor = DialogBackground,
-    focusedBorderColor = DialogButtonBackground,
-    unfocusedBorderColor = DialogButtonBackground,
-    focusedLabelColor = OnTertiary,
-    unfocusedLabelColor = OnTertiary,
-    cursorColor = OnTertiary,
-    errorBorderColor = MaterialTheme.colorScheme.error,
-    errorLabelColor = MaterialTheme.colorScheme.error,
-    errorCursorColor = MaterialTheme.colorScheme.error
-)
-
-@Composable
-private fun dialogButtonColors() = ButtonDefaults.buttonColors(
-    containerColor = DialogButtonBackground,
-    contentColor = OnPrimary
-)

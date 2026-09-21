@@ -1,51 +1,47 @@
 package com.example.timemanager.presentation.components
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ListAlt
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.example.timemanager.R
 import com.example.timemanager.presentation.navigation.Routes
-import com.example.timemanager.presentation.theme.AddButtonBackground
 import com.example.timemanager.presentation.theme.Background
+import com.example.timemanager.presentation.theme.FabContainer
 import com.example.timemanager.presentation.theme.OnSecondary
 import com.example.timemanager.presentation.theme.OnSurfaceVariant
 
 sealed class BottomNavItem(
-    val icon: ImageVector,
+    @DrawableRes val iconRes: Int,
     @StringRes val contentDescriptionRes: Int,
     val route: String
 ) {
     data object Calendar : BottomNavItem(
-        Icons.Default.CalendarMonth,
+        R.drawable.ic_calendar_month,
         R.string.bottom_nav_calendar,
         Routes.CALENDAR
     )
 
     data object Documents : BottomNavItem(
-        Icons.Default.Description,
+        R.drawable.ic_description,
         R.string.bottom_nav_documents,
         Routes.DOCUMENTS
     )
 
     data object Settings : BottomNavItem(
-        Icons.Default.Settings,
+        R.drawable.ic_settings,
         R.string.bottom_nav_settings,
         Routes.SETTINGS
     )
 
     data object Categories : BottomNavItem(
-        Icons.AutoMirrored.Filled.ListAlt,
+        R.drawable.ic_format_list_bulleted,
         R.string.bottom_nav_categories,
         Routes.CATEGORIES
     )
@@ -91,7 +87,7 @@ fun BottomNavBar(
             NavigationBarItem(
                 icon = {
                     Icon(
-                        imageVector = item.icon,
+                        painter = painterResource(item.iconRes),
                         contentDescription = stringResource(item.contentDescriptionRes)
                     )
                 },
@@ -100,7 +96,7 @@ fun BottomNavBar(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = OnSecondary,
                     unselectedIconColor = OnSurfaceVariant,
-                    indicatorColor = AddButtonBackground
+                    indicatorColor = FabContainer
                 )
             )
         }

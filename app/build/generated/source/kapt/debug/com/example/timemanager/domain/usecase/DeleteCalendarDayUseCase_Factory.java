@@ -3,10 +3,11 @@ package com.example.timemanager.domain.usecase;
 import com.example.timemanager.domain.repository.CalendarRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -21,7 +22,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class DeleteCalendarDayUseCase_Factory implements Factory<DeleteCalendarDayUseCase> {
   private final Provider<CalendarRepository> repositoryProvider;
@@ -33,6 +35,11 @@ public final class DeleteCalendarDayUseCase_Factory implements Factory<DeleteCal
   @Override
   public DeleteCalendarDayUseCase get() {
     return newInstance(repositoryProvider.get());
+  }
+
+  public static DeleteCalendarDayUseCase_Factory create(
+      javax.inject.Provider<CalendarRepository> repositoryProvider) {
+    return new DeleteCalendarDayUseCase_Factory(Providers.asDaggerProvider(repositoryProvider));
   }
 
   public static DeleteCalendarDayUseCase_Factory create(

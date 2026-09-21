@@ -27,7 +27,7 @@ class CategoriesViewModel @Inject constructor(
     private val reorderCategoriesUseCase: ReorderCategoriesUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CategoriesUiState(isLoading = true))
+    private val _uiState = MutableStateFlow(CategoriesUiState())
     val uiState: StateFlow<CategoriesUiState> = _uiState.asStateFlow()
 
     init {
@@ -37,7 +37,7 @@ class CategoriesViewModel @Inject constructor(
     private fun getCategories() {
         getCategoriesUseCase()
             .onEach { categories ->
-                _uiState.update { it.copy(categories = categories, isLoading = false) }
+                _uiState.update { it.copy(categories = categories) }
             }
             .launchIn(viewModelScope)
     }

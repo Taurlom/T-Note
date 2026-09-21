@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -17,11 +14,8 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,13 +28,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
+import com.example.timemanager.presentation.components.AppTextButton
+import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
+import com.example.timemanager.presentation.components.appTextFieldColorsOnDark
 import com.example.timemanager.presentation.theme.AppFont
-import com.example.timemanager.presentation.theme.AppBarBackground
-import com.example.timemanager.presentation.theme.DialogButtonBackground
-import com.example.timemanager.presentation.theme.OnPrimary
 import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.Outline
 import com.example.timemanager.presentation.theme.Primary
+import com.example.timemanager.presentation.theme.Secondary
 import com.example.timemanager.presentation.theme.Tertiary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,15 +61,7 @@ fun SettingsScreen(
         // Нижний бар рендерится над NavHost в AppNavigation.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBarBackground,
-                    titleContentColor = OnTertiary,
-                    navigationIconContentColor = OnTertiary,
-                    actionIconContentColor = OnTertiary
-                )
-            )
+            AppTopBar(title = stringResource(R.string.settings_title))
         }
     ) { padding ->
         Column(
@@ -84,7 +72,8 @@ fun SettingsScreen(
         ) {
             Text(
                 text = stringResource(R.string.font_label),
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                color = Secondary
             )
             Spacer(modifier = Modifier.height(8.dp))
             FontSelector(
@@ -92,32 +81,18 @@ fun SettingsScreen(
                 onSelected = { pendingFont = it }
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Button(
+            AppTextButton(
                 onClick = { viewModel.applyFont(pendingFont) },
+                textRes = R.string.apply,
                 enabled = hasChanges,
-                shape = RoundedCornerShape(3.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = DialogButtonBackground,
-                    contentColor = OnPrimary,
-                    disabledContainerColor = DialogButtonBackground.copy(alpha = 0.5f),
-                    disabledContentColor = OnPrimary.copy(alpha = 0.5f)
-                ),
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.apply))
-            }
+            )
             Spacer(modifier = Modifier.height(24.dp))
-            Button(
+            AppTextButton(
                 onClick = { showClearDialog = true },
-                shape = RoundedCornerShape(3.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = DialogButtonBackground,
-                    contentColor = OnPrimary
-                ),
+                textRes = R.string.clear_calendar,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.clear_calendar))
-            }
+            )
 
             if (showClearDialog) {
                 ConfirmDeleteDialog(
@@ -159,18 +134,7 @@ private fun FontSelector(
             modifier = Modifier
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
                 .fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Primary,
-                unfocusedTextColor = Primary,
-                disabledTextColor = Primary,
-                cursorColor = Primary,
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = Primary.copy(alpha = 0.6f),
-                focusedLabelColor = Primary,
-                unfocusedLabelColor = Primary.copy(alpha = 0.6f),
-                focusedTrailingIconColor = Primary,
-                unfocusedTrailingIconColor = Primary
-            )
+            colors = appTextFieldColorsOnDark()
         )
         ExposedDropdownMenu(
             expanded = expanded,

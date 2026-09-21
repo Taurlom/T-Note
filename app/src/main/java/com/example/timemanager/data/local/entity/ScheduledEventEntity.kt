@@ -5,14 +5,16 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "calendar_tasks",
+    tableName = "scheduled_events",
     indices = [Index("eventDate")]
 )
-data class CalendarTaskEntity(
+data class ScheduledEventEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val eventDate: String,
-    val text: String,
-    val isCompleted: Boolean = false,
+    val title: String,
+    val time: String?,
+    val type: String,
+    val alarmEnabled: Boolean,
     val position: Int = 0
 )

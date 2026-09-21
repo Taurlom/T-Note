@@ -30,6 +30,9 @@ val OnSecondaryContainer = Color(0xFF445474)
 // Accent
 val Accent = Color(0xFFE74955)
 
+// Прошедшие (неактуальные) отметки на календаре
+val PastEventMarker = Color(0xFF7E879B)
+
 // Tertiary
 val Tertiary = Color(0xFFDAD8B5)
 val OnTertiary = Color(0xFF445474)
@@ -42,10 +45,16 @@ val OnSurface = Color(0xFFFAFDFD)
 val OnSurfaceVariant = Color(0xFFDAD8B5)
 val Outline = Color(0xFFDAD8B5)
 
-// Семантические алиасы для конкретных компонентов
-val AppBarBackground = Tertiary
-val AddButtonBackground = Secondary
-val DialogBackground = Tertiary
-val DialogButtonBackground = Primary
-
-val LounchBackground = Background
+// ─── Роли компонентов (единый источник для дизайн-системы) ───────
+// Верхняя панель раздела
+val AppBarContainer = Tertiary
+// Фон диалогов
+val DialogContainer = Tertiary
+// Заливка и текст основных кнопок (AppButton)
+val PrimaryButtonContainer = Primary
+val PrimaryButtonContent = OnPrimary
+// Плавающая кнопка «Добавить» (AppFab)
+val FabContainer = Secondary
+val FabContent = OnSecondary
+// Фон splash-экрана
+val LaunchBackground = Background

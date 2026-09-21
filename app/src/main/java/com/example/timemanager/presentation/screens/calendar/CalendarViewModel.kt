@@ -2,16 +2,18 @@ package com.example.timemanager.presentation.screens.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.timemanager.alarm.AlarmScheduler
 import com.example.timemanager.domain.model.CalendarNote
-import com.example.timemanager.domain.model.CalendarTask
-import com.example.timemanager.domain.usecase.AddCalendarTaskUseCase
+import com.example.timemanager.domain.model.ScheduledEvent
+import com.example.timemanager.domain.usecase.AddScheduledEventUseCase
 import com.example.timemanager.domain.usecase.DeleteCalendarDayUseCase
-import com.example.timemanager.domain.usecase.DeleteCalendarTaskUseCase
+import com.example.timemanager.domain.usecase.DeleteScheduledEventUseCase
+import com.example.timemanager.domain.usecase.GetBirthdayEventsUseCase
 import com.example.timemanager.domain.usecase.GetCalendarNotesByMonthUseCase
-import com.example.timemanager.domain.usecase.GetCalendarTasksByMonthUseCase
+import com.example.timemanager.domain.usecase.GetScheduledEventsByMonthUseCase
 import com.example.timemanager.domain.usecase.SaveCalendarNoteUseCase
-import com.example.timemanager.domain.usecase.ToggleCalendarTaskUseCase
-import com.example.timemanager.domain.usecase.UpdateCalendarTaskUseCase
+import com.example.timemanager.domain.usecase.SyncEventAlarmsUseCase
+import com.example.timemanager.domain.usecase.UpdateScheduledEventUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,13 +29,15 @@ import javax.inject.Inject
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val getNotesByMonthUseCase: GetCalendarNotesByMonthUseCase,
-    private val getTasksByMonthUseCase: GetCalendarTasksByMonthUseCase,
+    private val getEventsByMonthUseCase: GetScheduledEventsByMonthUseCase,
+    private val getBirthdayEventsUseCase: GetBirthdayEventsUseCase,
     private val saveNoteUseCase: SaveCalendarNoteUseCase,
     private val deleteDayUseCase: DeleteCalendarDayUseCase,
-    private val addTaskUseCase: AddCalendarTaskUseCase,
-    private val updateTaskUseCase: UpdateCalendarTaskUseCase,
-    private val deleteTaskUseCase: DeleteCalendarTaskUseCase,
-    private val toggleTaskUseCase: ToggleCalendarTaskUseCase
+    private val addEventUseCase: AddScheduledEventUseCase,
+    private val updateEventUseCase: UpdateScheduledEventUseCase,
+    private val deleteEventUseCase: DeleteScheduledEventUseCase,
+    private val syncEventAlarmsUseCase: SyncEventAlarmsUseCase,
+    private val alarmScheduler: AlarmScheduler
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -43,24 +47,52 @@ class CalendarViewModel @Inject constructor(
 
     init {
         loadMonthData()
+        // После перезагрузки/паузы pending-будильники могли потеряться.
+        viewModelScope.launch { syncEventAlarmsUseCase() }
     }
 
     private fun loadMonthData() {
         monthDataJob?.cancel()
         val prefix = _uiState.value.yearMonth.monthPrefix()
+        val displayYear = _uiState.value.yearMonth.year
         monthDataJob = combine(
             getNotesByMonthUseCase(prefix),
-            getTasksByMonthUseCase(prefix)
-        ) { notes, tasks ->
+            getEventsByMonthUseCase(prefix),
+            getBirthdayEventsUseCase()
+        ) { notes, monthEvents, birthdays ->
             CalendarUiState(
                 yearMonth = _uiState.value.yearMonth,
                 notes = notes.associateBy { it.date },
-                tasks = tasks.groupBy { it.date },
-                isLoading = false
+                events = expandEventsForMonth(monthEvents, birthdays, displayYear)
             )
         }
             .onEach { state -> _uiState.value = state }
             .launchIn(viewModelScope)
+    }
+
+    /**
+     * Группирует события по дням отображаемого месяца: обычные берутся как есть,
+     * а каждый день рождения разворачивается в дату-вхождение текущего года.
+     */
+    private fun expandEventsForMonth(
+        monthEvents: List<ScheduledEvent>,
+        birthdays: List<ScheduledEvent>,
+        displayYear: Int
+    ): Map<String, List<ScheduledEvent>> {
+        val byDate = monthEvents.groupByTo(LinkedHashMap()) { it.date }
+        birthdays.forEach { birthday ->
+            val anchor = birthday.dateOrNull() ?: return@forEach
+            // Вхождение за якорный год уже пришло из месячного запроса.
+            if (anchor.year == displayYear) return@forEach
+            val (month, day) = ScheduledEvent.effectiveBirthdayDate(anchor, displayYear)
+            val key = String.format(LOCALE, "%04d-%02d-%02d", displayYear, month, day)
+            byDate.getOrPut(key) { mutableListOf() } += birthday.copy(date = key)
+        }
+        return byDate.mapValues { (_, events) ->
+            events.sortedWith(
+                compareBy({ it.time == null }, { it.time.orEmpty() }, { it.position }, { it.id })
+            )
+        }
     }
 
     fun onEvent(event: CalendarEvent) {
@@ -69,61 +101,78 @@ class CalendarViewModel @Inject constructor(
             CalendarEvent.NextMonth -> shiftMonth(1)
             is CalendarEvent.SaveNote -> saveNote(event.date, event.text)
             is CalendarEvent.DeleteDay -> deleteDay(event.date)
-            is CalendarEvent.AddTask -> addTask(event.date, event.text)
-            is CalendarEvent.UpdateTask -> updateTask(event.task)
-            is CalendarEvent.DeleteTask -> deleteTask(event.task)
-            is CalendarEvent.ToggleTask -> toggleTask(event.task)
+            is CalendarEvent.AddEvent -> addEvent(event.date, event.event)
+            is CalendarEvent.UpdateEvent -> updateEvent(event.event)
+            is CalendarEvent.DeleteEvent -> deleteEvent(event.event)
         }
     }
 
     private fun shiftMonth(delta: Int) {
-        _uiState.update { it.copy(yearMonth = it.yearMonth.plusMonths(delta), isLoading = true) }
+        _uiState.update { it.copy(yearMonth = it.yearMonth.plusMonths(delta)) }
         loadMonthData()
     }
 
     private fun saveNote(date: String, text: String) {
         viewModelScope.launch {
-            saveNoteUseCase(CalendarNote(date = date, text = text.trim()))
+            val trimmed = text.trim()
+            // Пустая заметка не создаётся: для очистки дня есть «Удалить».
+            if (trimmed.isEmpty()) return@launch
+            saveNoteUseCase(CalendarNote(date = date, text = trimmed))
         }
     }
 
     private fun deleteDay(date: String) {
         viewModelScope.launch {
+            // Будильники удалённых событий больше не нужны.
+            _uiState.value.events[date].orEmpty()
+                .filter { it.hasAlarm }
+                .forEach { alarmScheduler.cancel(it.id) }
             deleteDayUseCase(date)
         }
     }
 
-    private fun addTask(date: String, text: String) {
+    private fun addEvent(date: String, draft: ScheduledEvent) {
         viewModelScope.launch {
-            val trimmed = text.trim()
+            val trimmed = draft.title.trim()
             if (trimmed.isBlank()) return@launch
-            val dateTasks = _uiState.value.tasks[date].orEmpty()
-            val nextPosition = (dateTasks.maxOfOrNull { it.position } ?: -1) + 1
-            addTaskUseCase(
-                CalendarTask(
-                    date = date,
-                    text = trimmed,
-                    position = nextPosition
-                )
+            val dateEvents = _uiState.value.events[date].orEmpty()
+            val nextPosition = (dateEvents.maxOfOrNull { it.position } ?: -1) + 1
+            val id = addEventUseCase(
+                draft.copy(date = date, title = trimmed, position = nextPosition)
             )
+            val saved = draft.copy(id = id, date = date, title = trimmed, position = nextPosition)
+            if (saved.hasAlarm) {
+                alarmScheduler.scheduleNext(saved)
+                if (!alarmScheduler.canScheduleExact()) alarmScheduler.openExactAlarmSettings()
+            }
         }
     }
 
-    private fun updateTask(task: CalendarTask) {
+    private fun updateEvent(event: ScheduledEvent) {
         viewModelScope.launch {
-            updateTaskUseCase(task)
+            val trimmed = event.title.trim()
+            if (trimmed.isBlank()) return@launch
+            val updated = event.copy(title = trimmed)
+            updateEventUseCase(updated)
+            // Перепланировка: старое срабатывание снимается, новое ставится
+            // на ближайший момент (для дня рождения — на следующий год).
+            alarmScheduler.cancel(updated.id)
+            if (updated.hasAlarm) {
+                alarmScheduler.scheduleNext(updated)
+                if (!alarmScheduler.canScheduleExact()) alarmScheduler.openExactAlarmSettings()
+            }
         }
     }
 
-    private fun deleteTask(task: CalendarTask) {
+    private fun deleteEvent(event: ScheduledEvent) {
         viewModelScope.launch {
-            deleteTaskUseCase(task)
+            deleteEventUseCase(event)
+            alarmScheduler.cancel(event.id)
         }
     }
 
-    private fun toggleTask(task: CalendarTask) {
-        viewModelScope.launch {
-            toggleTaskUseCase(task)
-        }
+    private companion object {
+        // Формат ISO-даты не должен зависеть от локали устройства (DefaultLocale).
+        val LOCALE: java.util.Locale = java.util.Locale.US
     }
 }

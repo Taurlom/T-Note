@@ -15,17 +15,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,10 +40,9 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.timemanager.R
+import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.PhotoGalleryDialog
-import com.example.timemanager.presentation.theme.AppBarBackground
-import com.example.timemanager.presentation.theme.OnTertiary
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -67,12 +62,12 @@ fun DocumentDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(document?.title ?: stringResource(R.string.document_detail)) },
+            AppTopBar(
+                title = document?.title ?: stringResource(R.string.document_detail),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            painter = painterResource(R.drawable.ic_arrow_back),
                             contentDescription = stringResource(R.string.back)
                         )
                     }
@@ -81,18 +76,12 @@ fun DocumentDetailScreen(
                     if (document != null) {
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
+                                painter = painterResource(R.drawable.ic_delete),
                                 contentDescription = stringResource(R.string.delete)
                             )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBarBackground,
-                    titleContentColor = OnTertiary,
-                    navigationIconContentColor = OnTertiary,
-                    actionIconContentColor = OnTertiary
-                )
+                }
             )
         }
     ) { padding ->
@@ -170,6 +159,9 @@ fun DocumentDetailScreen(
             onDismiss = {
                 galleryIndex = null
                 photoVersion++
+            },
+            onCropComplete = { oldPath, newPath ->
+                viewModel.updatePhotoPath(oldPath, newPath)
             }
         )
     }

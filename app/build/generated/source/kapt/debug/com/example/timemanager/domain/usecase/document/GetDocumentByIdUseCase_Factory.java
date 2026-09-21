@@ -3,10 +3,11 @@ package com.example.timemanager.domain.usecase.document;
 import com.example.timemanager.domain.repository.DocumentRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -21,7 +22,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class GetDocumentByIdUseCase_Factory implements Factory<GetDocumentByIdUseCase> {
   private final Provider<DocumentRepository> repositoryProvider;
@@ -33,6 +35,11 @@ public final class GetDocumentByIdUseCase_Factory implements Factory<GetDocument
   @Override
   public GetDocumentByIdUseCase get() {
     return newInstance(repositoryProvider.get());
+  }
+
+  public static GetDocumentByIdUseCase_Factory create(
+      javax.inject.Provider<DocumentRepository> repositoryProvider) {
+    return new GetDocumentByIdUseCase_Factory(Providers.asDaggerProvider(repositoryProvider));
   }
 
   public static GetDocumentByIdUseCase_Factory create(

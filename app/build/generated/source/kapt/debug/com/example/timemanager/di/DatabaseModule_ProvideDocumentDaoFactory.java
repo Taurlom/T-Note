@@ -5,10 +5,11 @@ import com.example.timemanager.data.local.DocumentDao;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
 import dagger.internal.Preconditions;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata
 @QualifierMetadata
@@ -23,7 +24,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class DatabaseModule_ProvideDocumentDaoFactory implements Factory<DocumentDao> {
   private final Provider<AppDatabase> databaseProvider;
@@ -35,6 +37,11 @@ public final class DatabaseModule_ProvideDocumentDaoFactory implements Factory<D
   @Override
   public DocumentDao get() {
     return provideDocumentDao(databaseProvider.get());
+  }
+
+  public static DatabaseModule_ProvideDocumentDaoFactory create(
+      javax.inject.Provider<AppDatabase> databaseProvider) {
+    return new DatabaseModule_ProvideDocumentDaoFactory(Providers.asDaggerProvider(databaseProvider));
   }
 
   public static DatabaseModule_ProvideDocumentDaoFactory create(

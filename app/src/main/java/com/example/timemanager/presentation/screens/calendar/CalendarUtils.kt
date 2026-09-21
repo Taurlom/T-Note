@@ -7,7 +7,7 @@ import java.util.Locale
 data class CalendarYearMonth(val year: Int, val month: Int)
 
 data class CalendarDate(val year: Int, val month: Int, val day: Int) {
-    fun toIsoString(): String = String.format("%04d-%02d-%02d", year, month, day)
+    fun toIsoString(): String = String.format(Locale.US, "%04d-%02d-%02d", year, month, day)
 }
 
 fun CalendarYearMonth.toDisplayName(): String {
@@ -65,8 +65,5 @@ fun CalendarYearMonth.firstDayOfWeekOffset(): Int {
     return if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
 }
 
-fun CalendarYearMonth.monthPrefix(): String = String.format("%04d-%02d%%", year, month)
-
-fun CalendarDate.isSameMonth(yearMonth: CalendarYearMonth): Boolean {
-    return year == yearMonth.year && month == yearMonth.month
-}
+fun CalendarYearMonth.monthPrefix(): String =
+    String.format(Locale.US, "%04d-%02d%%", year, month)

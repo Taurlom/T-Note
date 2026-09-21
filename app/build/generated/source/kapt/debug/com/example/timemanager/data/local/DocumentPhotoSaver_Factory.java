@@ -3,10 +3,11 @@ package com.example.timemanager.data.local;
 import android.content.Context;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import dagger.internal.ScopeMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @ScopeMetadata("javax.inject.Singleton")
 @QualifierMetadata("dagger.hilt.android.qualifiers.ApplicationContext")
@@ -21,7 +22,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class DocumentPhotoSaver_Factory implements Factory<DocumentPhotoSaver> {
   private final Provider<Context> contextProvider;
@@ -33,6 +35,10 @@ public final class DocumentPhotoSaver_Factory implements Factory<DocumentPhotoSa
   @Override
   public DocumentPhotoSaver get() {
     return newInstance(contextProvider.get());
+  }
+
+  public static DocumentPhotoSaver_Factory create(javax.inject.Provider<Context> contextProvider) {
+    return new DocumentPhotoSaver_Factory(Providers.asDaggerProvider(contextProvider));
   }
 
   public static DocumentPhotoSaver_Factory create(Provider<Context> contextProvider) {

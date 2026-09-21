@@ -13,7 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -126,7 +126,7 @@ fun <T> ReorderableLazyColumn(
                             Modifier
                                 .zIndex(1f)
                                 .offset { IntOffset(0, draggingOffset.roundToInt()) }
-                                .shadow(5.dp, RoundedCornerShape(3.dp))
+                                .shadow(5.dp, MaterialTheme.shapes.small)
                         } else {
                             Modifier.animateItem()
                         }

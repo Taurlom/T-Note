@@ -3,11 +3,13 @@ package com.example.timemanager.di
 import com.example.timemanager.data.repository.CalendarRepositoryImpl
 import com.example.timemanager.data.repository.CategoryRepositoryImpl
 import com.example.timemanager.data.repository.DocumentRepositoryImpl
+import com.example.timemanager.data.repository.ScheduledEventRepositoryImpl
 import com.example.timemanager.data.repository.SettingsRepositoryImpl
 import com.example.timemanager.data.repository.TaskRepositoryImpl
 import com.example.timemanager.domain.repository.CalendarRepository
 import com.example.timemanager.domain.repository.CategoryRepository
 import com.example.timemanager.domain.repository.DocumentRepository
+import com.example.timemanager.domain.repository.ScheduledEventRepository
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.domain.repository.TaskRepository
 import dagger.Binds
@@ -37,6 +39,12 @@ abstract class RepositoryModule {
     abstract fun bindCalendarRepository(
         impl: CalendarRepositoryImpl
     ): CalendarRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScheduledEventRepository(
+        impl: ScheduledEventRepositoryImpl
+    ): ScheduledEventRepository
 
     @Binds
     @Singleton

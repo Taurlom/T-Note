@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">T-Note</string>
-    <string name="categories_title">Списки</string>
     <string name="tasks_title">Перечень</string>
     <string name="add_category">Добавить список</string>
     <string name="edit_category">Редактировать список</string>
@@ -36,9 +35,28 @@
     <string name="document_description">Описание</string>
     <string name="created_at">Добавлен: %1$s</string>
     <string name="add_photo">Добавить фотографию</string>
+    <string name="take_photo">Сделать фото</string>
     <string name="document_photo">Фотография документа</string>
     <string name="document_detail">Документ</string>
     <string name="document_not_found">Документ не найден</string>
     <string name="create">Создать</string>
+
+    <!-- События календаря -->
+    <string name="events_label">События</string>
+    <string name="add_event">Добавить событие</string>
+    <string name="edit_event">Редактировать событие</string>
+    <string name="event_name">Название</string>
+    <string name="event_type">Тип события</string>
+    <string name="event_type_regular">Обычное</string>
+    <string name="event_type_birthday">День рождения</string>
+    <string name="event_time">Время</string>
+    <string name="event_time_none">Без времени</string>
+    <string name="event_time_clear">Убрать время</string>
+    <string name="event_alarm">Будильник</string>
+    <string name="event_delete_description">Удалить событие</string>
+    <string name="event_reminder_text">Напоминание: %1$s</string>
+    <string name="birthday_reminder_text">Сегодня день рождения: %1$s</string>
+    <string name="alarm_channel_name">Напоминания календаря</string>
+    <string name="alarm_channel_description">Будильники и напоминания о событиях календаря</string>
 </resources>
 

@@ -1,13 +1,12 @@
 package com.example.timemanager.presentation.screens.calendar
 
 import com.example.timemanager.domain.model.CalendarNote
-import com.example.timemanager.domain.model.CalendarTask
+import com.example.timemanager.domain.model.ScheduledEvent
 
 data class CalendarUiState(
     val yearMonth: CalendarYearMonth = currentYearMonth(),
     val notes: Map<String, CalendarNote> = emptyMap(),
-    val tasks: Map<String, List<CalendarTask>> = emptyMap(),
-    val isLoading: Boolean = true
+    val events: Map<String, List<ScheduledEvent>> = emptyMap()
 )
 
 fun currentYearMonth(): CalendarYearMonth {

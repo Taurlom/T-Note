@@ -5,9 +5,9 @@ import androidx.room.Room
 import com.example.timemanager.data.local.AppDatabase
 import com.example.timemanager.data.local.AppDatabaseMigration
 import com.example.timemanager.data.local.CalendarNoteDao
-import com.example.timemanager.data.local.CalendarTaskDao
 import com.example.timemanager.data.local.CategoryDao
 import com.example.timemanager.data.local.DocumentDao
+import com.example.timemanager.data.local.ScheduledEventDao
 import com.example.timemanager.data.local.TaskDao
 import dagger.Module
 import dagger.Provides
@@ -28,8 +28,13 @@ object DatabaseModule {
             AppDatabase::class.java,
             "time_manager.db"
         )
-            .addMigrations(AppDatabaseMigration.MIGRATION_5_6)
-            .fallbackToDestructiveMigration()
+            .addMigrations(
+                AppDatabaseMigration.MIGRATION_5_6,
+                AppDatabaseMigration.MIGRATION_6_7,
+                AppDatabaseMigration.MIGRATION_7_8
+            )
+            // Никакого destructive fallback: отсутствие миграции должно падать
+            // loudly на этапе разработки, а не молча стирать пользовательские данные.
             .build()
     }
 
@@ -43,7 +48,8 @@ object DatabaseModule {
     fun provideCalendarNoteDao(database: AppDatabase): CalendarNoteDao = database.calendarNoteDao()
 
     @Provides
-    fun provideCalendarTaskDao(database: AppDatabase): CalendarTaskDao = database.calendarTaskDao()
+    fun provideScheduledEventDao(database: AppDatabase): ScheduledEventDao =
+        database.scheduledEventDao()
 
     @Provides
     fun provideDocumentDao(database: AppDatabase): DocumentDao = database.documentDao()

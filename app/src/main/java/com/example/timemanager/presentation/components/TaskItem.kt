@@ -7,12 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,10 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.timemanager.R
 import com.example.timemanager.domain.model.Task
+import com.example.timemanager.presentation.theme.Secondary
 
 @Composable
 fun TaskItem(
@@ -37,20 +34,17 @@ fun TaskItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(3.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onToggleCompletion)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Checkbox(
+        AppCheckbox(
             checked = task.isCompleted,
             onCheckedChange = { onToggleCompletion() },
-            colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.secondary,
-                checkmarkColor = MaterialTheme.colorScheme.onSecondary
-            )
+            onDarkBackground = true
         )
 
         Column(
@@ -78,14 +72,16 @@ fun TaskItem(
         Row {
             IconButton(onClick = onEdit) {
                 Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Редактировать"
+                    painter = painterResource(R.drawable.ic_edit),
+                    contentDescription = "Редактировать",
+                    tint = Secondary
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Удалить"
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = "Удалить",
+                    tint = Secondary
                 )
             }
         }

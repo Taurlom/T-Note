@@ -33,27 +33,27 @@ public final class AppDatabase_Impl extends AppDatabase {
 
   private volatile CalendarNoteDao _calendarNoteDao;
 
-  private volatile CalendarTaskDao _calendarTaskDao;
+  private volatile ScheduledEventDao _scheduledEventDao;
 
   private volatile DocumentDao _documentDao;
 
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(6) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(8) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `categories` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL, `position` INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `categoryId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `position` INTEGER NOT NULL, FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_categoryId` ON `tasks` (`categoryId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `calendar_notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `text` TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `calendar_tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `text` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `position` INTEGER NOT NULL)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_calendar_tasks_eventDate` ON `calendar_tasks` (`eventDate`)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `scheduled_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `title` TEXT NOT NULL, `time` TEXT, `type` TEXT NOT NULL, `alarmEnabled` INTEGER NOT NULL, `position` INTEGER NOT NULL)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_scheduled_events_eventDate` ON `scheduled_events` (`eventDate`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `documents` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `document_photos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `documentId` INTEGER NOT NULL, `photoPath` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, FOREIGN KEY(`documentId`) REFERENCES `documents`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_document_photos_documentId` ON `document_photos` (`documentId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '39171f799e72645c6d117eb666af1e4d')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a15907a862c9664db9b24dacb393ef96')");
       }
 
       @Override
@@ -61,7 +61,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("DROP TABLE IF EXISTS `categories`");
         db.execSQL("DROP TABLE IF EXISTS `tasks`");
         db.execSQL("DROP TABLE IF EXISTS `calendar_notes`");
-        db.execSQL("DROP TABLE IF EXISTS `calendar_tasks`");
+        db.execSQL("DROP TABLE IF EXISTS `scheduled_events`");
         db.execSQL("DROP TABLE IF EXISTS `documents`");
         db.execSQL("DROP TABLE IF EXISTS `document_photos`");
         final List<? extends RoomDatabase.Callback> _callbacks = mCallbacks;
@@ -154,21 +154,23 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoCalendarNotes + "\n"
                   + " Found:\n" + _existingCalendarNotes);
         }
-        final HashMap<String, TableInfo.Column> _columnsCalendarTasks = new HashMap<String, TableInfo.Column>(5);
-        _columnsCalendarTasks.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsCalendarTasks.put("eventDate", new TableInfo.Column("eventDate", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsCalendarTasks.put("text", new TableInfo.Column("text", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsCalendarTasks.put("isCompleted", new TableInfo.Column("isCompleted", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsCalendarTasks.put("position", new TableInfo.Column("position", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
-        final HashSet<TableInfo.ForeignKey> _foreignKeysCalendarTasks = new HashSet<TableInfo.ForeignKey>(0);
-        final HashSet<TableInfo.Index> _indicesCalendarTasks = new HashSet<TableInfo.Index>(1);
-        _indicesCalendarTasks.add(new TableInfo.Index("index_calendar_tasks_eventDate", false, Arrays.asList("eventDate"), Arrays.asList("ASC")));
-        final TableInfo _infoCalendarTasks = new TableInfo("calendar_tasks", _columnsCalendarTasks, _foreignKeysCalendarTasks, _indicesCalendarTasks);
-        final TableInfo _existingCalendarTasks = TableInfo.read(db, "calendar_tasks");
-        if (!_infoCalendarTasks.equals(_existingCalendarTasks)) {
-          return new RoomOpenHelper.ValidationResult(false, "calendar_tasks(com.example.timemanager.data.local.entity.CalendarTaskEntity).\n"
-                  + " Expected:\n" + _infoCalendarTasks + "\n"
-                  + " Found:\n" + _existingCalendarTasks);
+        final HashMap<String, TableInfo.Column> _columnsScheduledEvents = new HashMap<String, TableInfo.Column>(7);
+        _columnsScheduledEvents.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("eventDate", new TableInfo.Column("eventDate", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("title", new TableInfo.Column("title", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("time", new TableInfo.Column("time", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("type", new TableInfo.Column("type", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("alarmEnabled", new TableInfo.Column("alarmEnabled", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("position", new TableInfo.Column("position", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashSet<TableInfo.ForeignKey> _foreignKeysScheduledEvents = new HashSet<TableInfo.ForeignKey>(0);
+        final HashSet<TableInfo.Index> _indicesScheduledEvents = new HashSet<TableInfo.Index>(1);
+        _indicesScheduledEvents.add(new TableInfo.Index("index_scheduled_events_eventDate", false, Arrays.asList("eventDate"), Arrays.asList("ASC")));
+        final TableInfo _infoScheduledEvents = new TableInfo("scheduled_events", _columnsScheduledEvents, _foreignKeysScheduledEvents, _indicesScheduledEvents);
+        final TableInfo _existingScheduledEvents = TableInfo.read(db, "scheduled_events");
+        if (!_infoScheduledEvents.equals(_existingScheduledEvents)) {
+          return new RoomOpenHelper.ValidationResult(false, "scheduled_events(com.example.timemanager.data.local.entity.ScheduledEventEntity).\n"
+                  + " Expected:\n" + _infoScheduledEvents + "\n"
+                  + " Found:\n" + _existingScheduledEvents);
         }
         final HashMap<String, TableInfo.Column> _columnsDocuments = new HashMap<String, TableInfo.Column>(4);
         _columnsDocuments.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
@@ -202,7 +204,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "39171f799e72645c6d117eb666af1e4d", "635bb2ddfebd1d6861c3ed0118088aee");
+    }, "a15907a862c9664db9b24dacb393ef96", "da6b961596648fd620b2f1a92e8fc43b");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;
@@ -213,7 +215,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   protected InvalidationTracker createInvalidationTracker() {
     final HashMap<String, String> _shadowTablesMap = new HashMap<String, String>(0);
     final HashMap<String, Set<String>> _viewTables = new HashMap<String, Set<String>>(0);
-    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "categories","tasks","calendar_notes","calendar_tasks","documents","document_photos");
+    return new InvalidationTracker(this, _shadowTablesMap, _viewTables, "categories","tasks","calendar_notes","scheduled_events","documents","document_photos");
   }
 
   @Override
@@ -232,7 +234,7 @@ public final class AppDatabase_Impl extends AppDatabase {
       _db.execSQL("DELETE FROM `categories`");
       _db.execSQL("DELETE FROM `tasks`");
       _db.execSQL("DELETE FROM `calendar_notes`");
-      _db.execSQL("DELETE FROM `calendar_tasks`");
+      _db.execSQL("DELETE FROM `scheduled_events`");
       _db.execSQL("DELETE FROM `documents`");
       _db.execSQL("DELETE FROM `document_photos`");
       super.setTransactionSuccessful();
@@ -255,7 +257,7 @@ public final class AppDatabase_Impl extends AppDatabase {
     _typeConvertersMap.put(CategoryDao.class, CategoryDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(TaskDao.class, TaskDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(CalendarNoteDao.class, CalendarNoteDao_Impl.getRequiredConverters());
-    _typeConvertersMap.put(CalendarTaskDao.class, CalendarTaskDao_Impl.getRequiredConverters());
+    _typeConvertersMap.put(ScheduledEventDao.class, ScheduledEventDao_Impl.getRequiredConverters());
     _typeConvertersMap.put(DocumentDao.class, DocumentDao_Impl.getRequiredConverters());
     return _typeConvertersMap;
   }
@@ -318,15 +320,15 @@ public final class AppDatabase_Impl extends AppDatabase {
   }
 
   @Override
-  public CalendarTaskDao calendarTaskDao() {
-    if (_calendarTaskDao != null) {
-      return _calendarTaskDao;
+  public ScheduledEventDao scheduledEventDao() {
+    if (_scheduledEventDao != null) {
+      return _scheduledEventDao;
     } else {
       synchronized(this) {
-        if(_calendarTaskDao == null) {
-          _calendarTaskDao = new CalendarTaskDao_Impl(this);
+        if(_scheduledEventDao == null) {
+          _scheduledEventDao = new ScheduledEventDao_Impl(this);
         }
-        return _calendarTaskDao;
+        return _scheduledEventDao;
       }
     }
   }

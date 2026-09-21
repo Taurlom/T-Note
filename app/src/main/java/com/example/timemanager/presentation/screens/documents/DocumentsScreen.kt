@@ -7,19 +7,12 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,13 +29,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Document
+import com.example.timemanager.presentation.components.AppFab
+import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.DocumentInputDialog
 import com.example.timemanager.presentation.components.DocumentItem
-import com.example.timemanager.presentation.theme.AddButtonBackground
-import com.example.timemanager.presentation.theme.AppBarBackground
-import com.example.timemanager.presentation.theme.OnSecondary
-import com.example.timemanager.presentation.theme.OnTertiary
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,30 +56,16 @@ fun DocumentsScreen(
         // Нижний бар рендерится над NavHost в AppNavigation.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.documents_title)) },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppBarBackground,
-                    titleContentColor = OnTertiary,
-                    navigationIconContentColor = OnTertiary,
-                    actionIconContentColor = OnTertiary
-                )
+            AppTopBar(
+                title = stringResource(R.string.documents_title),
+                scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            AppFab(
                 onClick = { showAddDialog = true },
-                shape = RoundedCornerShape(3.dp),
-                containerColor = AddButtonBackground,
-                contentColor = OnSecondary
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = stringResource(R.string.add_document),
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+                contentDescriptionRes = R.string.add_document
+            )
         }
     ) { padding ->
         Box(

@@ -4,9 +4,10 @@ import com.example.timemanager.domain.repository.SettingsRepository;
 import dagger.MembersInjector;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.InjectedFieldSignature;
+import dagger.internal.Provider;
+import dagger.internal.Providers;
 import dagger.internal.QualifierMetadata;
 import javax.annotation.processing.Generated;
-import javax.inject.Provider;
 
 @QualifierMetadata
 @DaggerGenerated
@@ -20,7 +21,8 @@ import javax.inject.Provider;
     "KotlinInternal",
     "KotlinInternalInJava",
     "cast",
-    "deprecation"
+    "deprecation",
+    "nullness:initialization.field.uninitialized"
 })
 public final class MainActivity_MembersInjector implements MembersInjector<MainActivity> {
   private final Provider<SettingsRepository> settingsRepositoryProvider;
@@ -32,6 +34,11 @@ public final class MainActivity_MembersInjector implements MembersInjector<MainA
   public static MembersInjector<MainActivity> create(
       Provider<SettingsRepository> settingsRepositoryProvider) {
     return new MainActivity_MembersInjector(settingsRepositoryProvider);
+  }
+
+  public static MembersInjector<MainActivity> create(
+      javax.inject.Provider<SettingsRepository> settingsRepositoryProvider) {
+    return new MainActivity_MembersInjector(Providers.asDaggerProvider(settingsRepositoryProvider));
   }
 
   @Override

@@ -25,7 +25,7 @@ class DocumentsViewModel @Inject constructor(
     private val deleteDocumentUseCase: DeleteDocumentUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(DocumentsUiState(isLoading = true))
+    private val _uiState = MutableStateFlow(DocumentsUiState())
     val uiState: StateFlow<DocumentsUiState> = _uiState.asStateFlow()
 
     init {
@@ -35,7 +35,7 @@ class DocumentsViewModel @Inject constructor(
     private fun loadDocuments() {
         getDocumentsUseCase()
             .onEach { documents ->
-                _uiState.update { it.copy(documents = documents, isLoading = false) }
+                _uiState.update { it.copy(documents = documents) }
             }
             .launchIn(viewModelScope)
     }

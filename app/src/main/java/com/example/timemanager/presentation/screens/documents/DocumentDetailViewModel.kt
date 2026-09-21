@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.timemanager.domain.model.Document
 import com.example.timemanager.domain.usecase.document.DeleteDocumentUseCase
 import com.example.timemanager.domain.usecase.document.GetDocumentByIdUseCase
+import com.example.timemanager.domain.usecase.document.UpdateDocumentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,8 @@ data class DocumentDetailUiState(
 class DocumentDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getDocumentByIdUseCase: GetDocumentByIdUseCase,
-    private val deleteDocumentUseCase: DeleteDocumentUseCase
+    private val deleteDocumentUseCase: DeleteDocumentUseCase,
+    private val updateDocumentUseCase: UpdateDocumentUseCase
 ) : ViewModel() {
 
     private val documentId: Long = checkNotNull(savedStateHandle["documentId"])
@@ -50,6 +52,19 @@ class DocumentDetailViewModel @Inject constructor(
         viewModelScope.launch {
             deleteDocumentUseCase(document)
             onDeleted()
+        }
+    }
+    
+    fun updatePhotoPath(oldPath: String, newPath: String) {
+        val document = _uiState.value.document ?: return
+        val updatedPhotos = document.photoPaths.map { 
+            if (it == oldPath) newPath 
+            else it 
+        }
+        val updatedDocument = document.copy(photoPaths = updatedPhotos)
+        viewModelScope.launch {
+            // oldPath передаём как removedPhotoPaths — UseCase удалит старый файл с диска
+            updateDocumentUseCase(updatedDocument, removedPhotoPaths = listOf(oldPath))
         }
     }
 }
