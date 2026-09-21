@@ -5,6 +5,32 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigration {
 
+    /** Добавляет в scheduled_events настройки повторения. */
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN repeatPeriod TEXT")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN repeatIntervalDays INTEGER")
+            db.execSQL(
+                "ALTER TABLE scheduled_events " +
+                    "ADD COLUMN repeatDays INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE scheduled_events " +
+                    "ADD COLUMN hidePast INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
+    /** Добавляет в documents поле порядка для перетаскивания в списке. */
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE documents " +
+                    "ADD COLUMN position INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
     /** Добавляет в scheduled_events цвет иконки события (0 — тематический). */
     val MIGRATION_9_10 = object : Migration(9, 10) {
         override fun migrate(db: SupportSQLiteDatabase) {

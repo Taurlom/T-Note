@@ -5,15 +5,15 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -25,6 +25,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,17 +33,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
 import com.example.timemanager.domain.model.EventIcon
+import com.example.timemanager.domain.model.RepeatPeriod
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppButton
 import com.example.timemanager.presentation.components.AppCancelButton
+import com.example.timemanager.presentation.components.AppCheckbox
 import com.example.timemanager.presentation.components.AppDialog
 import com.example.timemanager.presentation.components.AppOutlinedButton
 import com.example.timemanager.presentation.components.AppSaveButton
@@ -216,10 +222,10 @@ private fun ScheduledEventRow(
 }
 
 /**
- * Редактор события: тип (обычное/день рождения) из выпадающего списка,
- * название, а для обычного события — выбор иконки, которая будет
- * отображаться под числом в календаре.
- * День рождения повторяется каждый год автоматически.
+ * Редактор события: тип (обычное/день рождения/повторяющееся) из выпадающего
+ * списка, название, а для не-дней рождения — выбор иконки и её цвета.
+ * У повторяющегося события настраиваются период (или свой интервал
+ * «раз в N дней»), скрытие прошедших вхождений и длительность повторения.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -236,7 +242,20 @@ private fun ScheduledEventEditorDialog(
     var colorArgb by remember {
         mutableStateOf(original?.colorArgb ?: ScheduledEvent.DEFAULT_COLOR)
     }
-    var expanded by remember { mutableStateOf(false) }
+    // Период повтора по умолчанию не выбран — тогда считается интервал «раз в N дней».
+    var repeatPeriod by remember { mutableStateOf(original?.repeatPeriod) }
+    var intervalText by remember {
+        mutableStateOf(original?.repeatIntervalDays?.toString().orEmpty())
+    }
+    var hidePast by remember { mutableStateOf(original?.hidePastOccurrences ?: false) }
+    var repeatDaysText by remember {
+        mutableStateOf(original?.repeatDays?.takeIf { it > 0 }?.toString().orEmpty())
+    }
+
+    val intervalDays = intervalText.toIntOrNull() ?: 0
+    // Повторяющему событию нужен либо период, либо свой интервал.
+    val repeatConfigured = type != ScheduledEventType.REPEATING ||
+        repeatPeriod != null || intervalDays > 0
 
     AppDialog(
         title = stringResource(
@@ -252,63 +271,83 @@ private fun ScheduledEventEditorDialog(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Тип события: выпадающий список «Обычное» / «День рождения».
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it }
-            ) {
-                AppTextField(
-                    value = stringResource(type.labelRes),
-                    onValueChange = { },
-                    label = stringResource(R.string.event_type),
-                    singleLine = true,
-                    readOnly = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    }
+            // Тип события: выпадающий список «Обычное» / «День рождения» /
+            // «Повторяющееся».
+            LabeledDropdown(
+                label = stringResource(R.string.event_type),
+                selectedLabel = stringResource(type.labelRes),
+                options = ScheduledEventType.entries.toList(),
+                optionLabel = { option -> stringResource(option.labelRes) },
+                optionIcon = { option ->
+                    Icon(
+                        painter = painterResource(option.iconRes),
+                        contentDescription = null,
+                        tint = OnTertiary
+                    )
+                },
+                placeholder = "",
+                onSelect = { type = it }
+            )
+
+            if (type == ScheduledEventType.REPEATING) {
+                LabeledDropdown(
+                    label = stringResource(R.string.repeat_label),
+                    selectedLabel = repeatPeriod?.let { stringResource(it.labelRes) },
+                    options = RepeatPeriod.entries.toList(),
+                    optionLabel = { option -> stringResource(option.labelRes) },
+                    optionIcon = null,
+                    placeholder = stringResource(R.string.repeat_placeholder),
+                    onSelect = { repeatPeriod = it }
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    containerColor = DialogContainer,
+                // Поле интервала активно, только если период не выбран.
+                AppTextField(
+                    value = intervalText,
+                    onValueChange = { intervalText = it.filter(Char::isDigit).take(3) },
+                    label = stringResource(R.string.repeat_every_days),
+                    singleLine = true,
+                    enabled = repeatPeriod == null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ScheduledEventType.entries.forEach { option ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = stringResource(option.labelRes),
-                                    color = OnTertiary
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(option.iconRes),
-                                    contentDescription = null,
-                                    tint = OnTertiary
-                                )
-                            },
-                            onClick = {
-                                type = option
-                                expanded = false
-                            }
-                        )
-                    }
+                    AppCheckbox(
+                        checked = hidePast,
+                        onCheckedChange = { hidePast = it },
+                        onDarkBackground = false,
+                        // Бежевый OnSurfaceVariant сливался бы с фоном диалога.
+                        uncheckedColor = OnTertiary
+                    )
+                    Text(
+                        text = stringResource(R.string.repeat_hide_past),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = OnTertiary
+                    )
                 }
+                AppTextField(
+                    value = repeatDaysText,
+                    onValueChange = { repeatDaysText = it.filter(Char::isDigit).take(4) },
+                    label = stringResource(R.string.repeat_days),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
-            // Иконку и её цвет выбирает только обычное событие: день рождения
-            // всегда отмечается подарком.
-            if (type == ScheduledEventType.REGULAR) {
+            // Иконку и её цвет выбирают обычные и повторяющиеся события:
+            // день рождения всегда отмечается подарком.
+            if (type != ScheduledEventType.BIRTHDAY) {
                 Text(
                     text = stringResource(R.string.event_icon),
                     style = MaterialTheme.typography.labelLarge,
                     color = OnTertiary
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     EventIcon.entries.forEach { option ->
                         EventIconOption(
                             icon = option,
@@ -351,18 +390,34 @@ private fun ScheduledEventEditorDialog(
                     onSave(
                         ScheduledEvent(
                             id = original?.id ?: 0L,
-                            // Для дня рождения год в дате не меняется (см. репозиторий),
-                            // обычное событие остаётся на открытой дате.
+                            // Для дня рождения и повторяющегося события год в
+                            // дате не меняется (см. репозиторий), обычное
+                            // событие остаётся на открытой дате.
                             date = original?.date ?: defaultDate,
                             title = title,
                             type = type,
                             icon = icon,
                             colorArgb = colorArgb,
+                            repeatPeriod = repeatPeriod
+                                .takeIf { type == ScheduledEventType.REPEATING },
+                            repeatIntervalDays =
+                                if (type == ScheduledEventType.REPEATING && repeatPeriod == null) {
+                                    intervalDays.takeIf { it > 0 }
+                                } else {
+                                    null
+                                },
+                            repeatDays = if (type == ScheduledEventType.REPEATING) {
+                                repeatDaysText.toIntOrNull()?.coerceAtLeast(0) ?: 0
+                            } else {
+                                0
+                            },
+                            hidePastOccurrences =
+                                type == ScheduledEventType.REPEATING && hidePast,
                             position = original?.position ?: 0
                         )
                     )
                 },
-                enabled = title.isNotBlank()
+                enabled = title.isNotBlank() && repeatConfigured
             )
         },
         dismissButton = {
@@ -378,6 +433,75 @@ private fun ScheduledEventEditorDialog(
             }
         }
     )
+}
+
+/**
+ * Выпадающий список с лейблом в стиле дизайн-системы. Ширина меню равна
+ * ширине поля-якоря (в Material 3.1.3 нет matchDropDownWidthToComponent,
+ * измеряем сами). [selectedLabel] = null показывает [placeholder].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> LabeledDropdown(
+    label: String,
+    selectedLabel: String?,
+    options: List<T>,
+    optionLabel: @Composable (T) -> String,
+    optionIcon: (@Composable (T) -> Unit)?,
+    placeholder: String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var anchorWidth by remember { mutableIntStateOf(0) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier
+    ) {
+        AppTextField(
+            value = selectedLabel.orEmpty(),
+            onValueChange = { },
+            label = label,
+            placeholder = placeholder.ifEmpty { null },
+            singleLine = true,
+            readOnly = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .onSizeChanged { anchorWidth = it.width },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            }
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = DialogContainer,
+            modifier = with(LocalDensity.current) {
+                if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
+            }
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = optionLabel(option),
+                            color = OnTertiary
+                        )
+                    },
+                    leadingIcon = optionIcon?.let { iconContent ->
+                        { iconContent(option) }
+                    },
+                    onClick = {
+                        onSelect(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
 }
 
 /** Кружок-переключатель цвета иконки события. */
@@ -413,7 +537,7 @@ private fun EventColorOption(
     }
 }
 
-/** Кружок-переключатель иконки события с подписью под ним. */
+/** Кружок-переключатель иконки события — в размер палитры цветов. */
 @Composable
 private fun EventIconOption(
     icon: EventIcon,
@@ -421,31 +545,25 @@ private fun EventIconOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.clickable(onClick = onClick)
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(50))
-                .background(
-                    if (selected) PrimaryButtonContainer
-                    else OnTertiary.copy(alpha = 0.08f)
-                )
-        ) {
-            Icon(
-                painter = painterResource(icon.drawableRes),
-                contentDescription = stringResource(icon.labelRes),
-                tint = if (selected) OnPrimary else OnTertiary,
-                modifier = Modifier.size(22.dp)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(
+                if (selected) PrimaryButtonContainer
+                else OnTertiary.copy(alpha = 0.08f)
             )
-        }
-        Text(
-            text = stringResource(icon.labelRes),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) OnTertiary else OnSurfaceVariant
+            .clickable(
+                onClickLabel = stringResource(icon.labelRes),
+                onClick = onClick
+            )
+    ) {
+        Icon(
+            painter = painterResource(icon.drawableRes),
+            contentDescription = stringResource(icon.labelRes),
+            tint = if (selected) OnPrimary else OnTertiary,
+            modifier = Modifier.size(18.dp)
         )
     }
 }

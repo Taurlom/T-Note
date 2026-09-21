@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 
 import com.example.timemanager.domain.model.CalendarNote
 import com.example.timemanager.domain.model.ScheduledEvent
+import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.domain.usecase.AddScheduledEventUseCase
 import com.example.timemanager.domain.usecase.DeleteCalendarDayUseCase
 import com.example.timemanager.domain.usecase.DeleteScheduledEventUseCase
 import com.example.timemanager.domain.usecase.GetBirthdayEventsUseCase
 import com.example.timemanager.domain.usecase.GetCalendarNotesByMonthUseCase
+import com.example.timemanager.domain.usecase.GetRepeatingEventsUseCase
 import com.example.timemanager.domain.usecase.GetScheduledEventsByMonthUseCase
 import com.example.timemanager.domain.usecase.SaveCalendarNoteUseCase
 import com.example.timemanager.domain.usecase.UpdateScheduledEventUseCase
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
@@ -30,6 +33,7 @@ class CalendarViewModel @Inject constructor(
     private val getNotesByMonthUseCase: GetCalendarNotesByMonthUseCase,
     private val getEventsByMonthUseCase: GetScheduledEventsByMonthUseCase,
     private val getBirthdayEventsUseCase: GetBirthdayEventsUseCase,
+    private val getRepeatingEventsUseCase: GetRepeatingEventsUseCase,
     private val saveNoteUseCase: SaveCalendarNoteUseCase,
     private val deleteDayUseCase: DeleteCalendarDayUseCase,
     private val addEventUseCase: AddScheduledEventUseCase,
@@ -48,17 +52,18 @@ class CalendarViewModel @Inject constructor(
 
     private fun loadMonthData() {
         monthDataJob?.cancel()
-        val prefix = _uiState.value.yearMonth.monthPrefix()
-        val displayYear = _uiState.value.yearMonth.year
+        val yearMonth = _uiState.value.yearMonth
+        val prefix = yearMonth.monthPrefix()
         monthDataJob = combine(
             getNotesByMonthUseCase(prefix),
             getEventsByMonthUseCase(prefix),
-            getBirthdayEventsUseCase()
-        ) { notes, monthEvents, birthdays ->
+            getBirthdayEventsUseCase(),
+            getRepeatingEventsUseCase()
+        ) { notes, monthEvents, birthdays, repeating ->
             CalendarUiState(
-                yearMonth = _uiState.value.yearMonth,
+                yearMonth = yearMonth,
                 notes = notes.associateBy { it.date },
-                events = expandEventsForMonth(monthEvents, birthdays, displayYear)
+                events = expandEventsForMonth(monthEvents, birthdays, repeating, yearMonth)
             )
         }
             .onEach { state -> _uiState.value = state }
@@ -67,14 +72,21 @@ class CalendarViewModel @Inject constructor(
 
     /**
      * Группирует события по дням отображаемого месяца: обычные берутся как есть,
-     * а каждый день рождения разворачивается в дату-вхождение текущего года.
+     * каждый день рождения разворачивается в дату-вхождение текущего года,
+     * а повторяющиеся события — во все свои вхождения этого месяца.
      */
     private fun expandEventsForMonth(
         monthEvents: List<ScheduledEvent>,
         birthdays: List<ScheduledEvent>,
-        displayYear: Int
+        repeating: List<ScheduledEvent>,
+        yearMonth: CalendarYearMonth
     ): Map<String, List<ScheduledEvent>> {
-        val byDate = monthEvents.groupByTo(LinkedHashMap()) { it.date }
+        val displayYear = yearMonth.year
+        // Вхождения повторяющихся событий генерируются ниже целиком,
+        // включая якорное — иначе оно задублировалось бы из месячного запроса.
+        val byDate = monthEvents
+            .filterNot { it.type == ScheduledEventType.REPEATING }
+            .groupByTo(LinkedHashMap()) { it.date }
         birthdays.forEach { birthday ->
             val anchor = birthday.dateOrNull() ?: return@forEach
             // Вхождение за якорный год уже пришло из месячного запроса.
@@ -82,6 +94,22 @@ class CalendarViewModel @Inject constructor(
             val (month, day) = ScheduledEvent.effectiveBirthdayDate(anchor, displayYear)
             val key = String.format(LOCALE, "%04d-%02d-%02d", displayYear, month, day)
             byDate.getOrPut(key) { mutableListOf() } += birthday.copy(date = key)
+        }
+        val today = LocalDate.now()
+        val first = LocalDate.of(displayYear, yearMonth.month, 1)
+        val lastExclusive = first.plusMonths(1)
+        repeating.forEach { event ->
+            val anchor = event.dateOrNull() ?: return@forEach
+            var cursor = maxOf(anchor, first)
+            while (cursor.isBefore(lastExclusive)) {
+                if (event.occursOn(cursor) &&
+                    !(event.hidePastOccurrences && cursor.isBefore(today))
+                ) {
+                    val key = cursor.toString()
+                    byDate.getOrPut(key) { mutableListOf() } += event.copy(date = key)
+                }
+                cursor = cursor.plusDays(1)
+            }
         }
         return byDate.mapValues { (_, events) ->
             events.sortedWith(compareBy({ it.position }, { it.id }))

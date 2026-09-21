@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.EventIcon
+import com.example.timemanager.domain.model.RepeatPeriod
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.theme.PastEventMarker
@@ -45,6 +46,7 @@ val ScheduledEventType.iconRes: Int
     get() = when (this) {
         ScheduledEventType.REGULAR -> R.drawable.ic_event_note
         ScheduledEventType.BIRTHDAY -> R.drawable.ic_redeem
+        ScheduledEventType.REPEATING -> R.drawable.ic_event_chronic
     }
 
 /** Название типа события. */
@@ -53,6 +55,16 @@ val ScheduledEventType.labelRes: Int
     get() = when (this) {
         ScheduledEventType.REGULAR -> R.string.event_type_regular
         ScheduledEventType.BIRTHDAY -> R.string.event_type_birthday
+        ScheduledEventType.REPEATING -> R.string.event_type_repeating
+    }
+
+/** Название периода повторения. */
+@get:StringRes
+val RepeatPeriod.labelRes: Int
+    get() = when (this) {
+        RepeatPeriod.MONTHLY -> R.string.repeat_monthly
+        RepeatPeriod.WEEKLY -> R.string.repeat_weekly
+        RepeatPeriod.DAILY -> R.string.repeat_daily
     }
 
 /** Drawable для иконки обычного события (отображается под числом в календаре). */
@@ -60,10 +72,21 @@ val ScheduledEventType.labelRes: Int
 val EventIcon.drawableRes: Int
     get() = when (this) {
         EventIcon.NOTE -> R.drawable.ic_event_note
-        EventIcon.MEETING -> R.drawable.ic_event_meeting
-        EventIcon.REPAIR -> R.drawable.ic_event_repair
-        EventIcon.HOSPITAL -> R.drawable.ic_event_hospital
         EventIcon.TRAVEL -> R.drawable.ic_event_travel
+        EventIcon.FOREST -> R.drawable.ic_event_forest
+        EventIcon.GIFTS -> R.drawable.ic_event_gifts
+        EventIcon.HOME -> R.drawable.ic_event_home
+        EventIcon.HEALTH -> R.drawable.ic_event_health
+        EventIcon.BEACH -> R.drawable.ic_event_beach
+        EventIcon.FOOTPRINT -> R.drawable.ic_event_footprint
+        EventIcon.CELEBRATION -> R.drawable.ic_event_celebration
+        EventIcon.BUILD -> R.drawable.ic_event_build
+        EventIcon.FITNESS -> R.drawable.ic_event_fitness
+        EventIcon.GROUPS -> R.drawable.ic_event_groups
+        EventIcon.DELIVERY -> R.drawable.ic_event_delivery
+        EventIcon.SELF_CARE -> R.drawable.ic_event_selfcare
+        EventIcon.BAR -> R.drawable.ic_event_bar
+        EventIcon.GARDEN -> R.drawable.ic_event_garden
     }
 
 /** Подпись иконки события. */
@@ -71,8 +94,19 @@ val EventIcon.drawableRes: Int
 val EventIcon.labelRes: Int
     get() = when (this) {
         EventIcon.NOTE -> R.string.icon_note
-        EventIcon.MEETING -> R.string.icon_meeting
-        EventIcon.REPAIR -> R.string.icon_repair
-        EventIcon.HOSPITAL -> R.string.icon_hospital
         EventIcon.TRAVEL -> R.string.icon_travel
+        EventIcon.FOREST -> R.string.icon_forest
+        EventIcon.GIFTS -> R.string.icon_gifts
+        EventIcon.HOME -> R.string.icon_home
+        EventIcon.HEALTH -> R.string.icon_health
+        EventIcon.BEACH -> R.string.icon_beach
+        EventIcon.FOOTPRINT -> R.string.icon_footprint
+        EventIcon.CELEBRATION -> R.string.icon_celebration
+        EventIcon.BUILD -> R.string.icon_build
+        EventIcon.FITNESS -> R.string.icon_fitness
+        EventIcon.GROUPS -> R.string.icon_groups
+        EventIcon.DELIVERY -> R.string.icon_delivery
+        EventIcon.SELF_CARE -> R.string.icon_selfcare
+        EventIcon.BAR -> R.string.icon_bar
+        EventIcon.GARDEN -> R.string.icon_garden
     }

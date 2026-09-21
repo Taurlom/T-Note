@@ -22,6 +22,8 @@ class DocumentRepositoryImpl @Inject constructor(
     override fun getById(id: Long): Flow<Document?> =
         dao.getById(id).map { it?.document?.toDomain(it.photos) }
 
+    override suspend fun getMaxPosition(): Int = dao.getMaxPosition()
+
     override suspend fun insert(document: Document): Long =
         dao.insertDocumentWithPhotos(
             document = document.toEntity(),
@@ -33,6 +35,10 @@ class DocumentRepositoryImpl @Inject constructor(
             document = document.toEntity(),
             photos = document.toPhotoEntities()
         )
+
+    override suspend fun updatePositions(documents: List<Document>) {
+        dao.updatePositions(documents.map { it.toEntity() })
+    }
 
     override suspend fun delete(document: Document) =
         dao.delete(document.toEntity())

@@ -16,4 +16,7 @@ sealed class DocumentsEvent {
     ) : DocumentsEvent()
 
     data class OnDeleteDocument(val document: Document) : DocumentsEvent()
+
+    /** Новый порядок всего списка после перетаскивания. */
+    data class OnReorderDocuments(val documents: List<Document>) : DocumentsEvent()
 }

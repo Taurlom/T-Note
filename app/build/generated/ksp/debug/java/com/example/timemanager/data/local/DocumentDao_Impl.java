@@ -1,6 +1,7 @@
 package com.example.timemanager.data.local;
 
 import android.database.Cursor;
+import android.os.CancellationSignal;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.collection.LongSparseArray;
@@ -21,6 +22,7 @@ import com.example.timemanager.data.local.entity.DocumentPhotoEntity;
 import com.example.timemanager.data.local.entity.DocumentWithPhotos;
 import java.lang.Class;
 import java.lang.Exception;
+import java.lang.Integer;
 import java.lang.Long;
 import java.lang.Object;
 import java.lang.Override;
@@ -61,7 +63,7 @@ public final class DocumentDao_Impl implements DocumentDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `documents` (`id`,`title`,`description`,`createdAt`) VALUES (nullif(?, 0),?,?,?)";
+        return "INSERT OR REPLACE INTO `documents` (`id`,`title`,`description`,`createdAt`,`position`) VALUES (nullif(?, 0),?,?,?,?)";
       }
 
       @Override
@@ -71,6 +73,7 @@ public final class DocumentDao_Impl implements DocumentDao {
         statement.bindString(2, entity.getTitle());
         statement.bindString(3, entity.getDescription());
         statement.bindLong(4, entity.getCreatedAt());
+        statement.bindLong(5, entity.getPosition());
       }
     };
     this.__insertionAdapterOfDocumentPhotoEntity = new EntityInsertionAdapter<DocumentPhotoEntity>(__db) {
@@ -106,7 +109,7 @@ public final class DocumentDao_Impl implements DocumentDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE OR ABORT `documents` SET `id` = ?,`title` = ?,`description` = ?,`createdAt` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `documents` SET `id` = ?,`title` = ?,`description` = ?,`createdAt` = ?,`position` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -116,7 +119,8 @@ public final class DocumentDao_Impl implements DocumentDao {
         statement.bindString(2, entity.getTitle());
         statement.bindString(3, entity.getDescription());
         statement.bindLong(4, entity.getCreatedAt());
-        statement.bindLong(5, entity.getId());
+        statement.bindLong(5, entity.getPosition());
+        statement.bindLong(6, entity.getId());
       }
     };
     this.__preparedStmtOfDeleteAll = new SharedSQLiteStatement(__db) {
@@ -222,6 +226,12 @@ public final class DocumentDao_Impl implements DocumentDao {
   }
 
   @Override
+  public Object updatePositions(final List<DocumentEntity> documents,
+      final Continuation<? super Unit> $completion) {
+    return RoomDatabaseKt.withTransaction(__db, (__cont) -> DocumentDao.DefaultImpls.updatePositions(DocumentDao_Impl.this, documents, __cont), $completion);
+  }
+
+  @Override
   public Object insertDocumentWithPhotos(final DocumentEntity document,
       final List<DocumentPhotoEntity> photos, final Continuation<? super Long> $completion) {
     return RoomDatabaseKt.withTransaction(__db, (__cont) -> DocumentDao.DefaultImpls.insertDocumentWithPhotos(DocumentDao_Impl.this, document, photos, __cont), $completion);
@@ -309,7 +319,7 @@ public final class DocumentDao_Impl implements DocumentDao {
 
   @Override
   public Flow<List<DocumentWithPhotos>> getAll() {
-    final String _sql = "SELECT * FROM documents ORDER BY createdAt DESC";
+    final String _sql = "SELECT * FROM documents ORDER BY position ASC, createdAt DESC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, true, new String[] {"document_photos",
         "documents"}, new Callable<List<DocumentWithPhotos>>() {
@@ -324,6 +334,7 @@ public final class DocumentDao_Impl implements DocumentDao {
             final int _cursorIndexOfTitle = CursorUtil.getColumnIndexOrThrow(_cursor, "title");
             final int _cursorIndexOfDescription = CursorUtil.getColumnIndexOrThrow(_cursor, "description");
             final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "createdAt");
+            final int _cursorIndexOfPosition = CursorUtil.getColumnIndexOrThrow(_cursor, "position");
             final LongSparseArray<ArrayList<DocumentPhotoEntity>> _collectionPhotos = new LongSparseArray<ArrayList<DocumentPhotoEntity>>();
             while (_cursor.moveToNext()) {
               final long _tmpKey;
@@ -346,7 +357,9 @@ public final class DocumentDao_Impl implements DocumentDao {
               _tmpDescription = _cursor.getString(_cursorIndexOfDescription);
               final long _tmpCreatedAt;
               _tmpCreatedAt = _cursor.getLong(_cursorIndexOfCreatedAt);
-              _tmpDocument = new DocumentEntity(_tmpId,_tmpTitle,_tmpDescription,_tmpCreatedAt);
+              final int _tmpPosition;
+              _tmpPosition = _cursor.getInt(_cursorIndexOfPosition);
+              _tmpDocument = new DocumentEntity(_tmpId,_tmpTitle,_tmpDescription,_tmpCreatedAt,_tmpPosition);
               final ArrayList<DocumentPhotoEntity> _tmpPhotosCollection;
               final long _tmpKey_1;
               _tmpKey_1 = _cursor.getLong(_cursorIndexOfId);
@@ -372,6 +385,34 @@ public final class DocumentDao_Impl implements DocumentDao {
   }
 
   @Override
+  public Object getMaxPosition(final Continuation<? super Integer> $completion) {
+    final String _sql = "SELECT COALESCE(MAX(position), -1) FROM documents";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Integer>() {
+      @Override
+      @NonNull
+      public Integer call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Integer _result;
+          if (_cursor.moveToFirst()) {
+            final int _tmp;
+            _tmp = _cursor.getInt(0);
+            _result = _tmp;
+          } else {
+            _result = 0;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
   public Flow<DocumentWithPhotos> getById(final long id) {
     final String _sql = "SELECT * FROM documents WHERE id = ?";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
@@ -390,6 +431,7 @@ public final class DocumentDao_Impl implements DocumentDao {
             final int _cursorIndexOfTitle = CursorUtil.getColumnIndexOrThrow(_cursor, "title");
             final int _cursorIndexOfDescription = CursorUtil.getColumnIndexOrThrow(_cursor, "description");
             final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "createdAt");
+            final int _cursorIndexOfPosition = CursorUtil.getColumnIndexOrThrow(_cursor, "position");
             final LongSparseArray<ArrayList<DocumentPhotoEntity>> _collectionPhotos = new LongSparseArray<ArrayList<DocumentPhotoEntity>>();
             while (_cursor.moveToNext()) {
               final long _tmpKey;
@@ -411,7 +453,9 @@ public final class DocumentDao_Impl implements DocumentDao {
               _tmpDescription = _cursor.getString(_cursorIndexOfDescription);
               final long _tmpCreatedAt;
               _tmpCreatedAt = _cursor.getLong(_cursorIndexOfCreatedAt);
-              _tmpDocument = new DocumentEntity(_tmpId,_tmpTitle,_tmpDescription,_tmpCreatedAt);
+              final int _tmpPosition;
+              _tmpPosition = _cursor.getInt(_cursorIndexOfPosition);
+              _tmpDocument = new DocumentEntity(_tmpId,_tmpTitle,_tmpDescription,_tmpCreatedAt,_tmpPosition);
               final ArrayList<DocumentPhotoEntity> _tmpPhotosCollection;
               final long _tmpKey_1;
               _tmpKey_1 = _cursor.getLong(_cursorIndexOfId);

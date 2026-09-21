@@ -178,11 +178,27 @@ private fun CalendarGrid(
     val noteDates = remember(notes) { notes.keys }
     val eventIconsByDate = remember(events) {
         events.mapValues { (_, list) ->
-            list.filter { it.type != ScheduledEventType.BIRTHDAY }
+            list.filter { it.type == ScheduledEventType.REGULAR }
                 .map { it.icon to it.colorArgb }
                 .distinct()
                 .take(3)
         }
+    }
+    // Иконка повторяющегося события ставится отдельно — в правом верхнем
+    // углу ячейки. Одно вхождение — иконка самого события; два и больше —
+    // общий знак «Chronic» золотого цвета.
+    val recurringIconByDate = remember(events) {
+        events.mapNotNull { (date, list) ->
+            val recurring = list.filter { it.type == ScheduledEventType.REPEATING }
+            when {
+                recurring.size >= 2 ->
+                    date to (R.drawable.ic_event_chronic to ScheduledEvent.DEFAULT_COLOR)
+                recurring.size == 1 -> recurring[0].let {
+                    date to (it.icon.drawableRes to it.colorArgb)
+                }
+                else -> null
+            }
+        }.toMap()
     }
     val birthdayDates = remember(events) {
         events.filterValues { list ->
@@ -199,6 +215,7 @@ private fun CalendarGrid(
                         dayNumber = cell.date.day,
                         hasNote = noteDates.contains(cell.dateKey),
                         eventIcons = eventIconsByDate[cell.dateKey].orEmpty(),
+                        recurringIcon = recurringIconByDate[cell.dateKey],
                         isBirthday = birthdayDates.contains(cell.dateKey),
                         isToday = cellDate == today,
                         // Отметки прошедших дней визуально гаснем (см. PastEventMarker).
@@ -255,6 +272,7 @@ private fun DayCell(
     dayNumber: Int,
     hasNote: Boolean,
     eventIcons: List<Pair<EventIcon, Long>>,
+    recurringIcon: Pair<Int, Long>?,
     isBirthday: Boolean,
     isToday: Boolean,
     isPast: Boolean = false,
@@ -263,8 +281,9 @@ private fun DayCell(
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = if (isToday) Primary else Background
-    val textColor = OnSurfaceVariant
-    val hasContent = hasNote || eventIcons.isNotEmpty() || isBirthday
+    val textColor = if (isAdjacentMonth) Primary else OnSurfaceVariant
+    val hasContent = hasNote || eventIcons.isNotEmpty() ||
+        recurringIcon != null || isBirthday
     val shape = MaterialTheme.shapes.small
 
     Box(
@@ -276,7 +295,6 @@ private fun DayCell(
             .clickable(onClick = onClick)
     ) {
         // Число всегда в центре ячейки, ряд иконок прижат к нижнему краю
-        // (аналог position:absolute): появление событий не сдвигает число.
         Text(
             text = dayNumber.toString(),
             style = MaterialTheme.typography.bodyLarge,
@@ -289,6 +307,19 @@ private fun DayCell(
             textAlign = TextAlign.Center,
             modifier = Modifier.align(Alignment.Center)
         )
+        // Иконка повторяющегося события — в правом верхнем углу ячейки,
+        // отдельно от ряда иконок под числом.
+        recurringIcon?.let { (iconRes, colorArgb) ->
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = stringResource(R.string.event_type_repeating),
+                tint = eventIconColor(colorArgb, isPast, Secondary),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(2.dp)
+                    .size(12.dp)
+            )
+        }
         if (hasContent) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),

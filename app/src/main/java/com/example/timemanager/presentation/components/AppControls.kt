@@ -11,6 +11,7 @@ import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.presentation.theme.OnPrimary
@@ -22,14 +23,16 @@ import com.example.timemanager.presentation.theme.Secondary
 
 /**
  * Флажок. Правило дизайн-системы: на тёмном фоне — золотой (Secondary),
- * на светлом (диалоги) — синий (Primary).
+ * на светлом (диалоги) — синий (Primary). [uncheckedColor] переопределяется
+ * на светлых диалогах, где стандартный OnSurfaceVariant сливается с фоном.
  */
 @Composable
 fun AppCheckbox(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     onDarkBackground: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    uncheckedColor: Color = OnSurfaceVariant
 ) {
     Checkbox(
         checked = checked,
@@ -44,7 +47,7 @@ fun AppCheckbox(
         } else {
             CheckboxDefaults.colors(
                 checkedColor = PrimaryButtonContainer,
-                uncheckedColor = OnSurfaceVariant
+                uncheckedColor = uncheckedColor
             )
         }
     )

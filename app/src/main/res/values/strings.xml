@@ -53,15 +53,38 @@
     <string name="event_type">Тип события</string>
     <string name="event_type_regular">Обычное</string>
     <string name="event_type_birthday">День рождения</string>
+    <string name="event_type_repeating">Повторяющееся</string>
+
+    <!-- Повторяющееся событие -->
+    <string name="repeat_label">Повторять</string>
+    <string name="repeat_placeholder">Свой интервал</string>
+    <string name="repeat_monthly">Раз в месяц</string>
+    <string name="repeat_weekly">Раз в неделю</string>
+    <string name="repeat_daily">Раз в день</string>
+    <string name="repeat_every_days">Раз в сколько дней</string>
+    <string name="repeat_days">Повторять дней</string>
+    <string name="repeat_hide_past">Удалять прошедшие</string>
     <string name="event_icon">Иконка</string>
     <string name="event_color">Цвет</string>
     <string name="color_default">По умолчанию</string>
 
     <string name="icon_note">Заметка</string>
-    <string name="icon_meeting">Встреча</string>
-    <string name="icon_repair">Ремонт</string>
     <string name="icon_hospital">Больница</string>
     <string name="icon_travel">Путешествие</string>
+    <string name="icon_forest">Лес</string>
+    <string name="icon_gifts">Подарки</string>
+    <string name="icon_home">Дом</string>
+    <string name="icon_health">Здоровье</string>
+    <string name="icon_beach">Пляж</string>
+    <string name="icon_footprint">Прогулка</string>
+    <string name="icon_celebration">Праздник</string>
+    <string name="icon_build">Ремонт</string>
+    <string name="icon_fitness">Спорт</string>
+    <string name="icon_groups">Встреча</string>
+    <string name="icon_delivery">Доставка</string>
+    <string name="icon_selfcare">Уход за собой</string>
+    <string name="icon_bar">Бар</string>
+    <string name="icon_garden">Сад</string>
 
     <string name="event_delete_description">Удалить событие</string>
 

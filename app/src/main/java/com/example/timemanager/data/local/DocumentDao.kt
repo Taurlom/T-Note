@@ -16,8 +16,16 @@ import kotlinx.coroutines.flow.Flow
 interface DocumentDao {
 
     @Transaction
-    @Query("SELECT * FROM documents ORDER BY createdAt DESC")
+    @Query("SELECT * FROM documents ORDER BY position ASC, createdAt DESC")
     fun getAll(): Flow<List<DocumentWithPhotos>>
+
+    @Query("SELECT COALESCE(MAX(position), -1) FROM documents")
+    suspend fun getMaxPosition(): Int
+
+    @Transaction
+    suspend fun updatePositions(documents: List<DocumentEntity>) {
+        documents.forEach { update(it) }
+    }
 
     @Transaction
     @Query("SELECT * FROM documents WHERE id = :id")

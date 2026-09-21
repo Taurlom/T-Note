@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -16,12 +17,15 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -97,6 +101,9 @@ fun TaskInputDialog(
     var description by remember { mutableStateOf(descriptionInitial) }
     var targetCategoryId by remember { mutableLongStateOf(0L) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // Ширина выпадающего меню = ширина поля-якоря (в Material 3.1.3 нет
+    // matchDropDownWidthToComponent, измеряем сами).
+    var anchorWidth by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
 
     AppDialog(
@@ -133,7 +140,8 @@ fun TaskInputDialog(
                         readOnly = true,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .onSizeChanged { anchorWidth = it.width },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded)
                         }
@@ -142,7 +150,9 @@ fun TaskInputDialog(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
                         containerColor = DialogContainer,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = with(LocalDensity.current) {
+                            if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
+                        }
                     ) {
                         copyTargets.forEach { category ->
                             DropdownMenuItem(

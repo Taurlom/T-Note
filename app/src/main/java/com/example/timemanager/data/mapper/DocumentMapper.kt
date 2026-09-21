@@ -9,14 +9,16 @@ fun DocumentEntity.toDomain(photos: List<DocumentPhotoEntity>): Document = Docum
     title = title,
     description = description,
     photoPaths = photos.sortedBy { it.orderIndex }.map { it.photoPath },
-    createdAt = createdAt
+    createdAt = createdAt,
+    position = position
 )
 
 fun Document.toEntity(): DocumentEntity = DocumentEntity(
     id = id,
     title = title,
     description = description,
-    createdAt = createdAt
+    createdAt = createdAt,
+    position = position
 )
 
 fun Document.toPhotoEntities(startOrderIndex: Int = 0): List<DocumentPhotoEntity> =

@@ -6,6 +6,7 @@ import com.example.timemanager.domain.model.Document
 import com.example.timemanager.domain.usecase.document.AddDocumentUseCase
 import com.example.timemanager.domain.usecase.document.DeleteDocumentUseCase
 import com.example.timemanager.domain.usecase.document.GetDocumentsUseCase
+import com.example.timemanager.domain.usecase.document.ReorderDocumentsUseCase
 import com.example.timemanager.domain.usecase.document.UpdateDocumentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,8 @@ class DocumentsViewModel @Inject constructor(
     private val getDocumentsUseCase: GetDocumentsUseCase,
     private val addDocumentUseCase: AddDocumentUseCase,
     private val updateDocumentUseCase: UpdateDocumentUseCase,
-    private val deleteDocumentUseCase: DeleteDocumentUseCase
+    private val deleteDocumentUseCase: DeleteDocumentUseCase,
+    private val reorderDocumentsUseCase: ReorderDocumentsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DocumentsUiState())
@@ -44,8 +46,10 @@ class DocumentsViewModel @Inject constructor(
         when (event) {
             is DocumentsEvent.OnAddDocument -> {
                 viewModelScope.launch {
+                    // Новый документ — в конец списка (position = max + 1).
+                    val nextPosition = (_uiState.value.documents.maxOfOrNull { it.position } ?: -1) + 1
                     addDocumentUseCase(
-                        document = event.document,
+                        document = event.document.copy(position = nextPosition),
                         photoUris = event.photoUris
                     )
                 }
@@ -62,6 +66,15 @@ class DocumentsViewModel @Inject constructor(
             is DocumentsEvent.OnDeleteDocument -> {
                 viewModelScope.launch {
                     deleteDocumentUseCase(event.document)
+                }
+            }
+            is DocumentsEvent.OnReorderDocuments -> {
+                viewModelScope.launch {
+                    reorderDocumentsUseCase(
+                        event.documents.mapIndexed { index, document ->
+                            document.copy(position = index)
+                        }
+                    )
                 }
             }
         }

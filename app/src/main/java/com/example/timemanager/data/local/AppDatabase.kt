@@ -18,7 +18,7 @@ import com.example.timemanager.data.local.entity.TaskEntity
         DocumentEntity::class,
         DocumentPhotoEntity::class
     ],
-    version = 10,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -34,6 +32,7 @@ import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.DocumentInputDialog
 import com.example.timemanager.presentation.components.DocumentItem
+import com.example.timemanager.presentation.components.ReorderableLazyColumn
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,23 +80,21 @@ fun DocumentsScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
-                LazyColumn(
+                ReorderableLazyColumn(
+                    items = uiState.documents,
+                    key = { it.id },
+                    onReorder = { viewModel.onEvent(DocumentsEvent.OnReorderDocuments(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
-                ) {
-                    items(
-                        items = uiState.documents,
-                        key = { it.id }
-                    ) { document ->
-                        DocumentItem(
-                            document = document,
-                            onClick = { onDocumentClick(document.id) },
-                            onEdit = { documentToEdit = document },
-                            onDelete = { documentToDelete = document },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                ) { document, _ ->
+                    DocumentItem(
+                        document = document,
+                        onClick = { onDocumentClick(document.id) },
+                        onEdit = { documentToEdit = document },
+                        onDelete = { documentToDelete = document },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

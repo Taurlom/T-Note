@@ -40,20 +40,20 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(10) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(12) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `categories` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL, `position` INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `categoryId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `position` INTEGER NOT NULL, FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_categoryId` ON `tasks` (`categoryId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `calendar_notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `text` TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `scheduled_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `icon` TEXT NOT NULL DEFAULT 'NOTE', `colorArgb` INTEGER NOT NULL DEFAULT 0, `position` INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `scheduled_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `icon` TEXT NOT NULL DEFAULT 'NOTE', `colorArgb` INTEGER NOT NULL DEFAULT 0, `repeatPeriod` TEXT, `repeatIntervalDays` INTEGER, `repeatDays` INTEGER NOT NULL DEFAULT 0, `hidePast` INTEGER NOT NULL DEFAULT 0, `position` INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_scheduled_events_eventDate` ON `scheduled_events` (`eventDate`)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `documents` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `documents` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `position` INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `document_photos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `documentId` INTEGER NOT NULL, `photoPath` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, FOREIGN KEY(`documentId`) REFERENCES `documents`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_document_photos_documentId` ON `document_photos` (`documentId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1cc0882874eaaf55aa6328fc21613d8f')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5da1841d068af2a3748e9064b8258f5a')");
       }
 
       @Override
@@ -154,13 +154,17 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoCalendarNotes + "\n"
                   + " Found:\n" + _existingCalendarNotes);
         }
-        final HashMap<String, TableInfo.Column> _columnsScheduledEvents = new HashMap<String, TableInfo.Column>(7);
+        final HashMap<String, TableInfo.Column> _columnsScheduledEvents = new HashMap<String, TableInfo.Column>(11);
         _columnsScheduledEvents.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("eventDate", new TableInfo.Column("eventDate", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("title", new TableInfo.Column("title", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("type", new TableInfo.Column("type", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("icon", new TableInfo.Column("icon", "TEXT", true, 0, "'NOTE'", TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("colorArgb", new TableInfo.Column("colorArgb", "INTEGER", true, 0, "0", TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("repeatPeriod", new TableInfo.Column("repeatPeriod", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("repeatIntervalDays", new TableInfo.Column("repeatIntervalDays", "INTEGER", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("repeatDays", new TableInfo.Column("repeatDays", "INTEGER", true, 0, "0", TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("hidePast", new TableInfo.Column("hidePast", "INTEGER", true, 0, "0", TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("position", new TableInfo.Column("position", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysScheduledEvents = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesScheduledEvents = new HashSet<TableInfo.Index>(1);
@@ -172,11 +176,12 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoScheduledEvents + "\n"
                   + " Found:\n" + _existingScheduledEvents);
         }
-        final HashMap<String, TableInfo.Column> _columnsDocuments = new HashMap<String, TableInfo.Column>(4);
+        final HashMap<String, TableInfo.Column> _columnsDocuments = new HashMap<String, TableInfo.Column>(5);
         _columnsDocuments.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsDocuments.put("title", new TableInfo.Column("title", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsDocuments.put("description", new TableInfo.Column("description", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsDocuments.put("createdAt", new TableInfo.Column("createdAt", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsDocuments.put("position", new TableInfo.Column("position", "INTEGER", true, 0, "0", TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysDocuments = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesDocuments = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoDocuments = new TableInfo("documents", _columnsDocuments, _foreignKeysDocuments, _indicesDocuments);
@@ -204,7 +209,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "1cc0882874eaaf55aa6328fc21613d8f", "e1d442dd7a330a2c4c8868ab8fc31677");
+    }, "5da1841d068af2a3748e9064b8258f5a", "ce7bef355464f00531d9038fa4088d38");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

@@ -26,10 +26,12 @@ import com.example.timemanager.presentation.theme.LaunchBackground
  * первый кадр обязан совпадать с системным: тот же размер и центр экрана.
  *
  * Система (Android 12+) показывает adaptive-icon `splash_logo` в боксе
- * 240dp, арт в нём занимает 66% холста ≈ 158dp. Без явного размера PNG
+ * ~288dp, арт в нём занимает 66% холста ≈ 190dp. Без явного размера PNG
  * рисовался бы в «родных» пикселях и скачок на стыке был бы виден.
+ * Если на конкретном устройстве кольцо всё же расходится — подстроить
+ * эту константу (±несколько dp).
  */
-private val SplashLogoSize = 160.dp
+private val SplashLogoSize = 190.dp
 
 @Composable
 fun SplashScreen() {

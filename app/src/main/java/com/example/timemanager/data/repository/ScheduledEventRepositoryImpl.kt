@@ -28,9 +28,12 @@ class ScheduledEventRepositoryImpl @Inject constructor(
 
     override suspend fun update(event: ScheduledEvent) {
         var entity = event.toEntity()
-        // День рождения хранится с исходной якорной датой: в UI событие
-        // показывается как повторяющееся, и год в дате-вхождении менять нельзя.
-        if (event.type == ScheduledEventType.BIRTHDAY) {
+        // День рождения и повторяющееся событие хранятся с исходной якорной
+        // датой: в UI они показываются как вхождения, и год/день вхждения
+        // менять нельзя.
+        if (event.type == ScheduledEventType.BIRTHDAY ||
+            event.type == ScheduledEventType.REPEATING
+        ) {
             eventDao.getByIdOnce(event.id)?.let { existing ->
                 entity = entity.copy(eventDate = existing.eventDate)
             }
