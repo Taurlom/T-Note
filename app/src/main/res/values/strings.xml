@@ -8,6 +8,10 @@
     <string name="category_name">Название списка</string>
     <string name="task_title">Название</string>
     <string name="task_description">Описание</string>
+    <string name="copy_to">Копировать в</string>
+    <string name="copy">Скопировать</string>
+    <string name="choose_list">Выберите список</string>
+    <string name="task_copied">Скопировано в список «%1$s»</string>
     <string name="save">Сохранить</string>
     <string name="next">Следующий</string>
     <string name="delete">Удалить</string>
@@ -49,14 +53,20 @@
     <string name="event_type">Тип события</string>
     <string name="event_type_regular">Обычное</string>
     <string name="event_type_birthday">День рождения</string>
-    <string name="event_time">Время</string>
-    <string name="event_time_none">Без времени</string>
-    <string name="event_time_clear">Убрать время</string>
-    <string name="event_alarm">Будильник</string>
+    <string name="event_icon">Иконка</string>
+    <string name="event_color">Цвет</string>
+    <string name="color_default">По умолчанию</string>
+
+    <string name="icon_note">Заметка</string>
+    <string name="icon_meeting">Встреча</string>
+    <string name="icon_repair">Ремонт</string>
+    <string name="icon_hospital">Больница</string>
+    <string name="icon_travel">Путешествие</string>
+
     <string name="event_delete_description">Удалить событие</string>
-    <string name="event_reminder_text">Напоминание: %1$s</string>
-    <string name="birthday_reminder_text">Сегодня день рождения: %1$s</string>
-    <string name="alarm_channel_name">Напоминания календаря</string>
-    <string name="alarm_channel_description">Будильники и напоминания о событиях календаря</string>
+
+
+
+
 </resources>
 

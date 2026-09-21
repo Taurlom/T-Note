@@ -41,7 +41,7 @@ sealed class BottomNavItem(
     )
 
     data object Categories : BottomNavItem(
-        R.drawable.ic_format_list_bulleted,
+        R.drawable.ic_list_alt,
         R.string.bottom_nav_categories,
         Routes.CATEGORIES
     )

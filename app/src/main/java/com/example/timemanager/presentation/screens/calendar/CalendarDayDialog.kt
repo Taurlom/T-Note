@@ -1,20 +1,28 @@
 package com.example.timemanager.presentation.screens.calendar
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,30 +30,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
+import com.example.timemanager.domain.model.EventIcon
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppButton
 import com.example.timemanager.presentation.components.AppCancelButton
 import com.example.timemanager.presentation.components.AppDialog
-import com.example.timemanager.presentation.components.AppFilterChip
 import com.example.timemanager.presentation.components.AppOutlinedButton
 import com.example.timemanager.presentation.components.AppSaveButton
-import com.example.timemanager.presentation.components.AppSwitch
-import com.example.timemanager.presentation.components.AppTextField
 import com.example.timemanager.presentation.components.AppTextButton
+import com.example.timemanager.presentation.components.AppTextField
+import com.example.timemanager.presentation.theme.DialogContainer
 import com.example.timemanager.presentation.theme.OnSurfaceVariant
 import com.example.timemanager.presentation.theme.OnTertiary
 import com.example.timemanager.presentation.theme.PrimaryButtonContainer
+import com.example.timemanager.presentation.theme.Secondary
+import com.example.timemanager.presentation.theme.OnPrimary
+import com.example.timemanager.presentation.theme.Primary
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.util.Locale
 
 /**
  * Диалог выбранного дня календаря: заметка и список событий дня.
@@ -148,6 +158,11 @@ fun CalendarDayDialog(
             onSave = { saved ->
                 if (target.id == 0L) onAddEvent(saved) else onUpdateEvent(saved)
                 editorTarget = null
+            },
+            onDelete = {
+                // Кнопка видна только для сохранённого события.
+                target.takeIf { it.id != 0L }?.let { event -> onDeleteEvent(event) }
+                editorTarget = null
             }
         )
     }
@@ -165,76 +180,63 @@ private fun ScheduledEventRow(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp)
     ) {
         Icon(
             painter = painterResource(
-                when {
-                    event.type == ScheduledEventType.BIRTHDAY -> R.drawable.ic_redeem
-                    event.hasAlarm -> R.drawable.ic_alarm
-                    event.time != null -> R.drawable.ic_schedule
-                    else -> R.drawable.ic_event_note
+                if (event.type == ScheduledEventType.BIRTHDAY) {
+                    R.drawable.ic_redeem
+                } else {
+                    event.icon.drawableRes
                 }
             ),
             contentDescription = null,
-            tint = if (isPast) OnSurfaceVariant.copy(alpha = 0.45f) else PrimaryButtonContainer,
+            tint = eventIconColor(event.colorArgb, isPast, PrimaryButtonContainer),
             modifier = Modifier.size(20.dp)
         )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = titleColor,
-                textDecoration = if (isPast) TextDecoration.LineThrough else null
-            )
-            event.time?.let { time ->
-                Text(
-                    text = time,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isPast) OnSurfaceVariant.copy(alpha = 0.45f) else OnSurfaceVariant
-                )
-            }
-        }
-        if (event.hasAlarm) {
-            Icon(
-                painter = painterResource(R.drawable.ic_alarm),
-                contentDescription = stringResource(R.string.event_alarm),
-                tint = PrimaryButtonContainer,
-                modifier = Modifier.size(16.dp)
-            )
-        }
+        Text(
+            text = event.title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = titleColor,
+            textDecoration = if (isPast) TextDecoration.LineThrough else null,
+            modifier = Modifier.weight(1f)
+        )
+
         IconButton(onClick = onDelete) {
             Icon(
                 painter = painterResource(R.drawable.ic_delete),
                 contentDescription = stringResource(R.string.event_delete_description),
-                tint = OnSurfaceVariant
+                tint = Primary
             )
         }
     }
 }
 
 /**
- * Редактор события: тип (обычное/день рождения), название, время (по желанию)
- * и будильник. Событие без времени — «весь день», будильник для него недоступен.
+ * Редактор события: тип (обычное/день рождения) из выпадающего списка,
+ * название, а для обычного события — выбор иконки, которая будет
+ * отображаться под числом в календаре.
  * День рождения повторяется каждый год автоматически.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ScheduledEventEditorDialog(
     original: ScheduledEvent?,
     defaultDate: String,
     onDismiss: () -> Unit,
-    onSave: (ScheduledEvent) -> Unit
+    onSave: (ScheduledEvent) -> Unit,
+    onDelete: () -> Unit
 ) {
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
-    var time by remember { mutableStateOf(original?.time) }
-    var alarmEnabled by remember { mutableStateOf(original?.alarmEnabled == true) }
     var type by remember { mutableStateOf(original?.type ?: ScheduledEventType.REGULAR) }
-    var showTimePicker by remember { mutableStateOf(false) }
+    var icon by remember { mutableStateOf(original?.icon ?: EventIcon.NOTE) }
+    var colorArgb by remember {
+        mutableStateOf(original?.colorArgb ?: ScheduledEvent.DEFAULT_COLOR)
+    }
+    var expanded by remember { mutableStateOf(false) }
 
     AppDialog(
         title = stringResource(
@@ -250,74 +252,96 @@ private fun ScheduledEventEditorDialog(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Тип события: обычное или день рождения (повтор каждый год).
-            Text(
-                text = stringResource(R.string.event_type),
-                style = MaterialTheme.typography.labelLarge,
-                color = OnTertiary
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppFilterChip(
-                    selected = type == ScheduledEventType.REGULAR,
-                    onClick = { type = ScheduledEventType.REGULAR },
-                    label = stringResource(R.string.event_type_regular),
-                    iconRes = R.drawable.ic_event_note
-                )
-                AppFilterChip(
-                    selected = type == ScheduledEventType.BIRTHDAY,
-                    onClick = { type = ScheduledEventType.BIRTHDAY },
-                    label = stringResource(R.string.event_type_birthday),
-                    iconRes = R.drawable.ic_redeem
-                )
-            }
-
-            // Поле времени только для чтения: клик открывает выбор времени.
-            Box {
+            // Тип события: выпадающий список «Обычное» / «День рождения».
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it }
+            ) {
                 AppTextField(
-                    value = time ?: "",
+                    value = stringResource(type.labelRes),
                     onValueChange = { },
-                    label = stringResource(R.string.event_time),
-                    placeholder = stringResource(R.string.event_time_none),
+                    label = stringResource(R.string.event_type),
                     singleLine = true,
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     trailingIcon = {
-                        if (time != null) {
-                            IconButton(
-                                onClick = {
-                                    time = null
-                                    alarmEnabled = false
-                                }
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_close),
-                                    contentDescription = stringResource(R.string.event_time_clear),
-                                    tint = OnSurfaceVariant
-                                )
-                            }
-                        }
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                     }
                 )
-                // Прозрачный оверлей: по полю нельзя печатать, но можно кликнуть.
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .clickable { showTimePicker = true }
-                )
-            }
-
-            if (time != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    containerColor = DialogContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = stringResource(R.string.event_alarm),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = OnTertiary
+                    ScheduledEventType.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(option.labelRes),
+                                    color = OnTertiary
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(option.iconRes),
+                                    contentDescription = null,
+                                    tint = OnTertiary
+                                )
+                            },
+                            onClick = {
+                                type = option
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Иконку и её цвет выбирает только обычное событие: день рождения
+            // всегда отмечается подарком.
+            if (type == ScheduledEventType.REGULAR) {
+                Text(
+                    text = stringResource(R.string.event_icon),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = OnTertiary
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EventIcon.entries.forEach { option ->
+                        EventIconOption(
+                            icon = option,
+                            selected = icon == option,
+                            onClick = { icon = option }
+                        )
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.event_color),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = OnTertiary
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Первый кружок — «по умолчанию»: тематический цвет календаря.
+                    EventColorOption(
+                        swatch = Secondary,
+                        selected = colorArgb == ScheduledEvent.DEFAULT_COLOR,
+                        label = stringResource(R.string.color_default),
+                        onClick = { colorArgb = ScheduledEvent.DEFAULT_COLOR }
                     )
-                    AppSwitch(checked = alarmEnabled, onCheckedChange = { alarmEnabled = it })
+                    eventColorPresets.forEach { preset ->
+                        EventColorOption(
+                            swatch = Color(preset),
+                            selected = colorArgb == preset,
+                            label = null,
+                            onClick = { colorArgb = preset }
+                        )
+                    }
                 }
             }
         },
@@ -331,9 +355,9 @@ private fun ScheduledEventEditorDialog(
                             // обычное событие остаётся на открытой дате.
                             date = original?.date ?: defaultDate,
                             title = title,
-                            time = time,
                             type = type,
-                            alarmEnabled = alarmEnabled && time != null,
+                            icon = icon,
+                            colorArgb = colorArgb,
                             position = original?.position ?: 0
                         )
                     )
@@ -341,65 +365,97 @@ private fun ScheduledEventEditorDialog(
                 enabled = title.isNotBlank()
             )
         },
-        dismissButton = { AppCancelButton(onClick = onDismiss) }
-    )
-
-    if (showTimePicker) {
-        EventTimePickerDialog(
-            initial = time?.let { LocalTime.parse(it) } ?: LocalTime.of(9, 0),
-            onDismiss = { showTimePicker = false },
-            onConfirm = { picked ->
-                time = String.format(Locale.US, "%02d:%02d", picked.hour, picked.minute)
-                showTimePicker = false
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (original != null) {
+                    // Удаление только этого события, день остаётся.
+                    AppTextButton(
+                        onClick = onDelete,
+                        textRes = R.string.delete
+                    )
+                }
+                AppCancelButton(onClick = onDismiss)
             }
-        )
+        }
+    )
+}
+
+/** Кружок-переключатель цвета иконки события. */
+@Composable
+private fun EventColorOption(
+    swatch: Color,
+    selected: Boolean,
+    label: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(swatch)
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) OnTertiary else Color.Transparent,
+                shape = CircleShape
+            )
+            .clickable(onClickLabel = label) { onClick() }
+    ) {
+        if (selected) {
+            Icon(
+                painter = painterResource(R.drawable.ic_check),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+        }
     }
 }
 
-/** Выбор времени в стиле Material 3 поверх палитры приложения. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Кружок-переключатель иконки события с подписью под ним. */
 @Composable
-private fun EventTimePickerDialog(
-    initial: LocalTime,
-    onDismiss: () -> Unit,
-    onConfirm: (LocalTime) -> Unit
+private fun EventIconOption(
+    icon: EventIcon,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val pickerState = rememberTimePickerState(
-        initialHour = initial.hour,
-        initialMinute = initial.minute,
-        is24Hour = true
-    )
-    AppDialog(
-        title = stringResource(R.string.event_time),
-        onDismissRequest = onDismiss,
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                TimePicker(state = pickerState)
-            }
-        },
-        confirmButton = {
-            AppSaveButton(
-                onClick = { onConfirm(LocalTime.of(pickerState.hour, pickerState.minute)) }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(50))
+                .background(
+                    if (selected) PrimaryButtonContainer
+                    else OnTertiary.copy(alpha = 0.08f)
+                )
+        ) {
+            Icon(
+                painter = painterResource(icon.drawableRes),
+                contentDescription = stringResource(icon.labelRes),
+                tint = if (selected) OnPrimary else OnTertiary,
+                modifier = Modifier.size(22.dp)
             )
-        },
-        dismissButton = { AppCancelButton(onClick = onDismiss) }
-    )
+        }
+        Text(
+            text = stringResource(icon.labelRes),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) OnTertiary else OnSurfaceVariant
+        )
+    }
 }
 
 /**
  * Произошло ли событие уже (для зачёркивания в списке).
  * Повторяющиеся дни рождения не «проходят» — они наступают каждый год.
  */
-private fun ScheduledEvent.isPastOccurrence(now: LocalDateTime = LocalDateTime.now()): Boolean {
+private fun ScheduledEvent.isPastOccurrence(today: LocalDate = LocalDate.now()): Boolean {
     if (type == ScheduledEventType.BIRTHDAY) return false
-    val day: LocalDate = dateOrNull() ?: return false
-    val moment = timeOrNull()
-    return if (moment != null) {
-        LocalDateTime.of(day, moment).isBefore(now)
-    } else {
-        day.isBefore(now.toLocalDate())
-    }
+    val day = dateOrNull() ?: return false
+    return day.isBefore(today)
 }

@@ -1,6 +1,7 @@
 package com.example.timemanager.data.local;
 
 import android.database.Cursor;
+import android.os.CancellationSignal;
 import androidx.annotation.NonNull;
 import androidx.room.CoroutinesRoom;
 import androidx.room.EntityDeletionOrUpdateAdapter;
@@ -13,6 +14,7 @@ import androidx.sqlite.db.SupportSQLiteStatement;
 import com.example.timemanager.data.local.entity.TaskEntity;
 import java.lang.Class;
 import java.lang.Exception;
+import java.lang.Integer;
 import java.lang.Long;
 import java.lang.Object;
 import java.lang.Override;
@@ -202,6 +204,37 @@ public final class TaskDao_Impl implements TaskDao {
         _statement.release();
       }
     });
+  }
+
+  @Override
+  public Object getMaxPosition(final long categoryId,
+      final Continuation<? super Integer> $completion) {
+    final String _sql = "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE categoryId = ?";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
+    int _argIndex = 1;
+    _statement.bindLong(_argIndex, categoryId);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Integer>() {
+      @Override
+      @NonNull
+      public Integer call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Integer _result;
+          if (_cursor.moveToFirst()) {
+            final int _tmp;
+            _tmp = _cursor.getInt(0);
+            _result = _tmp;
+          } else {
+            _result = 0;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
   }
 
   @NonNull

@@ -8,14 +8,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SelectableChipColors
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.timemanager.presentation.theme.DialogContainer
 import com.example.timemanager.presentation.theme.OnPrimary
 import com.example.timemanager.presentation.theme.OnSurfaceVariant
 import com.example.timemanager.presentation.theme.OnTertiary
@@ -50,27 +47,6 @@ fun AppCheckbox(
                 uncheckedColor = OnSurfaceVariant
             )
         }
-    )
-}
-
-/** Переключатель (будильник и т.п.) для светлых диалогов. */
-@Composable
-fun AppSwitch(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        modifier = modifier,
-        colors = SwitchDefaults.colors(
-            checkedTrackColor = PrimaryButtonContainer,
-            checkedThumbColor = OnPrimary,
-            uncheckedTrackColor = OnSurfaceVariant.copy(alpha = 0.4f),
-            uncheckedThumbColor = DialogContainer,
-            uncheckedBorderColor = OnSurfaceVariant
-        )
     )
 }
 

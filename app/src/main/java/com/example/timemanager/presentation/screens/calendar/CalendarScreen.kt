@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
+import com.example.timemanager.domain.model.EventIcon
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppTopBar
@@ -175,8 +176,13 @@ private fun CalendarGrid(
     // каждую перерисовку создавалось ~42 объекта и столько же строк.
     val cells = remember(yearMonth) { buildMonthCells(yearMonth) }
     val noteDates = remember(notes) { notes.keys }
-    val eventDates = remember(events) {
-        events.filterValues { list -> list.any { it.type != ScheduledEventType.BIRTHDAY } }.keys
+    val eventIconsByDate = remember(events) {
+        events.mapValues { (_, list) ->
+            list.filter { it.type != ScheduledEventType.BIRTHDAY }
+                .map { it.icon to it.colorArgb }
+                .distinct()
+                .take(3)
+        }
     }
     val birthdayDates = remember(events) {
         events.filterValues { list ->
@@ -192,7 +198,7 @@ private fun CalendarGrid(
                     DayCell(
                         dayNumber = cell.date.day,
                         hasNote = noteDates.contains(cell.dateKey),
-                        hasEvent = eventDates.contains(cell.dateKey),
+                        eventIcons = eventIconsByDate[cell.dateKey].orEmpty(),
                         isBirthday = birthdayDates.contains(cell.dateKey),
                         isToday = cellDate == today,
                         // Отметки прошедших дней визуально гаснем (см. PastEventMarker).
@@ -248,7 +254,7 @@ private fun buildMonthCells(yearMonth: CalendarYearMonth): List<CalendarCell> {
 private fun DayCell(
     dayNumber: Int,
     hasNote: Boolean,
-    hasEvent: Boolean,
+    eventIcons: List<Pair<EventIcon, Long>>,
     isBirthday: Boolean,
     isToday: Boolean,
     isPast: Boolean = false,
@@ -256,13 +262,12 @@ private fun DayCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isToday) OnSurfaceVariant else Background
-    val textColor = if (isAdjacentMonth) Primary else if (isToday) OnTertiary else OnSurfaceVariant
-    val hasContent = hasNote || hasEvent || isBirthday
+    val backgroundColor = if (isToday) Primary else Background
+    val textColor = OnSurfaceVariant
+    val hasContent = hasNote || eventIcons.isNotEmpty() || isBirthday
     val shape = MaterialTheme.shapes.small
 
     Box(
-        contentAlignment = Alignment.Center,
         modifier = modifier
             .aspectRatio(1f)
             .padding(4.dp)
@@ -270,24 +275,27 @@ private fun DayCell(
             .background(backgroundColor)
             .clickable(onClick = onClick)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = dayNumber.toString(),
-                style = MaterialTheme.typography.bodyLarge,
-                // Число прошедшего дня с записью приглушается сильнее обычного.
-                color = if (isPast && !isAdjacentMonth && hasContent && !isBirthday) {
-                    OnSurfaceVariant.copy(alpha = 0.45f)
-                } else {
-                    textColor
-                },
-                textAlign = TextAlign.Center
-            )
+        // Число всегда в центре ячейки, ряд иконок прижат к нижнему краю
+        // (аналог position:absolute): появление событий не сдвигает число.
+        Text(
+            text = dayNumber.toString(),
+            style = MaterialTheme.typography.bodyLarge,
+            // Число прошедшего дня с записью приглушается сильнее обычного.
+            color = if (isPast && !isAdjacentMonth && hasContent && !isBirthday) {
+                OnSurfaceVariant.copy(alpha = 0.45f)
+            } else {
+                textColor
+            },
+            textAlign = TextAlign.Center,
+            modifier = Modifier.align(Alignment.Center)
+        )
+        if (hasContent) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 2.dp)
             ) {
                 if (isBirthday) {
                     // День рождения: иконка подарка, не «тухнет» — он повторяется.
@@ -298,19 +306,21 @@ private fun DayCell(
                         modifier = Modifier.size(12.dp)
                     )
                 }
+                // Иконки обычных событий (выбираются в редакторе события).
+                // Прошедшие дни помечаются «потушенным» цветом.
+                eventIcons.forEach { (icon, colorArgb) ->
+                    Icon(
+                        painter = painterResource(icon.drawableRes),
+                        contentDescription = stringResource(icon.labelRes),
+                        tint = eventIconColor(colorArgb, isPast, Secondary),
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
                 if (hasNote) {
                     Box(
                         modifier = Modifier
-                            .size(5.dp)
-                            // Прошедшие события помечаются «потушенным» цветом.
+                            .size(7.dp)
                             .background(if (isPast) PastEventMarker else Accent, CircleShape)
-                    )
-                }
-                if (hasEvent) {
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .background(if (isPast) PastEventMarker else Secondary, CircleShape)
                     )
                 }
             }

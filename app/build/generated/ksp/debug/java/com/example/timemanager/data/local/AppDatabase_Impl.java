@@ -40,20 +40,20 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(8) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(10) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `categories` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER NOT NULL, `position` INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `tasks` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `isCompleted` INTEGER NOT NULL, `categoryId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `position` INTEGER NOT NULL, FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_categoryId` ON `tasks` (`categoryId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `calendar_notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `text` TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `scheduled_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `title` TEXT NOT NULL, `time` TEXT, `type` TEXT NOT NULL, `alarmEnabled` INTEGER NOT NULL, `position` INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `scheduled_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `eventDate` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `icon` TEXT NOT NULL DEFAULT 'NOTE', `colorArgb` INTEGER NOT NULL DEFAULT 0, `position` INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_scheduled_events_eventDate` ON `scheduled_events` (`eventDate`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `documents` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `document_photos` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `documentId` INTEGER NOT NULL, `photoPath` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, FOREIGN KEY(`documentId`) REFERENCES `documents`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_document_photos_documentId` ON `document_photos` (`documentId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a15907a862c9664db9b24dacb393ef96')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1cc0882874eaaf55aa6328fc21613d8f')");
       }
 
       @Override
@@ -158,9 +158,9 @@ public final class AppDatabase_Impl extends AppDatabase {
         _columnsScheduledEvents.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("eventDate", new TableInfo.Column("eventDate", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("title", new TableInfo.Column("title", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsScheduledEvents.put("time", new TableInfo.Column("time", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("type", new TableInfo.Column("type", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsScheduledEvents.put("alarmEnabled", new TableInfo.Column("alarmEnabled", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("icon", new TableInfo.Column("icon", "TEXT", true, 0, "'NOTE'", TableInfo.CREATED_FROM_ENTITY));
+        _columnsScheduledEvents.put("colorArgb", new TableInfo.Column("colorArgb", "INTEGER", true, 0, "0", TableInfo.CREATED_FROM_ENTITY));
         _columnsScheduledEvents.put("position", new TableInfo.Column("position", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysScheduledEvents = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesScheduledEvents = new HashSet<TableInfo.Index>(1);
@@ -204,7 +204,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "a15907a862c9664db9b24dacb393ef96", "da6b961596648fd620b2f1a92e8fc43b");
+    }, "1cc0882874eaaf55aa6328fc21613d8f", "e1d442dd7a330a2c4c8868ab8fc31677");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

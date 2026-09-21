@@ -5,5 +5,7 @@ import com.example.timemanager.domain.model.Task
 
 data class TasksUiState(
     val category: Category? = null,
-    val tasks: List<Task> = emptyList()
+    val tasks: List<Task> = emptyList(),
+    /** Другие списки — цели копирования. */
+    val categories: List<Category> = emptyList()
 )

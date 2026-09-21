@@ -31,7 +31,9 @@ object DatabaseModule {
             .addMigrations(
                 AppDatabaseMigration.MIGRATION_5_6,
                 AppDatabaseMigration.MIGRATION_6_7,
-                AppDatabaseMigration.MIGRATION_7_8
+                AppDatabaseMigration.MIGRATION_7_8,
+                AppDatabaseMigration.MIGRATION_8_9,
+                AppDatabaseMigration.MIGRATION_9_10
             )
             // Никакого destructive fallback: отсутствие миграции должно падать
             // loudly на этапе разработки, а не молча стирать пользовательские данные.

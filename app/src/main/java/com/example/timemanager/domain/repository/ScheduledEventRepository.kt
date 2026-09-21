@@ -10,7 +10,6 @@ interface ScheduledEventRepository {
     fun getByType(type: ScheduledEventType): Flow<List<ScheduledEvent>>
 
     suspend fun getById(id: Long): ScheduledEvent?
-    suspend fun getAllWithAlarm(): List<ScheduledEvent>
 
     /** @return id вставленной записи. */
     suspend fun add(event: ScheduledEvent): Long

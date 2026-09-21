@@ -14,7 +14,7 @@ interface ScheduledEventDao {
 
     @Query(
         "SELECT * FROM scheduled_events WHERE eventDate LIKE :monthPrefix " +
-            "ORDER BY time IS NULL ASC, time ASC, position ASC, id ASC"
+            "ORDER BY position ASC, id ASC"
     )
     fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEventEntity>>
 
@@ -23,9 +23,6 @@ interface ScheduledEventDao {
 
     @Query("SELECT * FROM scheduled_events WHERE id = :id")
     suspend fun getByIdOnce(id: Long): ScheduledEventEntity?
-
-    @Query("SELECT * FROM scheduled_events WHERE alarmEnabled = 1 AND time IS NOT NULL")
-    suspend fun getAllWithAlarm(): List<ScheduledEventEntity>
 
     @Query("DELETE FROM scheduled_events WHERE eventDate = :date")
     suspend fun deleteByDate(date: String)

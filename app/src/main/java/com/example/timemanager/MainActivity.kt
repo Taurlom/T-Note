@@ -1,14 +1,14 @@
 package com.example.timemanager
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,29 +34,16 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-            // Разрешение нужно только для уведомлений-будильников;
-            // при отказе напоминания не приходят, но события работают.
-        }
-
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        // Передача системного сплэша заставке: системная анимация «сжаться
+        // и исчезнуть» дала бы видимый скачок. Первый кадр SplashScreen()
+        // идентичен системному логотипу, поэтому убираем сплэш мгновенно.
+        installSplashScreen().setOnExitAnimationListener { splashView ->
+            splashView.remove()
+        }
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        requestNotificationPermissionIfNeeded()
         setContent {
             val selectedFont by settingsRepository.selectedFont
                 .collectAsState(initial = AppFont.PT_SANS)
@@ -73,10 +60,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    if (showSplash) {
-                        SplashScreen()
-                    } else {
-                        AppNavigation()
+                    // Кросс-фейд заставки в приложение: заставка гаснет
+                    // плавно, а не исчезает одним кадром.
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (!showSplash) {
+                            AppNavigation()
+                        }
+                        AnimatedVisibility(
+                            visible = showSplash,
+                            exit = fadeOut(tween(400))
+                        ) {
+                            SplashScreen()
+                        }
                     }
                 }
             }

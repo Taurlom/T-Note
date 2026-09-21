@@ -16,6 +16,9 @@ class TaskRepositoryImpl @Inject constructor(
     override fun getByCategory(categoryId: Long): Flow<List<Task>> =
         dao.getByCategory(categoryId).map { list -> list.map { it.toDomain() } }
 
+    override suspend fun getMaxPosition(categoryId: Long): Int =
+        dao.getMaxPosition(categoryId)
+
     override suspend fun insert(task: Task): Long =
         dao.insert(task.toEntity())
 

@@ -23,9 +23,6 @@ class ScheduledEventRepositoryImpl @Inject constructor(
     override suspend fun getById(id: Long): ScheduledEvent? =
         eventDao.getByIdOnce(id)?.toDomain()
 
-    override suspend fun getAllWithAlarm(): List<ScheduledEvent> =
-        eventDao.getAllWithAlarm().map { it.toDomain() }
-
     override suspend fun add(event: ScheduledEvent): Long =
         eventDao.insert(event.toEntity())
 

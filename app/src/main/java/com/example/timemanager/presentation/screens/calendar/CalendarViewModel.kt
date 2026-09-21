@@ -2,7 +2,7 @@ package com.example.timemanager.presentation.screens.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.timemanager.alarm.AlarmScheduler
+
 import com.example.timemanager.domain.model.CalendarNote
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.usecase.AddScheduledEventUseCase
@@ -12,7 +12,6 @@ import com.example.timemanager.domain.usecase.GetBirthdayEventsUseCase
 import com.example.timemanager.domain.usecase.GetCalendarNotesByMonthUseCase
 import com.example.timemanager.domain.usecase.GetScheduledEventsByMonthUseCase
 import com.example.timemanager.domain.usecase.SaveCalendarNoteUseCase
-import com.example.timemanager.domain.usecase.SyncEventAlarmsUseCase
 import com.example.timemanager.domain.usecase.UpdateScheduledEventUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -35,9 +34,7 @@ class CalendarViewModel @Inject constructor(
     private val deleteDayUseCase: DeleteCalendarDayUseCase,
     private val addEventUseCase: AddScheduledEventUseCase,
     private val updateEventUseCase: UpdateScheduledEventUseCase,
-    private val deleteEventUseCase: DeleteScheduledEventUseCase,
-    private val syncEventAlarmsUseCase: SyncEventAlarmsUseCase,
-    private val alarmScheduler: AlarmScheduler
+    private val deleteEventUseCase: DeleteScheduledEventUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -47,8 +44,6 @@ class CalendarViewModel @Inject constructor(
 
     init {
         loadMonthData()
-        // После перезагрузки/паузы pending-будильники могли потеряться.
-        viewModelScope.launch { syncEventAlarmsUseCase() }
     }
 
     private fun loadMonthData() {
@@ -89,9 +84,7 @@ class CalendarViewModel @Inject constructor(
             byDate.getOrPut(key) { mutableListOf() } += birthday.copy(date = key)
         }
         return byDate.mapValues { (_, events) ->
-            events.sortedWith(
-                compareBy({ it.time == null }, { it.time.orEmpty() }, { it.position }, { it.id })
-            )
+            events.sortedWith(compareBy({ it.position }, { it.id }))
         }
     }
 
@@ -123,10 +116,6 @@ class CalendarViewModel @Inject constructor(
 
     private fun deleteDay(date: String) {
         viewModelScope.launch {
-            // Будильники удалённых событий больше не нужны.
-            _uiState.value.events[date].orEmpty()
-                .filter { it.hasAlarm }
-                .forEach { alarmScheduler.cancel(it.id) }
             deleteDayUseCase(date)
         }
     }
@@ -140,11 +129,6 @@ class CalendarViewModel @Inject constructor(
             val id = addEventUseCase(
                 draft.copy(date = date, title = trimmed, position = nextPosition)
             )
-            val saved = draft.copy(id = id, date = date, title = trimmed, position = nextPosition)
-            if (saved.hasAlarm) {
-                alarmScheduler.scheduleNext(saved)
-                if (!alarmScheduler.canScheduleExact()) alarmScheduler.openExactAlarmSettings()
-            }
         }
     }
 
@@ -154,20 +138,12 @@ class CalendarViewModel @Inject constructor(
             if (trimmed.isBlank()) return@launch
             val updated = event.copy(title = trimmed)
             updateEventUseCase(updated)
-            // Перепланировка: старое срабатывание снимается, новое ставится
-            // на ближайший момент (для дня рождения — на следующий год).
-            alarmScheduler.cancel(updated.id)
-            if (updated.hasAlarm) {
-                alarmScheduler.scheduleNext(updated)
-                if (!alarmScheduler.canScheduleExact()) alarmScheduler.openExactAlarmSettings()
-            }
         }
     }
 
     private fun deleteEvent(event: ScheduledEvent) {
         viewModelScope.launch {
             deleteEventUseCase(event)
-            alarmScheduler.cancel(event.id)
         }
     }
 

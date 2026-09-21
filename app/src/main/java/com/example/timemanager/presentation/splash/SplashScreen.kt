@@ -10,14 +10,26 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.presentation.theme.LaunchBackground
+
+/**
+ * Заставка рисует тот же логотип, что и системный сплэш-экран, — поэтому
+ * первый кадр обязан совпадать с системным: тот же размер и центр экрана.
+ *
+ * Система (Android 12+) показывает adaptive-icon `splash_logo` в боксе
+ * 240dp, арт в нём занимает 66% холста ≈ 158dp. Без явного размера PNG
+ * рисовался бы в «родных» пикселях и скачок на стыке был бы виден.
+ */
+private val SplashLogoSize = 160.dp
 
 @Composable
 fun SplashScreen() {
@@ -46,13 +58,16 @@ fun SplashScreen() {
 
         Image(
             painter = painterResource(R.drawable.logo_center),
-            contentDescription = null
+            contentDescription = null,
+            modifier = Modifier.size(SplashLogoSize)
         )
 
         Image(
             painter = painterResource(R.drawable.logo_dial),
             contentDescription = null,
-            modifier = Modifier.rotate(angle)
+            modifier = Modifier
+                .size(SplashLogoSize)
+                .rotate(angle)
         )
     }
 }

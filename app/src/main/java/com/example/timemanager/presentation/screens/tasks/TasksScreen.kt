@@ -128,6 +128,15 @@ fun TasksScreen(
             dialogTitle = stringResource(R.string.edit_task),
             titleInitial = task.title,
             descriptionInitial = task.description,
+            copyTargets = uiState.categories,
+            onCopyTo = { targetId, title, description ->
+                viewModel.onEvent(
+                    TasksEvent.OnCopyTask(
+                        task.copy(title = title.trim(), description = description.trim()),
+                        targetId
+                    )
+                )
+            },
             onDismiss = { taskToEdit = null },
             onConfirm = { title, description ->
                 viewModel.onEvent(

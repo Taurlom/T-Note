@@ -5,6 +5,48 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigration {
 
+    /** Добавляет в scheduled_events цвет иконки события (0 — тематический). */
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE scheduled_events " +
+                    "ADD COLUMN colorArgb INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
+    /**
+     * Убирает из scheduled_events колонки времени и будильника (функциональность
+     * удалена) и добавляет колонку иконки события. Пересоздание таблицы вместо
+     * DROP COLUMN: на Android < 13 SQLite его не поддерживает.
+     */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_events_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    eventDate TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    icon TEXT NOT NULL DEFAULT 'NOTE',
+                    position INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "INSERT INTO scheduled_events_new (id, eventDate, title, type, icon, position) " +
+                    "SELECT id, eventDate, title, type, 'NOTE', position FROM scheduled_events"
+            )
+            db.execSQL("DROP TABLE scheduled_events")
+            db.execSQL("ALTER TABLE scheduled_events_new RENAME TO scheduled_events")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_events_eventDate " +
+                    "ON scheduled_events(eventDate)"
+            )
+        }
+    }
+
     /**
      * Удаляет таблицу calendar_tasks — незавершённую функциональность
      * «задачи календаря», которая никогда не была доступна в UI.

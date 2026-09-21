@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timemanager.domain.model.Task
 import com.example.timemanager.domain.usecase.AddTaskUseCase
+import com.example.timemanager.domain.usecase.CopyTaskToCategoryUseCase
 import com.example.timemanager.domain.usecase.DeleteTaskUseCase
+import com.example.timemanager.domain.usecase.GetCategoriesUseCase
 import com.example.timemanager.domain.usecase.GetCategoryByIdUseCase
 import com.example.timemanager.domain.usecase.GetTasksByCategoryUseCase
 import com.example.timemanager.domain.usecase.ReorderTasksUseCase
@@ -25,10 +27,12 @@ class TasksViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getTasksByCategoryUseCase: GetTasksByCategoryUseCase,
     private val getCategoryByIdUseCase: GetCategoryByIdUseCase,
+    private val getCategoriesUseCase: GetCategoriesUseCase,
     private val addTaskUseCase: AddTaskUseCase,
     private val updateTaskUseCase: UpdateTaskUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
-    private val reorderTasksUseCase: ReorderTasksUseCase
+    private val reorderTasksUseCase: ReorderTasksUseCase,
+    private val copyTaskToCategoryUseCase: CopyTaskToCategoryUseCase
 ) : ViewModel() {
 
     private val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
@@ -39,12 +43,24 @@ class TasksViewModel @Inject constructor(
     init {
         loadCategory()
         loadTasks()
+        loadOtherCategories()
     }
 
     private fun loadCategory() {
         getCategoryByIdUseCase(categoryId)
             .onEach { category ->
                 _uiState.update { it.copy(category = category) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    /** Списки-цели для «Копировать в»: все, кроме текущего. */
+    private fun loadOtherCategories() {
+        getCategoriesUseCase()
+            .onEach { categories ->
+                _uiState.update {
+                    it.copy(categories = categories.filterNot { c -> c.id == categoryId })
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -75,6 +91,11 @@ class TasksViewModel @Inject constructor(
             is TasksEvent.OnEditTask -> {
                 viewModelScope.launch {
                     updateTaskUseCase(event.task)
+                }
+            }
+            is TasksEvent.OnCopyTask -> {
+                viewModelScope.launch {
+                    copyTaskToCategoryUseCase(event.task, event.targetCategoryId)
                 }
             }
             is TasksEvent.OnDeleteTask -> {

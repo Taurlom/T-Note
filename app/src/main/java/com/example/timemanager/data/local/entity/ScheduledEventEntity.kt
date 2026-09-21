@@ -1,5 +1,6 @@
 package com.example.timemanager.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -13,8 +14,10 @@ data class ScheduledEventEntity(
     val id: Long = 0,
     val eventDate: String,
     val title: String,
-    val time: String?,
     val type: String,
-    val alarmEnabled: Boolean,
+    @ColumnInfo(defaultValue = "NOTE")
+    val icon: String,
+    @ColumnInfo(defaultValue = "0")
+    val colorArgb: Long,
     val position: Int = 0
 )

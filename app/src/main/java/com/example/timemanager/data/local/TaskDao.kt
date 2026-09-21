@@ -15,6 +15,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE categoryId = :categoryId ORDER BY isCompleted ASC, position ASC, createdAt DESC")
     fun getByCategory(categoryId: Long): Flow<List<TaskEntity>>
 
+    @Query("SELECT COALESCE(MAX(position), -1) FROM tasks WHERE categoryId = :categoryId")
+    suspend fun getMaxPosition(categoryId: Long): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(task: TaskEntity): Long
 
