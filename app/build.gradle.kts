@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,12 +9,15 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Ключ подписи релизов: keystore.properties в корне (в .gitignore).
+// Без него release собирается неподписанным — так может работать CI-fork
+// или свежий клон без секретов.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
+}
+
 android {
-    compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
     namespace = "com.example.timemanager"
     compileSdk = 34
 
@@ -20,8 +25,11 @@ android {
         applicationId = "com.example.timemanager"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // Версионирование: семантическое (см. CHANGELOG.md).
+        // versionCode = MAJOR*100 + MINOR*10 + PATCH — растёт монотонно,
+        // синхронно с versionName при каждом релизе.
+        versionCode = 116
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,22 +37,39 @@ android {
         }
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // Подпись релизов: если keystore.properties нет — собираем без подписи
+    // (debug всё равно подписан отладочным ключом и ставится на устройство).
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
+
     buildFeatures {
         compose = true
     }
