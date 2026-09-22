@@ -9,9 +9,7 @@ import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
-import com.example.timemanager.presentation.theme.OnSurfaceVariant
-import com.example.timemanager.presentation.theme.OnTertiary
-import com.example.timemanager.presentation.theme.PrimaryButtonContainer
+import com.example.timemanager.presentation.theme.AppTheme
 
 /**
  * Стандартное текстовое поле приложения (светлая тема диалогов и экранов).
@@ -55,34 +53,40 @@ fun AppTextField(
 
 /** Палитра полей на тёмном фоне экрана (например, выпадающий список шрифта). */
 @Composable
-fun appTextFieldColorsOnDark(): TextFieldColors = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = OnSurfaceVariant,
-    unfocusedTextColor = OnSurfaceVariant,
-    disabledTextColor = OnSurfaceVariant,
-    cursorColor = OnSurfaceVariant,
-    focusedBorderColor = OnSurfaceVariant,
-    unfocusedBorderColor = OnSurfaceVariant.copy(alpha = 0.6f),
-    focusedLabelColor = OnSurfaceVariant,
-    unfocusedLabelColor = OnSurfaceVariant.copy(alpha = 0.6f),
-    focusedTrailingIconColor = OnSurfaceVariant,
-    unfocusedTrailingIconColor = OnSurfaceVariant
-)
+fun appTextFieldColorsOnDark(): TextFieldColors {
+    val colors = AppTheme.colors
+    return OutlinedTextFieldDefaults.colors(
+        focusedTextColor = colors.fieldOnDarkContent,
+        unfocusedTextColor = colors.fieldOnDarkContent,
+        disabledTextColor = colors.fieldOnDarkContent,
+        cursorColor = colors.fieldOnDarkContent,
+        focusedBorderColor = colors.fieldOnDarkContent,
+        unfocusedBorderColor = colors.fieldOnDarkBorder,
+        focusedLabelColor = colors.fieldOnDarkContent,
+        unfocusedLabelColor = colors.fieldOnDarkBorder,
+        focusedTrailingIconColor = colors.fieldOnDarkContent,
+        unfocusedTrailingIconColor = colors.fieldOnDarkContent
+    )
+}
 
 /** Палитра текстовых полей — единая для всех экранов. */
 @Composable
-fun appTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = OnTertiary,
-    unfocusedTextColor = OnTertiary,
-    disabledTextColor = OnTertiary,
-    cursorColor = OnTertiary,
-    focusedBorderColor = PrimaryButtonContainer,
-    unfocusedBorderColor = PrimaryButtonContainer.copy(alpha = 0.6f),
-    focusedLabelColor = PrimaryButtonContainer,
-    unfocusedLabelColor = PrimaryButtonContainer.copy(alpha = 0.6f),
-    disabledBorderColor = PrimaryButtonContainer.copy(alpha = 0.6f),
-    disabledLabelColor = PrimaryButtonContainer,
-    disabledTrailingIconColor = OnSurfaceVariant,
-    disabledPlaceholderColor = OnSurfaceVariant,
-    focusedTrailingIconColor = OnTertiary,
-    unfocusedTrailingIconColor = OnTertiary
-)
+fun appTextFieldColors(): TextFieldColors {
+    val colors = AppTheme.colors
+    return OutlinedTextFieldDefaults.colors(
+        focusedTextColor = colors.fieldContent,
+        unfocusedTextColor = colors.fieldContent,
+        disabledTextColor = colors.fieldContent,
+        cursorColor = colors.fieldContent,
+        focusedBorderColor = colors.fieldBorder,
+        unfocusedBorderColor = colors.fieldBorderUnfocused,
+        focusedLabelColor = colors.fieldBorder,
+        unfocusedLabelColor = colors.fieldBorderUnfocused,
+        disabledBorderColor = colors.fieldBorderUnfocused,
+        disabledLabelColor = colors.fieldBorder,
+        disabledTrailingIconColor = colors.dialogContentMuted,
+        disabledPlaceholderColor = colors.dialogContentMuted,
+        focusedTrailingIconColor = colors.fieldContent,
+        unfocusedTrailingIconColor = colors.fieldContent
+    )
+}

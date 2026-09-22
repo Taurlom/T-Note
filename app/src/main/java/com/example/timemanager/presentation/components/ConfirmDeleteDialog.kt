@@ -4,7 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.example.timemanager.R
-import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.AppTheme
 
 /** Стандартный диалог подтверждения удаления. */
 @Composable
@@ -21,7 +21,7 @@ fun ConfirmDeleteDialog(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge,
-                color = OnTertiary
+                color = AppTheme.colors.dialogContent
             )
         },
         confirmButton = { AppTextButton(onClick = onConfirm, textRes = R.string.delete) },

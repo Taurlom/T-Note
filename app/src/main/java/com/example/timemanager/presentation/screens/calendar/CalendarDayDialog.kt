@@ -54,13 +54,7 @@ import com.example.timemanager.presentation.components.AppOutlinedButton
 import com.example.timemanager.presentation.components.AppSaveButton
 import com.example.timemanager.presentation.components.AppTextButton
 import com.example.timemanager.presentation.components.AppTextField
-import com.example.timemanager.presentation.theme.DialogContainer
-import com.example.timemanager.presentation.theme.OnSurfaceVariant
-import com.example.timemanager.presentation.theme.OnTertiary
-import com.example.timemanager.presentation.theme.PrimaryButtonContainer
-import com.example.timemanager.presentation.theme.Secondary
-import com.example.timemanager.presentation.theme.OnPrimary
-import com.example.timemanager.presentation.theme.Primary
+import com.example.timemanager.presentation.theme.AppTheme
 import java.time.LocalDate
 
 /**
@@ -101,7 +95,7 @@ fun CalendarDayDialog(
                 Text(
                     text = stringResource(R.string.events_label),
                     style = MaterialTheme.typography.titleSmall,
-                    color = OnTertiary
+                    color = AppTheme.colors.dialogContent
                 )
                 events.forEach { event ->
                     ScheduledEventRow(
@@ -182,7 +176,7 @@ private fun ScheduledEventRow(
     onDelete: () -> Unit
 ) {
     val isPast = remember(event) { event.isPastOccurrence() }
-    val titleColor = if (isPast) OnTertiary.copy(alpha = 0.45f) else OnTertiary
+    val titleColor = if (isPast) AppTheme.colors.dialogContent.copy(alpha = 0.45f) else AppTheme.colors.dialogContent
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -193,14 +187,14 @@ private fun ScheduledEventRow(
     ) {
         Icon(
             painter = painterResource(
-                if (event.type == ScheduledEventType.BIRTHDAY) {
-                    R.drawable.ic_redeem
-                } else {
-                    event.icon.drawableRes
+                when (event.type) {
+                    ScheduledEventType.BIRTHDAY -> R.drawable.ic_redeem
+                    ScheduledEventType.WEEKEND -> R.drawable.ic_weekend
+                    else -> event.icon.drawableRes
                 }
             ),
             contentDescription = null,
-            tint = eventIconColor(event.colorArgb, isPast, PrimaryButtonContainer),
+            tint = eventIconColor(event.colorArgb, isPast, AppTheme.colors.dialogContent),
             modifier = Modifier.size(20.dp)
         )
         Text(
@@ -215,15 +209,17 @@ private fun ScheduledEventRow(
             Icon(
                 painter = painterResource(R.drawable.ic_delete),
                 contentDescription = stringResource(R.string.event_delete_description),
-                tint = Primary
+                tint = AppTheme.colors.dialogContent
             )
         }
     }
 }
 
 /**
- * Редактор события: тип (обычное/день рождения/повторяющееся) из выпадающего
- * списка, название, а для не-дней рождения — выбор иконки и её цвета.
+ * Редактор события: тип (обычное/день рождения/повторяющееся/выходной) из
+ * выпадающего списка, название, а для обычных и повторяющихся — выбор иконки
+ * и её цвета. «Выходной» дополнительных полей не имеет: он просто подсвечивает
+ * день как выходной.
  * У повторяющегося события настраиваются период (или свой интервал
  * «раз в N дней»), скрытие прошедших вхождений и длительность повторения.
  */
@@ -282,7 +278,7 @@ private fun ScheduledEventEditorDialog(
                     Icon(
                         painter = painterResource(option.iconRes),
                         contentDescription = null,
-                        tint = OnTertiary
+                        tint = AppTheme.colors.dialogContent
                     )
                 },
                 placeholder = "",
@@ -317,13 +313,13 @@ private fun ScheduledEventEditorDialog(
                         checked = hidePast,
                         onCheckedChange = { hidePast = it },
                         onDarkBackground = false,
-                        // Бежевый OnSurfaceVariant сливался бы с фоном диалога.
-                        uncheckedColor = OnTertiary
+                    // Приглушённый цвет по умолчанию сливался бы с бежевым фоном.
+                    uncheckedColor = AppTheme.colors.dialogContent
                     )
                     Text(
                         text = stringResource(R.string.repeat_hide_past),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = OnTertiary
+                        color = AppTheme.colors.dialogContent
                     )
                 }
                 AppTextField(
@@ -337,12 +333,12 @@ private fun ScheduledEventEditorDialog(
             }
 
             // Иконку и её цвет выбирают обычные и повторяющиеся события:
-            // день рождения всегда отмечается подарком.
-            if (type != ScheduledEventType.BIRTHDAY) {
+            // день рождения отмечается подарком, «Выходной» — подсветкой дня.
+            if (type == ScheduledEventType.REGULAR || type == ScheduledEventType.REPEATING) {
                 Text(
                     text = stringResource(R.string.event_icon),
                     style = MaterialTheme.typography.labelLarge,
-                    color = OnTertiary
+                    color = AppTheme.colors.dialogContent
                 )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -360,15 +356,15 @@ private fun ScheduledEventEditorDialog(
                 Text(
                     text = stringResource(R.string.event_color),
                     style = MaterialTheme.typography.labelLarge,
-                    color = OnTertiary
+                    color = AppTheme.colors.dialogContent
                 )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Первый кружок — «по умолчанию»: тематический цвет календаря.
+                    // Первый кружок — «по умолчанию»: цвет маркера события в сетке.
                     EventColorOption(
-                        swatch = Secondary,
+                        swatch = AppTheme.colors.calendarEventMarker,
                         selected = colorArgb == ScheduledEvent.DEFAULT_COLOR,
                         label = stringResource(R.string.color_default),
                         onClick = { colorArgb = ScheduledEvent.DEFAULT_COLOR }
@@ -478,7 +474,7 @@ private fun <T> LabeledDropdown(
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            containerColor = DialogContainer,
+            containerColor = AppTheme.colors.dialogContainer,
             modifier = with(LocalDensity.current) {
                 if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
             }
@@ -488,7 +484,7 @@ private fun <T> LabeledDropdown(
                     text = {
                         Text(
                             text = optionLabel(option),
-                            color = OnTertiary
+                            color = AppTheme.colors.dialogContent
                         )
                     },
                     leadingIcon = optionIcon?.let { iconContent ->
@@ -521,7 +517,7 @@ private fun EventColorOption(
             .background(swatch)
             .border(
                 width = if (selected) 2.dp else 1.dp,
-                color = if (selected) OnTertiary else Color.Transparent,
+                color = if (selected) AppTheme.colors.dialogContent else Color.Transparent,
                 shape = CircleShape
             )
             .clickable(onClickLabel = label) { onClick() }
@@ -545,14 +541,15 @@ private fun EventIconOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = AppTheme.colors
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(28.dp)
             .clip(CircleShape)
             .background(
-                if (selected) PrimaryButtonContainer
-                else OnTertiary.copy(alpha = 0.08f)
+                if (selected) colors.chipSelectedContainer
+                else colors.chipContainer
             )
             .clickable(
                 onClickLabel = stringResource(icon.labelRes),
@@ -562,7 +559,7 @@ private fun EventIconOption(
         Icon(
             painter = painterResource(icon.drawableRes),
             contentDescription = stringResource(icon.labelRes),
-            tint = if (selected) OnPrimary else OnTertiary,
+            tint = if (selected) colors.chipSelectedContent else colors.chipContent,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -573,7 +570,10 @@ private fun EventIconOption(
  * Повторяющиеся дни рождения не «проходят» — они наступают каждый год.
  */
 private fun ScheduledEvent.isPastOccurrence(today: LocalDate = LocalDate.now()): Boolean {
-    if (type == ScheduledEventType.BIRTHDAY) return false
+    // Дни рождения и пометки «Выходной» не «проходят»: они отмечают день.
+    if (type == ScheduledEventType.BIRTHDAY || type == ScheduledEventType.WEEKEND) {
+        return false
+    }
     val day = dateOrNull() ?: return false
     return day.isBefore(today)
 }

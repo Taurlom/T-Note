@@ -5,10 +5,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +18,7 @@ import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.presentation.navigation.AppNavigation
 import com.example.timemanager.presentation.splash.SplashScreen
 import com.example.timemanager.presentation.theme.AppFont
+import com.example.timemanager.presentation.theme.ThemeKind
 import com.example.timemanager.presentation.theme.TNoteTheme
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
@@ -35,9 +32,6 @@ class MainActivity : ComponentActivity() {
     lateinit var settingsRepository: SettingsRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Передача системного сплэша заставке: системная анимация «сжаться
-        // и исчезнуть» дала бы видимый скачок. Первый кадр SplashScreen()
-        // идентичен системному логотипу, поэтому убираем сплэш мгновенно.
         installSplashScreen().setOnExitAnimationListener { splashView ->
             splashView.remove()
         }
@@ -47,6 +41,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val selectedFont by settingsRepository.selectedFont
                 .collectAsState(initial = AppFont.PT_SANS)
+            val selectedTheme by settingsRepository.selectedTheme
+                .collectAsState(initial = ThemeKind.DARK)
 
             var showSplash by remember { mutableStateOf(true) }
 
@@ -55,23 +51,18 @@ class MainActivity : ComponentActivity() {
                 showSplash = false
             }
 
-            TNoteTheme(fontFamily = selectedFont.fontFamily) {
+            TNoteTheme(
+                fontFamily = selectedFont.fontFamily,
+                theme = selectedTheme
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Кросс-фейд заставки в приложение: заставка гаснет
-                    // плавно, а не исчезает одним кадром.
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        if (!showSplash) {
-                            AppNavigation()
-                        }
-                        AnimatedVisibility(
-                            visible = showSplash,
-                            exit = fadeOut(tween(400))
-                        ) {
-                            SplashScreen()
-                        }
+                    if (showSplash) {
+                        SplashScreen()
+                    } else {
+                        AppNavigation()
                     }
                 }
             }

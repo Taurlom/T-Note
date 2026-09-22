@@ -40,14 +40,8 @@ import com.example.timemanager.domain.model.EventIcon
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppTopBar
-import com.example.timemanager.presentation.theme.Accent
-import com.example.timemanager.presentation.theme.Background
-import com.example.timemanager.presentation.theme.OnPrimaryContainer
-import com.example.timemanager.presentation.theme.OnSurfaceVariant
-import com.example.timemanager.presentation.theme.OnTertiary
-import com.example.timemanager.presentation.theme.PastEventMarker
-import com.example.timemanager.presentation.theme.Primary
-import com.example.timemanager.presentation.theme.Secondary
+import com.example.timemanager.presentation.theme.AppTheme
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,20 +117,20 @@ private fun CalendarHeader(
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_left),
                 contentDescription = "Предыдущий месяц",
-                tint = OnPrimaryContainer
+                tint = AppTheme.colors.calendarHeader
             )
         }
         Text(
             // Название месяца форматируется один раз за перерисовку заголовка.
             text = remember(yearMonth) { yearMonth.toDisplayName() },
             style = MaterialTheme.typography.headlineSmall,
-            color = OnPrimaryContainer
+            color = AppTheme.colors.calendarHeader
         )
         IconButton(onClick = onNext) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_right),
                 contentDescription = "Следующий месяц",
-                tint = OnPrimaryContainer
+                tint = AppTheme.colors.calendarHeader
             )
         }
     }
@@ -152,7 +146,7 @@ private fun WeekDayLabels() {
             Text(
                 text = day,
                 style = MaterialTheme.typography.labelLarge,
-                color = Accent,
+                color = AppTheme.colors.calendarWeekdayLabel,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f)
             )
@@ -205,20 +199,30 @@ private fun CalendarGrid(
             list.any { it.type == ScheduledEventType.BIRTHDAY }
         }.keys
     }
+    // Дни, помеченные событием типа «Выходной», подсвечиваются как Сб/Вс.
+    val markedWeekends = remember(events) {
+        events.filterValues { list ->
+            list.any { it.type == ScheduledEventType.WEEKEND }
+        }.keys
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         cells.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { cell ->
                     val cellDate = LocalDate.of(cell.date.year, cell.date.month, cell.date.day)
+                    val isWeekend = cellDate.dayOfWeek == DayOfWeek.SATURDAY ||
+                        cellDate.dayOfWeek == DayOfWeek.SUNDAY ||
+                        markedWeekends.contains(cell.dateKey)
                     DayCell(
                         dayNumber = cell.date.day,
                         hasNote = noteDates.contains(cell.dateKey),
                         eventIcons = eventIconsByDate[cell.dateKey].orEmpty(),
                         recurringIcon = recurringIconByDate[cell.dateKey],
                         isBirthday = birthdayDates.contains(cell.dateKey),
+                        isWeekend = isWeekend,
                         isToday = cellDate == today,
-                        // Отметки прошедших дней визуально гаснем (см. PastEventMarker).
+                        // Отметки прошедших дней визуально гаснут (calendarPastMarker).
                         isPast = cellDate.isBefore(today),
                         isAdjacentMonth = cell.isAdjacentMonth,
                         onClick = { onDayClick(cell.date) },
@@ -274,14 +278,24 @@ private fun DayCell(
     eventIcons: List<Pair<EventIcon, Long>>,
     recurringIcon: Pair<Int, Long>?,
     isBirthday: Boolean,
+    isWeekend: Boolean,
     isToday: Boolean,
     isPast: Boolean = false,
     isAdjacentMonth: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isToday) Primary else Background
-    val textColor = if (isAdjacentMonth) Primary else OnSurfaceVariant
+    val colors = AppTheme.colors
+    val backgroundColor = when {
+        isToday -> colors.calendarTodayContainer
+        isWeekend -> colors.calendarWeekendContainer
+        else -> colors.calendarCellContainer
+    }
+    val textColor = when {
+        isAdjacentMonth -> colors.calendarAdjacentDayNumber
+        isToday -> colors.calendarTodayNumber
+        else -> colors.calendarDayNumber
+    }
     val hasContent = hasNote || eventIcons.isNotEmpty() ||
         recurringIcon != null || isBirthday
     val shape = MaterialTheme.shapes.small
@@ -294,16 +308,12 @@ private fun DayCell(
             .background(backgroundColor)
             .clickable(onClick = onClick)
     ) {
-        // Число всегда в центре ячейки, ряд иконок прижат к нижнему краю
+        // Число остаётся обычным приглушённым тоном: полупрозрачными
+        // проходят только иконки и маркеры прошедших дней (см. DayCell Row).
         Text(
             text = dayNumber.toString(),
             style = MaterialTheme.typography.bodyLarge,
-            // Число прошедшего дня с записью приглушается сильнее обычного.
-            color = if (isPast && !isAdjacentMonth && hasContent && !isBirthday) {
-                OnSurfaceVariant.copy(alpha = 0.45f)
-            } else {
-                textColor
-            },
+            color = textColor,
             textAlign = TextAlign.Center,
             modifier = Modifier.align(Alignment.Center)
         )
@@ -313,7 +323,7 @@ private fun DayCell(
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = stringResource(R.string.event_type_repeating),
-                tint = eventIconColor(colorArgb, isPast, Secondary),
+                tint = eventIconColor(colorArgb, isPast, colors.calendarEventMarker),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(2.dp)
@@ -333,7 +343,7 @@ private fun DayCell(
                     Icon(
                         painter = painterResource(R.drawable.ic_redeem),
                         contentDescription = stringResource(R.string.event_type_birthday),
-                        tint = Secondary,
+                        tint = colors.calendarEventMarker,
                         modifier = Modifier.size(12.dp)
                     )
                 }
@@ -343,7 +353,7 @@ private fun DayCell(
                     Icon(
                         painter = painterResource(icon.drawableRes),
                         contentDescription = stringResource(icon.labelRes),
-                        tint = eventIconColor(colorArgb, isPast, Secondary),
+                        tint = eventIconColor(colorArgb, isPast, colors.calendarEventMarker),
                         modifier = Modifier.size(10.dp)
                     )
                 }
@@ -351,7 +361,11 @@ private fun DayCell(
                     Box(
                         modifier = Modifier
                             .size(7.dp)
-                            .background(if (isPast) PastEventMarker else Accent, CircleShape)
+                            .background(
+                                if (isPast) colors.calendarPastMarker
+                                else colors.calendarNoteMarker,
+                                CircleShape
+                            )
                     )
                 }
             }

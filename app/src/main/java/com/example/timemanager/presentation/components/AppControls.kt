@@ -7,6 +7,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,17 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.timemanager.presentation.theme.OnPrimary
-import com.example.timemanager.presentation.theme.OnSurfaceVariant
-import com.example.timemanager.presentation.theme.OnTertiary
-import com.example.timemanager.presentation.theme.Primary
-import com.example.timemanager.presentation.theme.PrimaryButtonContainer
-import com.example.timemanager.presentation.theme.Secondary
+import com.example.timemanager.presentation.theme.AppTheme
 
 /**
- * Флажок. Правило дизайн-системы: на тёмном фоне — золотой (Secondary),
- * на светлом (диалоги) — синий (Primary). [uncheckedColor] переопределяется
- * на светлых диалогах, где стандартный OnSurfaceVariant сливается с фоном.
+ * Флажок. Правило дизайн-системы: на тёмном фоне — золотой (secondary),
+ * на светлом (диалоги) — синий (primary). [uncheckedColor] переопределяется
+ * на светлых диалогах, где стандартный приглушённый цвет сливается с фоном.
  */
 @Composable
 fun AppCheckbox(
@@ -32,21 +28,22 @@ fun AppCheckbox(
     onCheckedChange: ((Boolean) -> Unit)?,
     onDarkBackground: Boolean,
     modifier: Modifier = Modifier,
-    uncheckedColor: Color = OnSurfaceVariant
+    uncheckedColor: Color = AppTheme.colors.dialogContentMuted
 ) {
+    val scheme = MaterialTheme.colorScheme
     Checkbox(
         checked = checked,
         onCheckedChange = onCheckedChange,
         modifier = modifier,
         colors = if (onDarkBackground) {
             CheckboxDefaults.colors(
-                checkedColor = Secondary,
-                checkmarkColor = Primary,
-                uncheckedColor = Secondary
+                checkedColor = scheme.secondary,
+                checkmarkColor = scheme.primary,
+                uncheckedColor = scheme.secondary
             )
         } else {
             CheckboxDefaults.colors(
-                checkedColor = PrimaryButtonContainer,
+                checkedColor = scheme.primary,
                 uncheckedColor = uncheckedColor
             )
         }
@@ -80,11 +77,14 @@ fun AppFilterChip(
 
 /** Палитра чипов дизайн-системы. */
 @Composable
-fun appChipColors(): SelectableChipColors = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = PrimaryButtonContainer,
-    selectedLabelColor = OnPrimary,
-    selectedLeadingIconColor = OnPrimary,
-    containerColor = OnTertiary.copy(alpha = 0.08f),
-    labelColor = OnTertiary,
-    iconColor = OnTertiary
-)
+fun appChipColors(): SelectableChipColors {
+    val colors = AppTheme.colors
+    return FilterChipDefaults.filterChipColors(
+        selectedContainerColor = colors.chipSelectedContainer,
+        selectedLabelColor = colors.chipSelectedContent,
+        selectedLeadingIconColor = colors.chipSelectedContent,
+        containerColor = colors.chipContainer,
+        labelColor = colors.chipContent,
+        iconColor = colors.chipContent
+    )
+}

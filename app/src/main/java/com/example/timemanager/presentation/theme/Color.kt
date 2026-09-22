@@ -3,58 +3,48 @@ package com.example.timemanager.presentation.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Основная цветовая схема приложения.
+ * Цветовые примитивы — единственное место в проекте, где цвет задан hex-значением.
  *
- * Роли Material 3:
- * - Primary / OnPrimary: основной акцент (#445474 на белом)
- * - PrimaryContainer / OnPrimaryContainer: мягкие контейнеры под основной цвет
- * - Secondary / OnSecondary: вторичный акцент (#F5CD7A на #445474)
- * - Tertiary / OnTertiary: бежевый (#DAD8B5 на #445474) для AppBar/Dialog
- * - Background / OnBackground: фон экрана
- * - Surface / OnSurface / OnSurfaceVariant: фон карточек и текст на них
- * - Outline: границы и разделители
+ * Всё остальное строится поверх них двумя слоями ролей:
+ *  - `MaterialTheme.colorScheme` (Theme.kt) — стандартные роли Material 3;
+ *  - `AppTheme.colors` (AppColors.kt) — компонентные роли приложения.
+ *
+ * Экраны и компоненты обязаны брать цвет из роли, а не из примитива:
+ * тогда новая тема = новый маппинг примитивов в роли, без правок в UI-коде.
+ *
+ * Синхронизация с XML: `res/values/colors.xml#splash_background` повторяет
+ * [Ink] (в XML Kotlin не виден), правьте вместе.
  */
 
-// Primary
-val Primary = Color(0xFF445474)
-val OnPrimary = Color(0xFFFFFFFF)
-val PrimaryContainer = Color(0xFF3F485A)
-val OnPrimaryContainer = Color(0xFFDAD8B5)
+// ─── Примитивы палитры ────────────────────────────────────────────
+internal val Navy = Color(0xFF445474)   // основной акцент: кнопки, чипы, «сегодня»
+internal val Sand = Color(0xFFDAD8B5)   // светлая поверхность: панели, диалоги, вторичный текст
+internal val Gold = Color(0xFFF5CD7A)   // вторичный акцент: fab, маркеры, иконки действий
+internal val Slate = Color(0xFF3F485A)  // фон карточек
+internal val Ink = Color(0xFF2C3342)    // фон экрана
+internal val Snow = Color(0xFFFAFDFD)   // основной текст на тёмном
+internal val Red = Color(0xFFE74955)    // заметки, дни недели
+internal val Fog = Color(0xFF7E879B)    // прошедшие (неактуальные) отметки
+internal val Paper = Color(0xFFFFFFFF)  // текст на Navy / белый фон карточек
 
-// Secondary
-val Secondary = Color(0xFFF5CD7A)
-val OnSecondary = Color(0xFF445474)
-val SecondaryContainer = Color(0xFFF5CD7A)
-val OnSecondaryContainer = Color(0xFF445474)
+// ─── Примитивы светлой темы ───────────────────────────────────────
+internal val Cloud = Color(0xFFF4F1E4)  // тёплый светлый фон экрана
+internal val Amber = Color(0xFFB98A2A)  // читаемое «золото» на белом
 
-// Accent
-val Accent = Color(0xFFE74955)
+// ─── Примитивы темы «Океан» ───────────────────────────────────────
+internal val Abyss = Color(0xFF0C2A33)  // глубокий сине-зелёный фон
+internal val Reef = Color(0xFF143E49)   // поверхности
+internal val Teal = Color(0xFF1F7A85)   // основной акцент
+internal val Coral = Color(0xFFFF8A6B)  // вторичный акцент
+internal val Aqua = Color(0xFF8FD8D0)   // вторичный текст
+internal val Foam = Color(0xFFEAF7F4)   // основной текст
 
-// Прошедшие (неактуальные) отметки на календаре
-val PastEventMarker = Color(0xFF7E879B)
-
-// Tertiary
-val Tertiary = Color(0xFFDAD8B5)
-val OnTertiary = Color(0xFF445474)
-
-// Background / Surface
-val Background = Color(0xFF2C3342)
-val OnBackground = Color(0xFFFAFDFD)
-val Surface = Color(0xFF3F485A)
-val OnSurface = Color(0xFFFAFDFD)
-val OnSurfaceVariant = Color(0xFFDAD8B5)
-val Outline = Color(0xFFDAD8B5)
-
-// ─── Роли компонентов (единый источник для дизайн-системы) ───────
-// Верхняя панель раздела
-val AppBarContainer = Tertiary
-// Фон диалогов
-val DialogContainer = Tertiary
-// Заливка и текст основных кнопок (AppButton)
-val PrimaryButtonContainer = Primary
-val PrimaryButtonContent = OnPrimary
-// Плавающая кнопка «Добавить» (AppFab)
-val FabContainer = Secondary
-val FabContent = OnSecondary
-// Фон splash-экрана
-val LaunchBackground = Background
+// ─── Примитивы темы «Лес» ─────────────────────────────────────────
+internal val Loam = Color(0xFF1E2117)   // тёмный почвенно-зелёный фон
+internal val Bark = Color(0xFF2F3323)   // поверхности, карточки
+internal val Pine = Color(0xFF55713F)   // основной акцент (кнопки)
+internal val PineDark = Color(0xFF2E3D22) // текст на светлых поверхностях
+internal val Moss = Color(0xFFB7C4A0)   // вторичный текст
+internal val Cream = Color(0xFFEFEAD6)  // основной текст
+internal val Clay = Color(0xFFB0793F)   // коричнево-охристый акцент
+internal val Lichen = Color(0xFFE8E0C8) // светлые панели и диалоги

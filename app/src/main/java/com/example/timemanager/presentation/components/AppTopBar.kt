@@ -7,8 +7,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.example.timemanager.presentation.theme.AppBarContainer
-import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.AppTheme
 
 /** Верхняя панель раздела — единые цвета для всех экранов. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,10 +26,10 @@ fun AppTopBar(
         actions = actions,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = AppBarContainer,
-            titleContentColor = OnTertiary,
-            navigationIconContentColor = OnTertiary,
-            actionIconContentColor = OnTertiary
+            containerColor = AppTheme.colors.appBarContainer,
+            titleContentColor = AppTheme.colors.appBarContent,
+            navigationIconContentColor = AppTheme.colors.appBarContent,
+            actionIconContentColor = AppTheme.colors.appBarContent
         )
     )
 }

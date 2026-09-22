@@ -21,8 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Document
-import com.example.timemanager.presentation.theme.Accent
-import com.example.timemanager.presentation.theme.Secondary
+import com.example.timemanager.presentation.theme.AppTheme
 
 @Composable
 fun DocumentItem(
@@ -75,14 +74,14 @@ fun DocumentItem(
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
                     contentDescription = stringResource(R.string.edit_document),
-                    tint = Secondary
+                    tint = AppTheme.colors.actionIcon
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(R.drawable.ic_delete),
                     contentDescription = stringResource(R.string.delete),
-                    tint = Secondary
+                    tint = AppTheme.colors.actionIcon
                 )
             }
         }

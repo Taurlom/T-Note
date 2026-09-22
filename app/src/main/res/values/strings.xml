@@ -27,7 +27,7 @@
     <string name="note_label">Заметка</string>
     <string name="settings_title">Настройки</string>
     <string name="font_label">Шрифт</string>
-    <string name="apply">Применить</string>
+    <string name="theme_label">Тема</string>
     <string name="clear_calendar">Очистить календарь</string>
     <string name="clear_calendar_message">Все заметки в календаре будут удалены. Это действие нельзя отменить.</string>
     <string name="back">Назад</string>
@@ -54,6 +54,7 @@
     <string name="event_type_regular">Обычное</string>
     <string name="event_type_birthday">День рождения</string>
     <string name="event_type_repeating">Повторяющееся</string>
+    <string name="event_type_weekend">Выходной</string>
 
     <!-- Повторяющееся событие -->
     <string name="repeat_label">Повторять</string>

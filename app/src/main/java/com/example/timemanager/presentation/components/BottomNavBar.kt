@@ -12,10 +12,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.example.timemanager.R
 import com.example.timemanager.presentation.navigation.Routes
-import com.example.timemanager.presentation.theme.Background
-import com.example.timemanager.presentation.theme.FabContainer
-import com.example.timemanager.presentation.theme.OnSecondary
-import com.example.timemanager.presentation.theme.OnSurfaceVariant
+import com.example.timemanager.presentation.theme.AppTheme
 
 sealed class BottomNavItem(
     @DrawableRes val iconRes: Int,
@@ -80,7 +77,7 @@ fun BottomNavBar(
     modifier: Modifier = Modifier
 ) {
     NavigationBar(
-        containerColor = Background,
+        containerColor = AppTheme.colors.bottomNavContainer,
         modifier = modifier
     ) {
         BottomNavItem.items.forEach { item ->
@@ -94,9 +91,9 @@ fun BottomNavBar(
                 selected = selectedItem == item,
                 onClick = { onItemSelected(item) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = OnSecondary,
-                    unselectedIconColor = OnSurfaceVariant,
-                    indicatorColor = FabContainer
+                    selectedIconColor = AppTheme.colors.bottomNavActiveIcon,
+                    unselectedIconColor = AppTheme.colors.bottomNavInactiveIcon,
+                    indicatorColor = AppTheme.colors.bottomNavIndicator
                 )
             )
         }

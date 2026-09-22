@@ -43,8 +43,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Document
-import com.example.timemanager.presentation.theme.OnPrimary
-import com.example.timemanager.presentation.theme.PrimaryButtonContainer
+import com.example.timemanager.presentation.theme.AppTheme
 import java.io.File
 
 private const val MAX_PHOTOS = 4
@@ -260,11 +259,11 @@ private fun PhotoThumbnail(
             Icon(
                 painter = painterResource(R.drawable.ic_close),
                 contentDescription = stringResource(R.string.delete),
-                tint = OnPrimary,
+                tint = AppTheme.colors.buttonContent,
                 modifier = Modifier
                     .size(24.dp)
                     .background(
-                        PrimaryButtonContainer,
+                        AppTheme.colors.buttonContainer,
                         shape = MaterialTheme.shapes.small
                     )
                     .padding(4.dp)
@@ -313,14 +312,14 @@ private fun PhotoActionButton(
         modifier = modifier
             .size(40.dp)
             .clip(MaterialTheme.shapes.small)
-            .background(PrimaryButtonContainer)
+            .background(AppTheme.colors.buttonContainer)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
-            tint = OnPrimary
+            tint = AppTheme.colors.buttonContent
         )
     }
 }

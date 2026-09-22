@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Category
+import com.example.timemanager.presentation.components.AppBrandHeader
 import com.example.timemanager.presentation.components.AppFab
 import com.example.timemanager.presentation.components.CategoryCard
 import com.example.timemanager.presentation.components.CategoryInputDialog
@@ -51,8 +52,9 @@ fun CategoriesScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .fillMaxSize(),
         // Нижний бар живёт вне экрана (см. AppNavigation), поэтому нижние
-        // системные отступы уже учтены им.
-        contentWindowInsets = WindowInsets(0.dp, 40.dp, 0.dp, 0.dp),
+        // системные отступы уже учтены им. Статус-баром занимается шапка.
+        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+        topBar = { AppBrandHeader() },
         floatingActionButton = {
             AppFab(
                 onClick = { showAddDialog = true },

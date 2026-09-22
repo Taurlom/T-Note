@@ -9,7 +9,7 @@ import com.example.timemanager.domain.model.EventIcon
 import com.example.timemanager.domain.model.RepeatPeriod
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
-import com.example.timemanager.presentation.theme.PastEventMarker
+import com.example.timemanager.presentation.theme.AppTheme
 
 /**
  * Палитра цветов иконки события. Значение [ScheduledEvent.DEFAULT_COLOR]
@@ -35,7 +35,7 @@ val eventColorPresets: List<Long> = listOf(
 @Composable
 fun eventIconColor(colorArgb: Long, isPast: Boolean, defaultColor: Color): Color =
     if (colorArgb == ScheduledEvent.DEFAULT_COLOR) {
-        if (isPast) PastEventMarker else defaultColor
+        if (isPast) AppTheme.colors.calendarPastMarker else defaultColor
     } else {
         if (isPast) Color(colorArgb).copy(alpha = 0.45f) else Color(colorArgb)
     }
@@ -47,6 +47,7 @@ val ScheduledEventType.iconRes: Int
         ScheduledEventType.REGULAR -> R.drawable.ic_event_note
         ScheduledEventType.BIRTHDAY -> R.drawable.ic_redeem
         ScheduledEventType.REPEATING -> R.drawable.ic_event_chronic
+        ScheduledEventType.WEEKEND -> R.drawable.ic_weekend
     }
 
 /** Название типа события. */
@@ -56,6 +57,7 @@ val ScheduledEventType.labelRes: Int
         ScheduledEventType.REGULAR -> R.string.event_type_regular
         ScheduledEventType.BIRTHDAY -> R.string.event_type_birthday
         ScheduledEventType.REPEATING -> R.string.event_type_repeating
+        ScheduledEventType.WEEKEND -> R.string.event_type_weekend
     }
 
 /** Название периода повторения. */

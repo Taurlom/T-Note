@@ -16,11 +16,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
-import com.example.timemanager.presentation.theme.FabContainer
-import com.example.timemanager.presentation.theme.FabContent
-import com.example.timemanager.presentation.theme.OnTertiary
-import com.example.timemanager.presentation.theme.PrimaryButtonContainer
-import com.example.timemanager.presentation.theme.PrimaryButtonContent
+import com.example.timemanager.presentation.theme.AppTheme
 
 /**
  * Основная filled-кнопка — единственный источник стиля для всех кнопок приложения.
@@ -41,10 +37,10 @@ fun AppButton(
         enabled = enabled,
         shape = MaterialTheme.shapes.small,
         colors = ButtonDefaults.buttonColors(
-            containerColor = PrimaryButtonContainer,
-            contentColor = PrimaryButtonContent,
-            disabledContainerColor = PrimaryButtonContainer.copy(alpha = 0.5f),
-            disabledContentColor = PrimaryButtonContent.copy(alpha = 0.5f)
+            containerColor = AppTheme.colors.buttonContainer,
+            contentColor = AppTheme.colors.buttonContent,
+            disabledContainerColor = AppTheme.colors.buttonDisabledContainer,
+            disabledContentColor = AppTheme.colors.buttonDisabledContent
         ),
         content = content
     )
@@ -97,7 +93,7 @@ fun AppOutlinedButton(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = OnTertiary),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.dialogContent),
         content = content
     )
 }
@@ -113,8 +109,8 @@ fun AppFab(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
-        containerColor = FabContainer,
-        contentColor = FabContent
+        containerColor = AppTheme.colors.fabContainer,
+        contentColor = AppTheme.colors.fabContent
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_add),

@@ -12,8 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.timemanager.presentation.theme.DialogContainer
-import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.AppTheme
 
 /**
  * Базовый диалог приложения: фон и форма из дизайн-системы, заголовок
@@ -31,9 +30,9 @@ fun AppDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         modifier = modifier,
-        containerColor = DialogContainer,
+        containerColor = AppTheme.colors.dialogContainer,
         shape = MaterialTheme.shapes.small,
-        title = { Text(text = title, color = OnTertiary) },
+        title = { Text(text = title, color = AppTheme.colors.dialogContent) },
         text = text?.let {
             {
                 Column(

@@ -19,7 +19,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
-import com.example.timemanager.presentation.theme.LaunchBackground
+import com.example.timemanager.presentation.theme.AppTheme
 
 /**
  * Заставка рисует тот же логотип, что и системный сплэш-экран, — поэтому
@@ -54,7 +54,7 @@ fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(LaunchBackground),
+            .background(AppTheme.colors.launchBackground),
         contentAlignment = Alignment.Center
     ) {
 

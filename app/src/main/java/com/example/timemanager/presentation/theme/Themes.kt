@@ -1,0 +1,287 @@
+package com.example.timemanager.presentation.theme
+
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+
+/**
+ * Готовые темы: маппинг примитивов (Color.kt) в роли Material 3 и в
+ * компонентные роли приложения. Новая тема = ещё один [AppThemeSpec] ниже
+ * + значение в [ThemeKind], UI-код не меняется.
+ */
+internal data class AppThemeSpec(
+    val colorScheme: ColorScheme,
+    val colors: AppColors,
+    /** Тёмные иконки системного стейтбара (для светлых фонов). */
+    val lightStatusBar: Boolean = false
+)
+
+/** Текущая основная тема приложения. */
+internal val DarkTheme = AppThemeSpec(
+    colorScheme = darkColorScheme(
+        primary = Navy,
+        onPrimary = Paper,
+        primaryContainer = Slate,
+        onPrimaryContainer = Sand,
+        secondary = Gold,
+        onSecondary = Navy,
+        secondaryContainer = Gold,
+        onSecondaryContainer = Navy,
+        tertiary = Sand,
+        onTertiary = Navy,
+        background = Ink,
+        onBackground = Snow,
+        surface = Slate,
+        onSurface = Snow,
+        onSurfaceVariant = Sand,
+        surfaceContainer = Sand,
+        outline = Sand
+    ),
+    colors = AppColors(
+        appBarContainer = Sand,
+        appBarContent = Navy,
+        dialogContainer = Sand,
+        dialogContent = Navy,
+        dialogContentMuted = Navy.copy(alpha = 0.6f),
+        fieldContent = Navy,
+        fieldBorder = Navy,
+        fieldBorderUnfocused = Navy.copy(alpha = 0.6f),
+        fieldOnDarkContent = Sand,
+        fieldOnDarkBorder = Sand.copy(alpha = 0.6f),
+        buttonContainer = Navy,
+        buttonContent = Paper,
+        buttonDisabledContainer = Navy.copy(alpha = 0.5f),
+        buttonDisabledContent = Paper.copy(alpha = 0.5f),
+        chipSelectedContainer = Navy,
+        chipSelectedContent = Paper,
+        chipContainer = Navy.copy(alpha = 0.08f),
+        chipContent = Navy,
+        fabContainer = Gold,
+        fabContent = Navy,
+        actionIcon = Gold,
+        bottomNavContainer = Ink,
+        bottomNavIndicator = Gold,
+        bottomNavActiveIcon = Navy,
+        bottomNavInactiveIcon = Sand,
+        calendarCellContainer = Ink,
+        calendarWeekendContainer = Slate,
+        calendarTodayContainer = Navy,
+        calendarDayNumber = Sand,
+        calendarTodayNumber = Sand,
+        calendarAdjacentDayNumber = Navy,
+        calendarHeader = Sand,
+        calendarWeekdayLabel = Red,
+        calendarEventMarker = Gold,
+        calendarNoteMarker = Red,
+        calendarPastMarker = Fog,
+        sectionTitle = Gold,
+        brandLogo = Gold,
+        brandTitle = Gold,
+        launchBackground = Ink
+    )
+)
+
+/** Светлая: тёплый бумажный фон, тёмно-синий акцент, янтарь вместо золота. */
+internal val LightTheme = AppThemeSpec(
+    colorScheme = lightColorScheme(
+        primary = Navy,
+        onPrimary = Paper,
+        primaryContainer = Sand,
+        onPrimaryContainer = Navy,
+        secondary = Amber,
+        onSecondary = Paper,
+        secondaryContainer = Sand,
+        onSecondaryContainer = Navy,
+        tertiary = Sand,
+        onTertiary = Navy,
+        background = Cloud,
+        onBackground = Navy,
+        surface = Paper,
+        onSurface = Navy,
+        onSurfaceVariant = Slate,
+        surfaceContainer = Sand,
+        outline = Slate
+    ),
+    colors = AppColors(
+        appBarContainer = Sand,
+        appBarContent = Navy,
+        dialogContainer = Paper,
+        dialogContent = Navy,
+        dialogContentMuted = Navy.copy(alpha = 0.6f),
+        fieldContent = Navy,
+        fieldBorder = Navy,
+        fieldBorderUnfocused = Navy.copy(alpha = 0.6f),
+        fieldOnDarkContent = Navy,
+        fieldOnDarkBorder = Navy.copy(alpha = 0.6f),
+        buttonContainer = Navy,
+        buttonContent = Paper,
+        buttonDisabledContainer = Navy.copy(alpha = 0.5f),
+        buttonDisabledContent = Paper.copy(alpha = 0.5f),
+        chipSelectedContainer = Navy,
+        chipSelectedContent = Paper,
+        chipContainer = Navy.copy(alpha = 0.08f),
+        chipContent = Navy,
+        fabContainer = Gold,
+        fabContent = Navy,
+        actionIcon = Amber,
+        bottomNavContainer = Cloud,
+        bottomNavIndicator = Sand,
+        bottomNavActiveIcon = Navy,
+        bottomNavInactiveIcon = Slate,
+        calendarCellContainer = Cloud,
+        calendarWeekendContainer = Sand,
+        calendarTodayContainer = Navy,
+        calendarDayNumber = Navy,
+        calendarTodayNumber = Paper,
+        // Соседние месяцы: те же числа, но заметно тише — видны, не спорят
+        // с днями текущего месяца.
+        calendarAdjacentDayNumber = Navy.copy(alpha = 0.4f),
+        calendarHeader = Navy,
+        calendarWeekdayLabel = Red,
+        calendarEventMarker = Amber,
+        calendarNoteMarker = Red,
+        calendarPastMarker = Fog,
+        sectionTitle = Amber,
+        brandLogo = Navy,
+        brandTitle = Navy,
+        launchBackground = Ink
+    ),
+    lightStatusBar = true
+)
+
+/** Океан: глубокий сине-зелёный, акценты — коралл и бирюза. */
+internal val OceanTheme = AppThemeSpec(
+    colorScheme = darkColorScheme(
+        primary = Teal,
+        onPrimary = Foam,
+        primaryContainer = Reef,
+        onPrimaryContainer = Aqua,
+        secondary = Coral,
+        onSecondary = Abyss,
+        secondaryContainer = Reef,
+        onSecondaryContainer = Coral,
+        tertiary = Aqua,
+        onTertiary = Abyss,
+        background = Abyss,
+        onBackground = Foam,
+        surface = Reef,
+        onSurface = Foam,
+        onSurfaceVariant = Aqua,
+        surfaceContainer = Reef,
+        outline = Aqua
+    ),
+    colors = AppColors(
+        appBarContainer = Teal,
+        appBarContent = Foam,
+        dialogContainer = Reef,
+        dialogContent = Foam,
+        dialogContentMuted = Foam.copy(alpha = 0.6f),
+        fieldContent = Foam,
+        fieldBorder = Aqua,
+        fieldBorderUnfocused = Aqua.copy(alpha = 0.6f),
+        fieldOnDarkContent = Aqua,
+        fieldOnDarkBorder = Aqua.copy(alpha = 0.6f),
+        buttonContainer = Teal,
+        buttonContent = Foam,
+        buttonDisabledContainer = Teal.copy(alpha = 0.5f),
+        buttonDisabledContent = Foam.copy(alpha = 0.5f),
+        chipSelectedContainer = Teal,
+        chipSelectedContent = Foam,
+        chipContainer = Aqua.copy(alpha = 0.12f),
+        chipContent = Aqua,
+        fabContainer = Coral,
+        fabContent = Abyss,
+        actionIcon = Coral,
+        bottomNavContainer = Abyss,
+        bottomNavIndicator = Teal,
+        bottomNavActiveIcon = Foam,
+        bottomNavInactiveIcon = Aqua,
+        calendarCellContainer = Abyss,
+        calendarWeekendContainer = Reef,
+        calendarTodayContainer = Teal,
+        calendarDayNumber = Foam,
+        calendarTodayNumber = Foam,
+        calendarAdjacentDayNumber = Fog,
+        calendarHeader = Aqua,
+        calendarWeekdayLabel = Coral,
+        calendarEventMarker = Aqua,
+        calendarNoteMarker = Coral,
+        calendarPastMarker = Fog,
+        sectionTitle = Coral,
+        brandLogo = Aqua,
+        brandTitle = Foam,
+        launchBackground = Ink
+    )
+)
+
+/** Лес: тёмная зелёно-коричневая, хвойный акцент и охра. */
+internal val ForestTheme = AppThemeSpec(
+    colorScheme = darkColorScheme(
+        primary = Pine,
+        onPrimary = Cream,
+        primaryContainer = Bark,
+        onPrimaryContainer = Moss,
+        secondary = Clay,
+        onSecondary = Cream,
+        secondaryContainer = Bark,
+        onSecondaryContainer = Clay,
+        tertiary = Lichen,
+        onTertiary = PineDark,
+        background = Loam,
+        onBackground = Cream,
+        surface = Bark,
+        onSurface = Cream,
+        onSurfaceVariant = Moss,
+        surfaceContainer = Lichen,
+        outline = Moss
+    ),
+    colors = AppColors(
+        appBarContainer = Lichen,
+        appBarContent = PineDark,
+        dialogContainer = Lichen,
+        dialogContent = PineDark,
+        dialogContentMuted = PineDark.copy(alpha = 0.6f),
+        fieldContent = PineDark,
+        fieldBorder = PineDark,
+        fieldBorderUnfocused = PineDark.copy(alpha = 0.6f),
+        fieldOnDarkContent = Moss,
+        fieldOnDarkBorder = Moss.copy(alpha = 0.6f),
+        buttonContainer = Pine,
+        buttonContent = Cream,
+        buttonDisabledContainer = Pine.copy(alpha = 0.5f),
+        buttonDisabledContent = Cream.copy(alpha = 0.5f),
+        chipSelectedContainer = Pine,
+        chipSelectedContent = Cream,
+        chipContainer = PineDark.copy(alpha = 0.08f),
+        chipContent = PineDark,
+        fabContainer = Clay,
+        fabContent = Cream,
+        actionIcon = Clay,
+        bottomNavContainer = Loam,
+        bottomNavIndicator = Clay,
+        bottomNavActiveIcon = Cream,
+        bottomNavInactiveIcon = Moss,
+        calendarCellContainer = Loam,
+        calendarWeekendContainer = Bark,
+        calendarTodayContainer = Pine,
+        calendarDayNumber = Cream,
+        calendarTodayNumber = Cream,
+        calendarAdjacentDayNumber = Cream.copy(alpha = 0.4f),
+        calendarHeader = Moss,
+        calendarWeekdayLabel = Clay,
+        calendarEventMarker = Clay,
+        calendarNoteMarker = Red,
+        calendarPastMarker = Fog,
+        sectionTitle = Clay,
+        brandLogo = Clay,
+        brandTitle = Cream,
+        launchBackground = Ink
+    )
+)
+
+internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = when (kind) {
+    ThemeKind.DARK -> DarkTheme
+    ThemeKind.LIGHT -> LightTheme
+    ThemeKind.OCEAN -> OceanTheme
+    ThemeKind.FOREST -> ForestTheme
+}

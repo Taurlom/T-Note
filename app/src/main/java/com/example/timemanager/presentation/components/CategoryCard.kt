@@ -22,8 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Category
-import com.example.timemanager.presentation.theme.Secondary
-import com.example.timemanager.presentation.theme.Tertiary
+import com.example.timemanager.presentation.theme.AppTheme
 
 @Composable
 fun CategoryCard(
@@ -58,7 +57,7 @@ fun CategoryCard(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Tertiary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -67,14 +66,14 @@ fun CategoryCard(
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
                     contentDescription = "Редактировать",
-                    tint = Secondary
+                    tint = AppTheme.colors.actionIcon
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(R.drawable.ic_delete),
                     contentDescription = "Удалить",
-                    tint = Secondary
+                    tint = AppTheme.colors.actionIcon
                 )
             }
         }

@@ -4,7 +4,7 @@ import java.time.LocalDate
 import java.time.Year
 import java.time.temporal.ChronoUnit
 
-enum class ScheduledEventType { REGULAR, BIRTHDAY, REPEATING }
+enum class ScheduledEventType { REGULAR, BIRTHDAY, REPEATING, WEEKEND }
 
 /** Штатный период повторения; null — свой интервал «раз в N дней». */
 enum class RepeatPeriod { MONTHLY, WEEKLY, DAILY }

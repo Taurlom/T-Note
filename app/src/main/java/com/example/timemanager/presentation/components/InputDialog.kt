@@ -32,8 +32,7 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Category
-import com.example.timemanager.presentation.theme.DialogContainer
-import com.example.timemanager.presentation.theme.OnTertiary
+import com.example.timemanager.presentation.theme.AppTheme
 
 @Composable
 fun CategoryInputDialog(
@@ -61,7 +60,7 @@ fun CategoryInputDialog(
                 Text(
                     text = stringResource(R.string.choose_color),
                     style = MaterialTheme.typography.labelLarge,
-                    color = OnTertiary
+                    color = AppTheme.colors.dialogContent
                 )
                 ColorPicker(
                     selectedColor = selectedColor,
@@ -149,7 +148,7 @@ fun TaskInputDialog(
                     ExposedDropdownMenu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
-                        containerColor = DialogContainer,
+                        containerColor = AppTheme.colors.dialogContainer,
                         modifier = with(LocalDensity.current) {
                             if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
                         }
@@ -157,7 +156,7 @@ fun TaskInputDialog(
                         copyTargets.forEach { category ->
                             DropdownMenuItem(
                                 text = {
-                                    Text(text = category.name, color = OnTertiary)
+                                    Text(text = category.name, color = AppTheme.colors.dialogContent)
                                 },
                                 onClick = {
                                     targetCategoryId = category.id
