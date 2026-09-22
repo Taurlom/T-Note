@@ -1,26 +1,38 @@
+# IDE
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+.idea/
 
-/assets
-/build
-*/build/
+# Gradle / build
+.gradle/
+.kotlin/
+build/
 **/build/
-captures
-.externalNativeBuild
-.cxx
 local.properties
+
+# Логи и временные дампы у корня репозитория
+*.log
+/screen_test.png
+/window_dump.xml
+/output.json
+
+# Артефакты сборки (релизы живут в GitHub Releases)
 *.apk
 *.ap_
 *.aab
-output.json
-jdk17/
+
+# Подпись релизов — НИКОГДА не коммитить
+/signing/
+/keystore.properties
+
+# Дизайн-исходники (тяжёлые PSD/PNG)
+/assets/
+
 # OS
+.DS_Store
 Thumbs.db
+
+# Прочее
+captures/
+.externalNativeBuild
+.cxx/
+jdk17/
