@@ -38,8 +38,8 @@ internal val DarkTheme = AppThemeSpec(
         outline = Sand
     ),
     colors = AppColors(
-        appBarContainer = Sand,
-        appBarContent = Navy,
+        appBarContainer = Ink,
+        appBarContent = Gold,
         dialogContainer = Sand,
         dialogContent = Navy,
         dialogContentMuted = Navy.copy(alpha = 0.6f),
@@ -208,7 +208,7 @@ internal val OceanTheme = AppThemeSpec(
         calendarNoteMarker = Coral,
         calendarPastMarker = Fog,
         sectionTitle = Coral,
-        brandLogo = Aqua,
+        brandLogo = Foam,
         brandTitle = Foam,
         launchBackground = Ink
     )
@@ -236,8 +236,8 @@ internal val ForestTheme = AppThemeSpec(
         outline = Moss
     ),
     colors = AppColors(
-        appBarContainer = Lichen,
-        appBarContent = PineDark,
+        appBarContainer = Walnut,
+        appBarContent = Moss,
         dialogContainer = Lichen,
         dialogContent = PineDark,
         dialogContentMuted = PineDark.copy(alpha = 0.6f),
@@ -274,7 +274,7 @@ internal val ForestTheme = AppThemeSpec(
         calendarPastMarker = Fog,
         sectionTitle = Clay,
         brandLogo = Clay,
-        brandTitle = Cream,
+        brandTitle = Clay,
         launchBackground = Ink
     )
 )

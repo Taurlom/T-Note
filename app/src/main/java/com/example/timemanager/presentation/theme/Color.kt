@@ -47,4 +47,5 @@ internal val PineDark = Color(0xFF2E3D22) // текст на светлых по
 internal val Moss = Color(0xFFB7C4A0)   // вторичный текст
 internal val Cream = Color(0xFFEFEAD6)  // основной текст
 internal val Clay = Color(0xFFB0793F)   // коричнево-охристый акцент
+internal val Walnut = Color(0xFF332c21)
 internal val Lichen = Color(0xFFE8E0C8) // светлые панели и диалоги

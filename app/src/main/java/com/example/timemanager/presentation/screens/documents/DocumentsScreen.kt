@@ -52,7 +52,7 @@ fun DocumentsScreen(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .fillMaxSize(),
-        // Нижний бар рендерится над NavHost в AppNavigation.
+        // Нижний бар лежит под пейджером в MainTabsScreen — его не учитываем.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
             AppTopBar(

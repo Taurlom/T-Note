@@ -51,8 +51,8 @@ fun CategoriesScreen(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .fillMaxSize(),
-        // Нижний бар живёт вне экрана (см. AppNavigation), поэтому нижние
-        // системные отступы уже учтены им. Статус-баром занимается шапка.
+        // Нижний бар лежит под пейджером в MainTabsScreen, его отступ уже
+        // учтён. Статус-баром занимается шапка.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = { AppBrandHeader() },
         floatingActionButton = {

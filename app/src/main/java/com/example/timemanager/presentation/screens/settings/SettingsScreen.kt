@@ -45,7 +45,7 @@ fun SettingsScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        // Нижний бар рендерится над NavHost в AppNavigation.
+        // Нижний бар лежит под пейджером в MainTabsScreen — его не учитываем.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
             AppTopBar(title = stringResource(R.string.settings_title))

@@ -11,36 +11,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.example.timemanager.R
-import com.example.timemanager.presentation.navigation.Routes
 import com.example.timemanager.presentation.theme.AppTheme
 
 sealed class BottomNavItem(
     @DrawableRes val iconRes: Int,
-    @StringRes val contentDescriptionRes: Int,
-    val route: String
+    @StringRes val contentDescriptionRes: Int
 ) {
     data object Calendar : BottomNavItem(
         R.drawable.ic_calendar_month,
-        R.string.bottom_nav_calendar,
-        Routes.CALENDAR
+        R.string.bottom_nav_calendar
     )
 
     data object Documents : BottomNavItem(
         R.drawable.ic_description,
-        R.string.bottom_nav_documents,
-        Routes.DOCUMENTS
+        R.string.bottom_nav_documents
     )
 
     data object Settings : BottomNavItem(
         R.drawable.ic_settings,
-        R.string.bottom_nav_settings,
-        Routes.SETTINGS
+        R.string.bottom_nav_settings
     )
 
     data object Categories : BottomNavItem(
         R.drawable.ic_list_alt,
-        R.string.bottom_nav_categories,
-        Routes.CATEGORIES
+        R.string.bottom_nav_categories
     )
 
     companion object {
@@ -49,26 +43,19 @@ sealed class BottomNavItem(
          * инициализировался во время `<clinit>` самого [BottomNavItem], когда
          * синглтоны вложенных `data object` ещё не созданы, и список оказывался
          * с null-элементами (NPE в баре при запуске).
+         * Порядок списка = порядок страниц пейджера разделов.
          */
         val items: List<BottomNavItem>
             get() = listOf(Categories, Calendar, Documents, Settings)
-
-        /** Пункт бара для маршрута; `null` — если экран не является разделом. */
-        fun fromRoute(route: String?): BottomNavItem? = when (route) {
-            Routes.CATEGORIES -> Categories
-            Routes.CALENDAR -> Calendar
-            Routes.DOCUMENTS -> Documents
-            Routes.SETTINGS -> Settings
-            else -> null
-        }
     }
 }
 
 /**
- * Единственный экземпляр нижнего навигационного бара на приложение.
+ * Нижняя навигационная панель разделов.
  *
- * Рендерится вне [androidx.navigation.compose.NavHost], поэтому при переключении
- * разделов не пересоздаётся и не участвует в анимации перехода.
+ * Живёт внутри экрана разделов ([com.example.timemanager.presentation.navigation.Routes.MAIN]),
+ * поэтому на drill-down экранах (список задач, документ) её просто не видно,
+ * а сама панель не пересоздаётся при переключении страниц пейджера.
  */
 @Composable
 fun BottomNavBar(

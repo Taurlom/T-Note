@@ -61,7 +61,7 @@ fun CalendarScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        // Нижний бар рендерится над NavHost в AppNavigation.
+        // Нижний бар рендерится под пейджером разделов (MainTabsScreen).
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
             AppTopBar(
