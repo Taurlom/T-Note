@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.EventIcon
-import com.example.timemanager.domain.model.RepeatPeriod
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.theme.AppTheme
@@ -58,15 +57,6 @@ val ScheduledEventType.labelRes: Int
         ScheduledEventType.BIRTHDAY -> R.string.event_type_birthday
         ScheduledEventType.REPEATING -> R.string.event_type_repeating
         ScheduledEventType.WEEKEND -> R.string.event_type_weekend
-    }
-
-/** Название периода повторения. */
-@get:StringRes
-val RepeatPeriod.labelRes: Int
-    get() = when (this) {
-        RepeatPeriod.MONTHLY -> R.string.repeat_monthly
-        RepeatPeriod.WEEKLY -> R.string.repeat_weekly
-        RepeatPeriod.DAILY -> R.string.repeat_daily
     }
 
 /** Drawable для иконки обычного события (отображается под числом в календаре). */

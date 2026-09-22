@@ -13,6 +13,7 @@ import com.example.timemanager.domain.usecase.GetBirthdayEventsUseCase
 import com.example.timemanager.domain.usecase.GetCalendarNotesByMonthUseCase
 import com.example.timemanager.domain.usecase.GetRepeatingEventsUseCase
 import com.example.timemanager.domain.usecase.GetScheduledEventsByMonthUseCase
+import com.example.timemanager.domain.usecase.GetWeekendDatesUseCase
 import com.example.timemanager.domain.usecase.SaveCalendarNoteUseCase
 import com.example.timemanager.domain.usecase.UpdateScheduledEventUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,7 @@ class CalendarViewModel @Inject constructor(
     private val getEventsByMonthUseCase: GetScheduledEventsByMonthUseCase,
     private val getBirthdayEventsUseCase: GetBirthdayEventsUseCase,
     private val getRepeatingEventsUseCase: GetRepeatingEventsUseCase,
+    private val getWeekendDatesUseCase: GetWeekendDatesUseCase,
     private val saveNoteUseCase: SaveCalendarNoteUseCase,
     private val deleteDayUseCase: DeleteCalendarDayUseCase,
     private val addEventUseCase: AddScheduledEventUseCase,
@@ -58,12 +60,14 @@ class CalendarViewModel @Inject constructor(
             getNotesByMonthUseCase(prefix),
             getEventsByMonthUseCase(prefix),
             getBirthdayEventsUseCase(),
-            getRepeatingEventsUseCase()
-        ) { notes, monthEvents, birthdays, repeating ->
+            getRepeatingEventsUseCase(),
+            getWeekendDatesUseCase()
+        ) { notes, monthEvents, birthdays, repeating, weekendDates ->
             CalendarUiState(
                 yearMonth = yearMonth,
                 notes = notes.associateBy { it.date },
-                events = expandEventsForMonth(monthEvents, birthdays, repeating, yearMonth)
+                events = expandEventsForMonth(monthEvents, birthdays, repeating, yearMonth),
+                weekendDates = weekendDates
             )
         }
             .onEach { state -> _uiState.value = state }

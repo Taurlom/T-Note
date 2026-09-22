@@ -19,7 +19,6 @@ data class ScheduledEventEntity(
     val icon: String,
     @ColumnInfo(defaultValue = "0")
     val colorArgb: Long,
-    val repeatPeriod: String?,
     val repeatIntervalDays: Int?,
     @ColumnInfo(defaultValue = "0")
     val repeatDays: Int,

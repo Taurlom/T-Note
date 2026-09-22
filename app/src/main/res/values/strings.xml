@@ -57,11 +57,6 @@
     <string name="event_type_weekend">Выходной</string>
 
     <!-- Повторяющееся событие -->
-    <string name="repeat_label">Повторять</string>
-    <string name="repeat_placeholder">Свой интервал</string>
-    <string name="repeat_monthly">Раз в месяц</string>
-    <string name="repeat_weekly">Раз в неделю</string>
-    <string name="repeat_daily">Раз в день</string>
     <string name="repeat_every_days">Раз в сколько дней</string>
     <string name="repeat_days">Повторять дней</string>
     <string name="repeat_hide_past">Удалять прошедшие</string>

@@ -5,6 +5,50 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigration {
 
+    /**
+     * Убирает из scheduled_events колонку repeatPeriod (поле «Повторять» с
+     * выбором периода удалён). Существующие периоды переводятся в свой
+     * интервал «раз в N дней», чтобы частота повторов сохранилась.
+     * Пересоздание таблицы вместо DROP COLUMN: на Android < 13 SQLite его не поддерживает.
+     */
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "UPDATE scheduled_events SET repeatIntervalDays = CASE repeatPeriod " +
+                    "WHEN 'DAILY' THEN 1 WHEN 'WEEKLY' THEN 7 WHEN 'MONTHLY' THEN 30 END " +
+                    "WHERE repeatPeriod IS NOT NULL AND repeatIntervalDays IS NULL"
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_events_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    eventDate TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    icon TEXT NOT NULL DEFAULT 'NOTE',
+                    colorArgb INTEGER NOT NULL DEFAULT 0,
+                    repeatIntervalDays INTEGER,
+                    repeatDays INTEGER NOT NULL DEFAULT 0,
+                    hidePast INTEGER NOT NULL DEFAULT 0,
+                    position INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "INSERT INTO scheduled_events_new (id, eventDate, title, type, icon, colorArgb, " +
+                    "repeatIntervalDays, repeatDays, hidePast, position) " +
+                    "SELECT id, eventDate, title, type, icon, colorArgb, repeatIntervalDays, " +
+                    "repeatDays, hidePast, position FROM scheduled_events"
+            )
+            db.execSQL("DROP TABLE scheduled_events")
+            db.execSQL("ALTER TABLE scheduled_events_new RENAME TO scheduled_events")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_events_eventDate " +
+                    "ON scheduled_events(eventDate)"
+            )
+        }
+    }
+
     /** Добавляет в scheduled_events настройки повторения. */
     val MIGRATION_11_12 = object : Migration(11, 12) {
         override fun migrate(db: SupportSQLiteDatabase) {

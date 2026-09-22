@@ -6,7 +6,9 @@ import com.example.timemanager.domain.model.ScheduledEvent
 data class CalendarUiState(
     val yearMonth: CalendarYearMonth = currentYearMonth(),
     val notes: Map<String, CalendarNote> = emptyMap(),
-    val events: Map<String, List<ScheduledEvent>> = emptyMap()
+    val events: Map<String, List<ScheduledEvent>> = emptyMap(),
+    /** ISO-даты, помеченные событием «Выходной» (глобально, все месяцы). */
+    val weekendDates: Set<String> = emptySet()
 )
 
 fun currentYearMonth(): CalendarYearMonth {

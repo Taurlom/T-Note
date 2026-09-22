@@ -2,7 +2,6 @@ package com.example.timemanager.data.mapper
 
 import com.example.timemanager.data.local.entity.ScheduledEventEntity
 import com.example.timemanager.domain.model.EventIcon
-import com.example.timemanager.domain.model.RepeatPeriod
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 
@@ -14,7 +13,6 @@ fun ScheduledEventEntity.toDomain(): ScheduledEvent = ScheduledEvent(
         .getOrDefault(ScheduledEventType.REGULAR),
     icon = runCatching { EventIcon.valueOf(icon) }.getOrDefault(EventIcon.NOTE),
     colorArgb = colorArgb,
-    repeatPeriod = repeatPeriod?.let { runCatching { RepeatPeriod.valueOf(it) }.getOrNull() },
     repeatIntervalDays = repeatIntervalDays,
     repeatDays = repeatDays,
     hidePastOccurrences = hidePast,
@@ -28,7 +26,6 @@ fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
     type = type.name,
     icon = icon.name,
     colorArgb = colorArgb,
-    repeatPeriod = repeatPeriod?.name,
     repeatIntervalDays = repeatIntervalDays,
     repeatDays = repeatDays,
     hidePast = hidePastOccurrences,

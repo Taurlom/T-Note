@@ -6,9 +6,6 @@ import java.time.temporal.ChronoUnit
 
 enum class ScheduledEventType { REGULAR, BIRTHDAY, REPEATING, WEEKEND }
 
-/** Штатный период повторения; null — свой интервал «раз в N дней». */
-enum class RepeatPeriod { MONTHLY, WEEKLY, DAILY }
-
 /**
  * Иконка обычного события. Отображается под числом дня в сетке календаря
  * и в списке событий дня. День рождения всегда рисуется подарком и
@@ -34,9 +31,7 @@ data class ScheduledEvent(
     val icon: EventIcon = EventIcon.NOTE,
     /** ARGB-цвет иконки; [DEFAULT_COLOR] — цвет из темы приложения. */
     val colorArgb: Long = DEFAULT_COLOR,
-    /** Штатный период повторения; null при типе REPEATING — свой интервал. */
-    val repeatPeriod: RepeatPeriod? = null,
-    /** «Раз в N дней» — используется, когда [repeatPeriod] не выбран. */
+    /** Интервал повторения «раз в N дней»; обязателен для типа REPEATING. */
     val repeatIntervalDays: Int? = null,
     /** Сколько дней всего длится повторение; 0 — без ограничения. */
     val repeatDays: Int = 0,
@@ -57,18 +52,9 @@ data class ScheduledEvent(
         if (date.isBefore(anchor)) return false
         val daysSince = ChronoUnit.DAYS.between(anchor, date)
         if (repeatDays > 0 && daysSince >= repeatDays) return false
-        return when {
-            // Раз в месяц: то же число; 29-31 в коротких месяцах — на последний день.
-            repeatPeriod == RepeatPeriod.MONTHLY ->
-                date.dayOfMonth == minOf(anchor.dayOfMonth, date.lengthOfMonth())
-            repeatPeriod == RepeatPeriod.WEEKLY -> daysSince % 7 == 0L
-            repeatPeriod == RepeatPeriod.DAILY -> true
-            // Свой интервал «раз в N дней».
-            else -> {
-                val interval = repeatIntervalDays?.takeIf { it > 0 } ?: return false
-                daysSince % interval == 0L
-            }
-        }
+        // Интервал «раз в N дней» от якорной даты.
+        val interval = repeatIntervalDays?.takeIf { it > 0 } ?: return false
+        return daysSince % interval == 0L
     }
 
     companion object {

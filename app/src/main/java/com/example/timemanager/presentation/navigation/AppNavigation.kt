@@ -9,13 +9,20 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavGraphBuilder
@@ -52,10 +59,34 @@ object Routes {
     fun documentDetail(documentId: Long): String = "documentDetail/$documentId"
 }
 
-// Разделы переключаются без анимации маршрута: экран держит своё состояние,
-// так что анимировать при переключении нечего.
+// Разделы переключаются направленным слайдом: какой бы ни была причина
+// (свайп по экрану или тап по бару), новый раздел приезжает со стороны,
+// где стоит относительно старого. Направление пишет switchTab, потому что
+// у переходов NavHost в этой версии нет доступа к стартовому/конечному маршруту.
+private val tabSwipeDurationMillis = 220
+
+/** 1 — новый раздел правее, -1 — левее, 0 — без слайда. */
+private typealias TabDirection = Int
+
+/** Возврат из drill-down (pop) остаётся мгновенным, как и раньше. */
 private val tabNoEnter: EnterTransition = EnterTransition.None
 private val tabNoExit: ExitTransition = ExitTransition.None
+
+private fun tabSwipeEnter(direction: TabDirection): EnterTransition = when (direction) {
+    1 -> slideInHorizontally(tween(tabSwipeDurationMillis)) { it } +
+        fadeIn(tween(tabSwipeDurationMillis))
+    -1 -> slideInHorizontally(tween(tabSwipeDurationMillis)) { -it } +
+        fadeIn(tween(tabSwipeDurationMillis))
+    else -> EnterTransition.None
+}
+
+private fun tabSwipeExit(direction: TabDirection): ExitTransition = when (direction) {
+    1 -> slideOutHorizontally(tween(tabSwipeDurationMillis)) { -it } +
+        fadeOut(tween(tabSwipeDurationMillis))
+    -1 -> slideOutHorizontally(tween(tabSwipeDurationMillis)) { it } +
+        fadeOut(tween(tabSwipeDurationMillis))
+    else -> ExitTransition.None
+}
 
 // Для вложенных экранов остаётся короткий slide+fade.
 private val detailEnter: EnterTransition =
@@ -73,6 +104,8 @@ private val detailPopExit: ExitTransition =
  * Разделы переключаются одним пунктом стека ([switchTab]) с сохранением состояния,
  * а их ViewModel живут в скоупе активности — поэтому данные раздела загружаются
  * один раз и остаются в памяти при любом количестве переключений.
+ * Тот же [switchTab] вызывает горизонтальный свайп по контенту: соседний раздел
+ * берётся из порядка пунктов бара.
  */
 @Composable
 fun AppNavigation() {
@@ -101,13 +134,47 @@ fun AppNavigation() {
     val documentsViewModel: DocumentsViewModel = hiltViewModel(tabViewModelStoreOwner)
     val settingsViewModel: SettingsViewModel = hiltViewModel(tabViewModelStoreOwner)
 
+    // Направление последнего переключения разделов — читают его анимации tabScreen.
+    val tabDirection = remember { mutableIntStateOf(0) }
+
     Column(modifier = Modifier.fillMaxSize()) {
+        // Дистанция, после которой свайп считается переключением раздела.
+        val swipeDistancePx = with(LocalDensity.current) { 96.dp.toPx() }
         NavHost(
             navController = navController,
             startDestination = Routes.CATEGORIES,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .pointerInput(selectedTab) {
+                    // Горизонтальный свайп доступен только на разделах:
+                    // на вложенных экранах (список задач, документ) он не нужен.
+                    if (selectedTab == null) return@pointerInput
+                    var draggedPx = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { draggedPx = 0f },
+                        onDragCancel = { draggedPx = 0f },
+                        onDragEnd = {
+                            val items = BottomNavItem.items
+                            val index = items.indexOfFirst {
+                                it.route == navController.currentDestination?.route
+                            }
+                            if (index >= 0) {
+                                // Свайп влево (палец идёт к началу строки) — следующий раздел.
+                                val target = when {
+                                    draggedPx < -swipeDistancePx -> items.getOrNull(index + 1)
+                                    draggedPx > swipeDistancePx -> items.getOrNull(index - 1)
+                                    else -> null
+                                }
+                                target?.let { navController.switchTab(it, tabDirection) }
+                            }
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        draggedPx += dragAmount
+                    }
+                }
         ) {
-            tabScreen(Routes.CATEGORIES) {
+            tabScreen(Routes.CATEGORIES, tabDirection) {
                 CategoriesScreen(
                     onCategoryClick = { categoryId ->
                         navController.navigate(Routes.tasks(categoryId))
@@ -115,10 +182,10 @@ fun AppNavigation() {
                     viewModel = categoriesViewModel
                 )
             }
-            tabScreen(Routes.CALENDAR) {
+            tabScreen(Routes.CALENDAR, tabDirection) {
                 CalendarScreen(viewModel = calendarViewModel)
             }
-            tabScreen(Routes.DOCUMENTS) {
+            tabScreen(Routes.DOCUMENTS, tabDirection) {
                 DocumentsScreen(
                     onDocumentClick = { documentId ->
                         navController.navigate(Routes.documentDetail(documentId))
@@ -126,7 +193,7 @@ fun AppNavigation() {
                     viewModel = documentsViewModel
                 )
             }
-            tabScreen(Routes.SETTINGS) {
+            tabScreen(Routes.SETTINGS, tabDirection) {
                 SettingsScreen(viewModel = settingsViewModel)
             }
 
@@ -172,21 +239,22 @@ fun AppNavigation() {
         if (selectedTab != null) {
             BottomNavBar(
                 selectedItem = selectedTab,
-                onItemSelected = { item -> navController.switchTab(item) }
+                onItemSelected = { item -> navController.switchTab(item, tabDirection) }
             )
         }
     }
 }
 
-/** Пункт NavBar без анимации перехода между разделами. */
+/** Пункт NavBar: переход между разделами — направленный слайд, возврат — мгновенный. */
 private fun NavGraphBuilder.tabScreen(
     route: String,
+    tabDirection: MutableIntState,
     content: @Composable () -> Unit
 ) {
     composable(
         route = route,
-        enterTransition = { tabNoEnter },
-        exitTransition = { tabNoExit },
+        enterTransition = { tabSwipeEnter(tabDirection.value) },
+        exitTransition = { tabSwipeExit(tabDirection.value) },
         popEnterTransition = { tabNoEnter },
         popExitTransition = { tabNoExit },
         content = { content() }
@@ -198,9 +266,21 @@ private fun NavGraphBuilder.tabScreen(
  *
  * `launchSingleTop` не даёт плодить дубликаты маршрута, `popUpTo(...) { saveState }`
  * + `restoreState` сохраняют скролл и состояние раздела и держат стек плоским.
+ * Перед переходом пишем [tabDirection]: если новый раздел правее старого — 1,
+ * левее — -1. Откуда именно пришёл пользователь (бар или свайп), значения не имеет.
  */
-private fun NavHostController.switchTab(item: BottomNavItem) {
-    if (currentDestination?.route == item.route) return
+private fun NavHostController.switchTab(item: BottomNavItem, tabDirection: MutableIntState) {
+    val currentRoute = currentDestination?.route
+    if (currentRoute == item.route) return
+
+    val items = BottomNavItem.items
+    val fromIndex = items.indexOfFirst { it.route == currentRoute }
+    val toIndex = items.indexOf(item)
+    tabDirection.intValue = if (fromIndex >= 0 && toIndex >= 0) {
+        if (toIndex > fromIndex) 1 else -1
+    } else {
+        0
+    }
 
     navigate(item.route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }

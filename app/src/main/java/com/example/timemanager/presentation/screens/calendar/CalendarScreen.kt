@@ -2,6 +2,7 @@ package com.example.timemanager.presentation.screens.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +56,9 @@ fun CalendarScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDate by remember { mutableStateOf<CalendarDate?>(null) }
 
+    // Дистанция вертикального свайпа, после которой меняется месяц.
+    val monthSwipeDistancePx = with(LocalDensity.current) { 96.dp.toPx() }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         // Нижний бар рендерится над NavHost в AppNavigation.
@@ -68,7 +74,28 @@ fun CalendarScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                // Вертикальный свайп листает месяцы: вверх — следующий, вниз —
+                // предыдущий. Потребляя вертикальные смещения, жест не мешает
+                // горизонтальному свайпу переключения разделов в AppNavigation.
+                .pointerInput(viewModel) {
+                    var draggedPx = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { draggedPx = 0f },
+                        onDragCancel = { draggedPx = 0f },
+                        onDragEnd = {
+                            when {
+                                draggedPx < -monthSwipeDistancePx ->
+                                    viewModel.onEvent(CalendarEvent.NextMonth)
+                                draggedPx > monthSwipeDistancePx ->
+                                    viewModel.onEvent(CalendarEvent.PreviousMonth)
+                            }
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        draggedPx += dragAmount
+                    }
+                },
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             CalendarHeader(
@@ -81,6 +108,7 @@ fun CalendarScreen(
                 yearMonth = uiState.yearMonth,
                 notes = uiState.notes,
                 events = uiState.events,
+                weekendDates = uiState.weekendDates,
                 onDayClick = { selectedDate = it }
             )
         }
@@ -162,6 +190,7 @@ private fun CalendarGrid(
     yearMonth: CalendarYearMonth,
     notes: Map<String, CalendarNote>,
     events: Map<String, List<ScheduledEvent>>,
+    weekendDates: Set<String>,
     onDayClick: (CalendarDate) -> Unit
 ) {
     val today = remember { LocalDate.now() }
@@ -199,21 +228,18 @@ private fun CalendarGrid(
             list.any { it.type == ScheduledEventType.BIRTHDAY }
         }.keys
     }
-    // Дни, помеченные событием типа «Выходной», подсвечиваются как Сб/Вс.
-    val markedWeekends = remember(events) {
-        events.filterValues { list ->
-            list.any { it.type == ScheduledEventType.WEEKEND }
-        }.keys
-    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         cells.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { cell ->
                     val cellDate = LocalDate.of(cell.date.year, cell.date.month, cell.date.day)
+                    // Как выходные подсвечиваются Сб/Вс и дни с событием «Выходной».
+                    // Набор помеченных дат глобальный — подсветка видна и на днях
+                    // из соседнего месяцев, хотя они и неактивны.
                     val isWeekend = cellDate.dayOfWeek == DayOfWeek.SATURDAY ||
                         cellDate.dayOfWeek == DayOfWeek.SUNDAY ||
-                        markedWeekends.contains(cell.dateKey)
+                        weekendDates.contains(cell.dateKey)
                     DayCell(
                         dayNumber = cell.date.day,
                         hasNote = noteDates.contains(cell.dateKey),
@@ -306,7 +332,9 @@ private fun DayCell(
             .padding(4.dp)
             .clip(shape)
             .background(backgroundColor)
-            .clickable(onClick = onClick)
+            // Дни из соседнего месяца неактивны: заметки и события добавляются
+            // только в дни своего месяца (у них и так нет контента в этом виде).
+            .then(if (isAdjacentMonth) Modifier else Modifier.clickable(onClick = onClick))
     ) {
         // Число остаётся обычным приглушённым тоном: полупрозрачными
         // проходят только иконки и маркеры прошедших дней (см. DayCell Row).

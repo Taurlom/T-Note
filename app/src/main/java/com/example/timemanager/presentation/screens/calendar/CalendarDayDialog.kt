@@ -20,10 +20,12 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
 import com.example.timemanager.domain.model.EventIcon
-import com.example.timemanager.domain.model.RepeatPeriod
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppButton
@@ -220,8 +221,8 @@ private fun ScheduledEventRow(
  * выпадающего списка, название, а для обычных и повторяющихся — выбор иконки
  * и её цвета. «Выходной» дополнительных полей не имеет: он просто подсвечивает
  * день как выходной.
- * У повторяющегося события настраиваются период (или свой интервал
- * «раз в N дней»), скрытие прошедших вхождений и длительность повторения.
+ * У повторяющегося события настраиваются интервал «раз в N дней»,
+ * скрытие прошедших вхождений и длительность повторения.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -238,8 +239,6 @@ private fun ScheduledEventEditorDialog(
     var colorArgb by remember {
         mutableStateOf(original?.colorArgb ?: ScheduledEvent.DEFAULT_COLOR)
     }
-    // Период повтора по умолчанию не выбран — тогда считается интервал «раз в N дней».
-    var repeatPeriod by remember { mutableStateOf(original?.repeatPeriod) }
     var intervalText by remember {
         mutableStateOf(original?.repeatIntervalDays?.toString().orEmpty())
     }
@@ -249,9 +248,8 @@ private fun ScheduledEventEditorDialog(
     }
 
     val intervalDays = intervalText.toIntOrNull() ?: 0
-    // Повторяющему событию нужен либо период, либо свой интервал.
-    val repeatConfigured = type != ScheduledEventType.REPEATING ||
-        repeatPeriod != null || intervalDays > 0
+    // Повторяющему событию нужен интервал «раз в N дней».
+    val repeatConfigured = type != ScheduledEventType.REPEATING || intervalDays > 0
 
     AppDialog(
         title = stringResource(
@@ -286,42 +284,14 @@ private fun ScheduledEventEditorDialog(
             )
 
             if (type == ScheduledEventType.REPEATING) {
-                LabeledDropdown(
-                    label = stringResource(R.string.repeat_label),
-                    selectedLabel = repeatPeriod?.let { stringResource(it.labelRes) },
-                    options = RepeatPeriod.entries.toList(),
-                    optionLabel = { option -> stringResource(option.labelRes) },
-                    optionIcon = null,
-                    placeholder = stringResource(R.string.repeat_placeholder),
-                    onSelect = { repeatPeriod = it }
-                )
-                // Поле интервала активно, только если период не выбран.
                 AppTextField(
                     value = intervalText,
                     onValueChange = { intervalText = it.filter(Char::isDigit).take(3) },
                     label = stringResource(R.string.repeat_every_days),
                     singleLine = true,
-                    enabled = repeatPeriod == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    AppCheckbox(
-                        checked = hidePast,
-                        onCheckedChange = { hidePast = it },
-                        onDarkBackground = false,
-                    // Приглушённый цвет по умолчанию сливался бы с бежевым фоном.
-                    uncheckedColor = AppTheme.colors.dialogContent
-                    )
-                    Text(
-                        text = stringResource(R.string.repeat_hide_past),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppTheme.colors.dialogContent
-                    )
-                }
                 AppTextField(
                     value = repeatDaysText,
                     onValueChange = { repeatDaysText = it.filter(Char::isDigit).take(4) },
@@ -330,6 +300,29 @@ private fun ScheduledEventEditorDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+                // Флажок без 48-dp минимальной зоны касания Material — иначе
+                // визуальный квадратик смещён вправо и не сходится с краём полей.
+                CompositionLocalProvider(
+                    LocalMinimumInteractiveComponentEnforcement provides false
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AppCheckbox(
+                            checked = hidePast,
+                            onCheckedChange = { hidePast = it },
+                            onDarkBackground = false,
+                            // Приглушённый цвет по умолчанию сливался бы с бежевым фоном.
+                            uncheckedColor = AppTheme.colors.dialogContent
+                        )
+                        Text(
+                            text = stringResource(R.string.repeat_hide_past),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AppTheme.colors.dialogContent
+                        )
+                    }
+                }
             }
 
             // Иконку и её цвет выбирают обычные и повторяющиеся события:
@@ -394,10 +387,8 @@ private fun ScheduledEventEditorDialog(
                             type = type,
                             icon = icon,
                             colorArgb = colorArgb,
-                            repeatPeriod = repeatPeriod
-                                .takeIf { type == ScheduledEventType.REPEATING },
                             repeatIntervalDays =
-                                if (type == ScheduledEventType.REPEATING && repeatPeriod == null) {
+                                if (type == ScheduledEventType.REPEATING) {
                                     intervalDays.takeIf { it > 0 }
                                 } else {
                                     null
