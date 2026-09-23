@@ -54,6 +54,7 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.timemanager.R
+import com.example.timemanager.presentation.util.sharePhoto
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.max
@@ -101,6 +102,21 @@ fun PhotoGalleryDialog(
                     },
                     actions = {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(
+                                onClick = {
+                                    sharePhoto(
+                                        context,
+                                        File(context.filesDir, currentPhotoPath)
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_share),
+                                    contentDescription = stringResource(R.string.share_photo),
+                                    tint = Color.White
+                                )
+                            }
+
                             IconButton(
                                 onClick = {
                                     val file = File(context.filesDir, currentPhotoPath)

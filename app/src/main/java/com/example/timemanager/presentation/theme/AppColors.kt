@@ -21,6 +21,8 @@ data class AppColors(
     // Верхняя панель раздела
     val appBarContainer: Color,
     val appBarContent: Color,
+    /** Цвет панели, когда контент прокручен под ней (нужен scrollBehavior). */
+    val appBarScrolledContainer: Color,
     // Диалоги и выпадающие списки
     val dialogContainer: Color,
     val dialogContent: Color,

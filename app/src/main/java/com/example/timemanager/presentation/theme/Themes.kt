@@ -78,7 +78,8 @@ internal val DarkTheme = AppThemeSpec(
         sectionTitle = Gold,
         brandLogo = Gold,
         brandTitle = Gold,
-        launchBackground = Ink
+        launchBackground = Ink,
+        appBarScrolledContainer = Ink
     )
 )
 
@@ -146,7 +147,8 @@ internal val LightTheme = AppThemeSpec(
         sectionTitle = Amber,
         brandLogo = Navy,
         brandTitle = Navy,
-        launchBackground = Ink
+        launchBackground = Ink,
+        appBarScrolledContainer = Cloud,
     ),
     lightStatusBar = true
 )
@@ -213,7 +215,8 @@ internal val OceanTheme = AppThemeSpec(
         sectionTitle = Coral,
         brandLogo = Foam,
         brandTitle = Foam,
-        launchBackground = Ink
+        launchBackground = Ink,
+        appBarScrolledContainer = Reef
     )
 )
 
@@ -279,7 +282,8 @@ internal val ForestTheme = AppThemeSpec(
         sectionTitle = Clay,
         brandLogo = Clay,
         brandTitle = Clay,
-        launchBackground = Ink
+        launchBackground = Ink,
+        appBarScrolledContainer = Bark,
     )
 )
 
@@ -345,7 +349,8 @@ internal val AutumnTheme = AppThemeSpec(
         sectionTitle = Ochre,
         brandLogo = Ochre,
         brandTitle = Ochre,
-        launchBackground = Ink
+        launchBackground = Ink,
+        appBarScrolledContainer = Umber,
     )
 )
 

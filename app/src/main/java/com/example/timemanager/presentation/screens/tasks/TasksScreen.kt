@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +36,7 @@ import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.ReorderableLazyColumn
 import com.example.timemanager.presentation.components.TaskInputDialog
 import com.example.timemanager.presentation.components.TaskItem
+import com.example.timemanager.presentation.util.shareList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +46,7 @@ fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -61,6 +64,25 @@ fun TasksScreen(
                             painter = painterResource(R.drawable.ic_arrow_back),
                             contentDescription = "Назад"
                         )
+                    }
+                },
+                actions = {
+                    // Список ещё грузится (category == null) — делиться нечем.
+                    if (uiState.category != null) {
+                        IconButton(
+                            onClick = {
+                                shareList(
+                                    context = context,
+                                    categoryName = uiState.category?.name.orEmpty(),
+                                    tasks = uiState.tasks
+                                )
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_share),
+                                contentDescription = stringResource(R.string.share_list)
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior

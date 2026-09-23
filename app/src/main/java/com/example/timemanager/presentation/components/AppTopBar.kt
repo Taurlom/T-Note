@@ -27,6 +27,10 @@ fun AppTopBar(
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = AppTheme.colors.appBarContainer,
+            // При прокрутке под фиксированной панелью контент «подъезжает»
+            // к ней — цвет переключается на scrolled, если экрану передан
+            // scrollBehavior (см. pinnedScrollBehavior на экранах).
+            scrolledContainerColor = AppTheme.colors.appBarScrolledContainer,
             titleContentColor = AppTheme.colors.appBarContent,
             navigationIconContentColor = AppTheme.colors.appBarContent,
             actionIconContentColor = AppTheme.colors.appBarContent

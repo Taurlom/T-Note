@@ -58,6 +58,9 @@
     <string name="backup_restart_title">Нужен перезапуск</string>
     <string name="backup_restart_text">Данные восстановлены. Перезапустите приложение, чтобы они вступили в силу.</string>
     <string name="backup_restart_action">Перезапустить</string>
+    <string name="app_version">Версия %1$s (%2$d)</string>
+    <string name="share_photo">Поделиться фото</string>
+    <string name="share_list">Поделиться списком</string>
 
     <!-- События календаря -->
     <string name="events_label">События</string>
