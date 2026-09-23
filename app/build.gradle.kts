@@ -28,8 +28,8 @@ android {
         // Версионирование: семантическое (см. CHANGELOG.md).
         // versionCode = MAJOR*100 + MINOR*10 + PATCH — растёт монотонно,
         // синхронно с versionName при каждом релизе.
-        versionCode = 117
-        versionName = "1.7.0"
+        versionCode = 118
+        versionName = "1.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -60,6 +60,17 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Отладочные сборки подписываем релизным ключом: для Android
+            // debug- и release-сборки становятся «одним приложением» и
+            // обновляют друг друга без переустановки. Флаг -PkeepDebugSigning
+            // оставляет обычный отладочный ключ — он нужен для переходного
+            // debug-билда с экспортом резервных копий, который ставится поверх
+            // уже установленных приложений, подписанных старым debug-ключом.
+            if (!project.hasProperty("keepDebugSigning")) {
+                signingConfigs.findByName("release")?.let { signingConfig = it }
+            }
+        }
         getByName("release") {
             isMinifyEnabled = false
             proguardFiles(
