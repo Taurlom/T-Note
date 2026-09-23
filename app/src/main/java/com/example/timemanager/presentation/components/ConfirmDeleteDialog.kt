@@ -24,7 +24,6 @@ fun ConfirmDeleteDialog(
                 color = AppTheme.colors.dialogContent
             )
         },
-        confirmButton = { AppTextButton(onClick = onConfirm, textRes = R.string.delete) },
-        dismissButton = { AppCancelButton(onClick = onDismiss) }
+        confirmButton = { AppTextButton(onClick = onConfirm, textRes = R.string.delete) }
     )
 }

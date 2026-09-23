@@ -58,17 +58,6 @@ fun AppSaveButton(
     }
 }
 
-/** Кнопка «Отмена». */
-@Composable
-fun AppCancelButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    AppButton(onClick = onClick, modifier = modifier) {
-        Text(stringResource(R.string.cancel))
-    }
-}
-
 /** Кнопка с текстовым id ресурса (например «Удалить», «Применить»). */
 @Composable
 fun AppTextButton(

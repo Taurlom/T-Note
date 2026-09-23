@@ -94,7 +94,7 @@ fun PhotoGalleryDialog(
                         IconButton(onClick = onDismiss) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_close),
-                                contentDescription = stringResource(R.string.cancel),
+                                contentDescription = stringResource(R.string.close),
                                 tint = Color.White
                             )
                         }

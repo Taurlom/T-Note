@@ -8,7 +8,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import com.example.timemanager.presentation.theme.AppTheme
 
 /**
@@ -16,6 +20,12 @@ import com.example.timemanager.presentation.theme.AppTheme
  *
  * Все цвета — из ролей дизайн-системы, чтобы не дублировать
  * `OutlinedTextFieldDefaults.colors(...)` в каждом экране.
+ *
+ * Необязательные пропсы:
+ *  - [required] — добавляет в лейбл звёздочку цвета [AppColors.requiredMarker],
+ *    показывая, что поле нужно заполнить;
+ *  - [onDarkBackground] — палитра для полей на тёмном фоне экрана
+ *    (настройки, карточки), а не в светлом диалоге.
  */
 @Composable
 fun AppTextField(
@@ -31,12 +41,27 @@ fun AppTextField(
     readOnly: Boolean = false,
     textStyle: TextStyle = LocalTextStyle.current,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    trailingIcon: (@Composable () -> Unit)? = null
+    trailingIcon: (@Composable () -> Unit)? = null,
+    required: Boolean = false,
+    onDarkBackground: Boolean = false
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = {
+            Text(
+                text = if (required) {
+                    buildAnnotatedString {
+                        append(label)
+                        withStyle(SpanStyle(color = AppTheme.colors.requiredMarker)) {
+                            append(" *")
+                        }
+                    }
+                } else {
+                    AnnotatedString(label)
+                }
+            )
+        },
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = singleLine,
         minLines = minLines,
@@ -47,7 +72,7 @@ fun AppTextField(
         keyboardOptions = keyboardOptions,
         trailingIcon = trailingIcon,
         modifier = modifier,
-        colors = appTextFieldColors()
+        colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors()
     )
 }
 

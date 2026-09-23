@@ -11,23 +11,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,12 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.CalendarNote
@@ -48,9 +40,9 @@ import com.example.timemanager.domain.model.EventIcon
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppButton
-import com.example.timemanager.presentation.components.AppCancelButton
 import com.example.timemanager.presentation.components.AppCheckbox
 import com.example.timemanager.presentation.components.AppDialog
+import com.example.timemanager.presentation.components.AppDropdown
 import com.example.timemanager.presentation.components.AppOutlinedButton
 import com.example.timemanager.presentation.components.AppSaveButton
 import com.example.timemanager.presentation.components.AppTextButton
@@ -137,17 +129,14 @@ fun CalendarDayDialog(
             }
         },
         dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppTextButton(
-                    onClick = {
-                        onDeleteDay()
-                        onDismiss()
-                    },
-                    textRes = R.string.delete,
-                    enabled = note != null || events.isNotEmpty()
-                )
-                AppCancelButton(onClick = onDismiss)
-            }
+            AppTextButton(
+                onClick = {
+                    onDeleteDay()
+                    onDismiss()
+                },
+                textRes = R.string.delete,
+                enabled = note != null || events.isNotEmpty()
+            )
         }
     )
 
@@ -224,7 +213,7 @@ private fun ScheduledEventRow(
  * У повторяющегося события настраиваются интервал «раз в N дней»,
  * скрытие прошедших вхождений и длительность повторения.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ScheduledEventEditorDialog(
     original: ScheduledEvent?,
@@ -262,16 +251,22 @@ private fun ScheduledEventEditorDialog(
                 onValueChange = { title = it },
                 label = stringResource(R.string.event_name),
                 singleLine = true,
+                required = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             // Тип события: выпадающий список «Обычное» / «День рождения» /
             // «Повторяющееся».
-            LabeledDropdown(
+            AppDropdown(
                 label = stringResource(R.string.event_type),
                 selectedLabel = stringResource(type.labelRes),
                 options = ScheduledEventType.entries.toList(),
-                optionLabel = { option -> stringResource(option.labelRes) },
+                optionText = { option ->
+                    Text(
+                        text = stringResource(option.labelRes),
+                        color = AppTheme.colors.dialogContent
+                    )
+                },
                 optionIcon = { option ->
                     Icon(
                         painter = painterResource(option.iconRes),
@@ -279,7 +274,6 @@ private fun ScheduledEventEditorDialog(
                         tint = AppTheme.colors.dialogContent
                     )
                 },
-                placeholder = "",
                 onSelect = { type = it }
             )
 
@@ -289,6 +283,8 @@ private fun ScheduledEventEditorDialog(
                     onValueChange = { intervalText = it.filter(Char::isDigit).take(3) },
                     label = stringResource(R.string.repeat_every_days),
                     singleLine = true,
+                    // Без интервала повторяющее событие не существует.
+                    required = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -301,9 +297,12 @@ private fun ScheduledEventEditorDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 // Флажок без 48-dp минимальной зоны касания Material — иначе
-                // визуальный квадратик смещён вправо и не сходится с краём полей.
+                // визуальный квадратик центрируется в ней и смещён вправо, не
+                // сходясь с краём полей. В material3 1.3.x старый
+                // LocalMinimumInteractiveComponentEnforcement компонентами уже
+                // не читается, управляем через размер.
                 CompositionLocalProvider(
-                    LocalMinimumInteractiveComponentEnforcement provides false
+                    LocalMinimumInteractiveComponentSize provides Dp.Unspecified
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -407,88 +406,13 @@ private fun ScheduledEventEditorDialog(
                 enabled = title.isNotBlank() && repeatConfigured
             )
         },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (original != null) {
-                    // Удаление только этого события, день остаётся.
-                    AppTextButton(
-                        onClick = onDelete,
-                        textRes = R.string.delete
-                    )
-                }
-                AppCancelButton(onClick = onDismiss)
-            }
+        dismissButton = if (original != null) {
+            // Удаление только этого события, день остаётся.
+            { AppTextButton(onClick = onDelete, textRes = R.string.delete) }
+        } else {
+            null
         }
     )
-}
-
-/**
- * Выпадающий список с лейблом в стиле дизайн-системы. Ширина меню равна
- * ширине поля-якоря (в Material 3.1.3 нет matchDropDownWidthToComponent,
- * измеряем сами). [selectedLabel] = null показывает [placeholder].
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun <T> LabeledDropdown(
-    label: String,
-    selectedLabel: String?,
-    options: List<T>,
-    optionLabel: @Composable (T) -> String,
-    optionIcon: (@Composable (T) -> Unit)?,
-    placeholder: String,
-    onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var anchorWidth by remember { mutableIntStateOf(0) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = modifier
-    ) {
-        AppTextField(
-            value = selectedLabel.orEmpty(),
-            onValueChange = { },
-            label = label,
-            placeholder = placeholder.ifEmpty { null },
-            singleLine = true,
-            readOnly = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .onSizeChanged { anchorWidth = it.width },
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            }
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = AppTheme.colors.dialogContainer,
-            modifier = with(LocalDensity.current) {
-                if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
-            }
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = optionLabel(option),
-                            color = AppTheme.colors.dialogContent
-                        )
-                    },
-                    leadingIcon = optionIcon?.let { iconContent ->
-                        { iconContent(option) }
-                    },
-                    onClick = {
-                        onSelect(option)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
 }
 
 /** Кружок-переключатель цвета иконки события. */

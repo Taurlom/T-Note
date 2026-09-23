@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,15 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Document
 import com.example.timemanager.presentation.theme.AppTheme
@@ -115,6 +111,7 @@ fun DocumentInputDialog(
                 onValueChange = { title = it },
                 label = stringResource(R.string.document_name),
                 singleLine = true,
+                required = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -160,8 +157,7 @@ fun DocumentInputDialog(
             ) {
                 Text(stringResource(if (isEdit) R.string.save else R.string.create))
             }
-        },
-        dismissButton = { AppCancelButton(onClick = onDismiss) }
+        }
     )
 }
 
@@ -193,13 +189,13 @@ private fun PhotoSection(
             modifier = Modifier.fillMaxWidth()
         ) {
             visibleExisting.forEach { path ->
-                PhotoThumbnail(
+                RemovablePhotoTile(
                     model = File(context.filesDir, path).toUri(),
                     onRemove = { onRemoveExisting(path) }
                 )
             }
             newPhotoUris.forEach { uri ->
-                PhotoThumbnail(
+                RemovablePhotoTile(
                     model = uri,
                     onRemove = { onRemoveNew(uri) }
                 )
@@ -228,46 +224,6 @@ private fun PhotoSection(
                     CameraPhotoButton(onClick = onCameraClick)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PhotoThumbnail(
-    model: Any,
-    onRemove: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(modifier = modifier.size(100.dp)) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(model)
-                .crossfade(true)
-                .build(),
-            contentDescription = stringResource(R.string.document_photo),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .matchParentSize()
-                .clip(MaterialTheme.shapes.small)
-        )
-        IconButton(
-            onClick = onRemove,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(4.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = stringResource(R.string.delete),
-                tint = AppTheme.colors.buttonContent,
-                modifier = Modifier
-                    .size(24.dp)
-                    .background(
-                        AppTheme.colors.buttonContainer,
-                        shape = MaterialTheme.shapes.small
-                    )
-                    .padding(4.dp)
-            )
         }
     }
 }

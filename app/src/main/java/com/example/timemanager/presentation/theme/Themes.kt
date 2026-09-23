@@ -48,6 +48,7 @@ internal val DarkTheme = AppThemeSpec(
         fieldBorderUnfocused = Navy.copy(alpha = 0.6f),
         fieldOnDarkContent = Sand,
         fieldOnDarkBorder = Sand.copy(alpha = 0.6f),
+        requiredMarker = Red,
         buttonContainer = Navy,
         buttonContent = Paper,
         buttonDisabledContainer = Navy.copy(alpha = 0.5f),
@@ -113,6 +114,7 @@ internal val LightTheme = AppThemeSpec(
         fieldBorderUnfocused = Navy.copy(alpha = 0.6f),
         fieldOnDarkContent = Navy,
         fieldOnDarkBorder = Navy.copy(alpha = 0.6f),
+        requiredMarker = Red,
         buttonContainer = Navy,
         buttonContent = Paper,
         buttonDisabledContainer = Navy.copy(alpha = 0.5f),
@@ -181,6 +183,7 @@ internal val OceanTheme = AppThemeSpec(
         fieldBorderUnfocused = Aqua.copy(alpha = 0.6f),
         fieldOnDarkContent = Aqua,
         fieldOnDarkBorder = Aqua.copy(alpha = 0.6f),
+        requiredMarker = Coral,
         buttonContainer = Teal,
         buttonContent = Foam,
         buttonDisabledContainer = Teal.copy(alpha = 0.5f),
@@ -246,6 +249,7 @@ internal val ForestTheme = AppThemeSpec(
         fieldBorderUnfocused = PineDark.copy(alpha = 0.6f),
         fieldOnDarkContent = Moss,
         fieldOnDarkBorder = Moss.copy(alpha = 0.6f),
+        requiredMarker = Clay,
         buttonContainer = Pine,
         buttonContent = Cream,
         buttonDisabledContainer = Pine.copy(alpha = 0.5f),
@@ -279,9 +283,76 @@ internal val ForestTheme = AppThemeSpec(
     )
 )
 
+/** Осень: тёплая кофейно-рыжая, охра и «выжженный» оранжевый. */
+internal val AutumnTheme = AppThemeSpec(
+    colorScheme = darkColorScheme(
+        primary = Rust,
+        onPrimary = Cream,
+        primaryContainer = Umber,
+        onPrimaryContainer = Wheat,
+        secondary = Ochre,
+        onSecondary = Espresso,
+        secondaryContainer = Ochre,
+        onSecondaryContainer = Espresso,
+        tertiary = Wheat,
+        onTertiary = Espresso,
+        background = Espresso,
+        onBackground = Cream,
+        surface = Umber,
+        onSurface = Cream,
+        onSurfaceVariant = Wheat,
+        surfaceContainer = Umber,
+        outline = Wheat
+    ),
+    colors = AppColors(
+        appBarContainer = Rust,
+        appBarContent = Cream,
+        dialogContainer = Parchment,
+        dialogContent = Cocoa,
+        dialogContentMuted = Cocoa.copy(alpha = 0.6f),
+        fieldContent = Cocoa,
+        fieldBorder = Cocoa,
+        fieldBorderUnfocused = Cocoa.copy(alpha = 0.6f),
+        fieldOnDarkContent = Wheat,
+        fieldOnDarkBorder = Wheat.copy(alpha = 0.6f),
+        requiredMarker = Rust,
+        buttonContainer = Rust,
+        buttonContent = Cream,
+        buttonDisabledContainer = Rust.copy(alpha = 0.5f),
+        buttonDisabledContent = Cream.copy(alpha = 0.5f),
+        chipSelectedContainer = Rust,
+        chipSelectedContent = Cream,
+        chipContainer = Rust.copy(alpha = 0.12f),
+        chipContent = Wheat,
+        fabContainer = Ochre,
+        fabContent = Espresso,
+        actionIcon = Ochre,
+        bottomNavContainer = Espresso,
+        bottomNavIndicator = Ochre,
+        bottomNavActiveIcon = Espresso,
+        bottomNavInactiveIcon = Wheat,
+        calendarCellContainer = Espresso,
+        calendarWeekendContainer = Umber,
+        calendarTodayContainer = Rust,
+        calendarDayNumber = Wheat,
+        calendarTodayNumber = Cream,
+        calendarAdjacentDayNumber = Wheat.copy(alpha = 0.4f),
+        calendarHeader = Wheat,
+        calendarWeekdayLabel = Rust,
+        calendarEventMarker = Ochre,
+        calendarNoteMarker = Rust,
+        calendarPastMarker = Fog,
+        sectionTitle = Ochre,
+        brandLogo = Ochre,
+        brandTitle = Ochre,
+        launchBackground = Ink
+    )
+)
+
 internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = when (kind) {
     ThemeKind.DARK -> DarkTheme
     ThemeKind.LIGHT -> LightTheme
     ThemeKind.OCEAN -> OceanTheme
     ThemeKind.FOREST -> ForestTheme
+    ThemeKind.AUTUMN -> AutumnTheme
 }

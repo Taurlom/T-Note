@@ -33,6 +33,8 @@ data class AppColors(
     // Текстовые поля на фоне экрана
     val fieldOnDarkContent: Color,
     val fieldOnDarkBorder: Color,
+    /** Маркер обязательного поля («*») в лейбле. */
+    val requiredMarker: Color,
     // Кнопки, чипы, плавающая кнопка
     val buttonContainer: Color,
     val buttonContent: Color,
