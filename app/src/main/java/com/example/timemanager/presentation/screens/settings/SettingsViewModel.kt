@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.timemanager.domain.repository.BackupDescription
 import com.example.timemanager.domain.repository.BackupRepository
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.domain.usecase.ClearCalendarUseCase
@@ -27,6 +28,10 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val backupStatus = MutableStateFlow(BackupStatus())
+
+    /** Метаданные выбранного файла копии — для диалога подтверждения. */
+    private val _pendingImport = MutableStateFlow<BackupDescription?>(null)
+    val pendingImport: StateFlow<BackupDescription?> = _pendingImport
 
     // Язык живёт в состоянии, а не вычисляется в combine: ViewModel
     // переживает пересоздание активности при смене локали, и без явного
@@ -95,21 +100,49 @@ class SettingsViewModel @Inject constructor(
 
     fun exportBackup(target: Uri) {
         viewModelScope.launch {
-            runBackup(BackupResult.Exported) { backupRepository.exportBackup(target) }
+            runBackup {
+                val summary = backupRepository.exportBackup(target)
+                BackupResult.Exported(
+                    photos = summary.photos,
+                    missing = summary.missingPhotos.size
+                )
+            }
         }
     }
 
     fun importBackup(source: Uri) {
         viewModelScope.launch {
-            runBackup(BackupResult.Imported) { backupRepository.importBackup(source) }
+            runBackup {
+                val summary = backupRepository.importBackup(source)
+                BackupResult.Imported(
+                    photos = summary.photos,
+                    missing = summary.missingPhotos.size
+                )
+            }
         }
     }
 
-    private suspend fun runBackup(success: BackupResult, action: suspend () -> Unit) {
+    /** Читаем шапку копии до подтверждения: пользователь видит, что восстанавливает. */
+    fun describeImport(source: Uri) {
+        viewModelScope.launch {
+            val description = backupRepository.describeBackup(source)
+            if (description == null) {
+                backupStatus.value =
+                    BackupStatus(result = BackupResult.Failed("не резервная копия T-Note"))
+            } else {
+                _pendingImport.value = description
+            }
+        }
+    }
+
+    fun dismissPendingImport() {
+        _pendingImport.value = null
+    }
+
+    private suspend fun runBackup(success: (suspend () -> BackupResult)) {
         backupStatus.value = BackupStatus(isBusy = true)
         backupStatus.value = try {
-            action()
-            BackupStatus(result = success)
+            BackupStatus(result = success())
         } catch (e: Exception) {
             BackupStatus(result = BackupResult.Failed(e.message ?: "неизвестная ошибка"))
         }

@@ -51,6 +51,11 @@
     <string name="backup_import">Restaurar desde copia</string>
     <string name="backup_restore">Restaurar</string>
     <string name="backup_exported">Copia de seguridad guardada</string>
+    <string name="backup_exported_missing">Copia guardada, pero %1$d foto(s) no se encontraron en el dispositivo y no están incluidas</string>
+    <string name="backup_import_meta">Copia del %1$s · fotos en la copia: %2$d</string>
+    <string name="backup_import_meta_missing">Copia del %1$s · fotos en la copia: %2$d · ya faltaban antes de crearla: %3$d</string>
+    <string name="backup_imported">Datos restaurados, fotos: %1$d</string>
+    <string name="backup_imported_missing">Datos restaurados, fotos: %1$d. Otras %2$d foto(s) ya faltaban cuando se creó la copia</string>
     <string name="backup_error">Error de copia de seguridad: %1$s</string>
     <string name="backup_import_confirm_title">¿Restaurar desde copia?</string>
     <string name="backup_import_confirm_text">Las listas, tareas, notas, eventos y documentos actuales serán reemplazados por el contenido de la copia.</string>

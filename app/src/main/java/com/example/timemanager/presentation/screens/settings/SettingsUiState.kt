@@ -4,13 +4,18 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.example.timemanager.R
+import com.example.timemanager.domain.repository.BackupDescription
 import com.example.timemanager.presentation.theme.AppFont
 import com.example.timemanager.presentation.theme.ThemeKind
 
-/** Результат операции с резервной копией; читается экраном один раз и сбрасывается. */
+/**
+ * Результат операции с резервной копией; читается экраном один раз и
+ * сбрасывается. Числа — из самопроверки архива: сколько фото реально в
+ * копии и сколько отсутствовало ещё на момент её создания.
+ */
 sealed interface BackupResult {
-    data object Exported : BackupResult
-    data object Imported : BackupResult
+    data class Exported(val photos: Int, val missing: Int) : BackupResult
+    data class Imported(val photos: Int, val missing: Int) : BackupResult
     data class Failed(val message: String) : BackupResult
 }
 
@@ -42,5 +47,7 @@ data class SettingsUiState(
     val selectedTheme: ThemeKind = ThemeKind.DARK,
     val selectedLanguage: AppLanguage = AppLanguage.SYSTEM,
     val isBackupBusy: Boolean = false,
-    val backupResult: BackupResult? = null
+    val backupResult: BackupResult? = null,
+    /** Метаданные выбранного файла копии — для диалога подтверждения. */
+    val pendingImport: BackupDescription? = null
 )

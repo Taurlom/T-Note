@@ -46,7 +46,9 @@ import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.theme.AppFont
 import com.example.timemanager.presentation.theme.AppTheme
 import com.example.timemanager.presentation.theme.ThemeKind
+import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.util.Locale
 import kotlin.system.exitProcess
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +57,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var showClearDialog by remember { mutableStateOf(false) }
@@ -66,17 +69,41 @@ fun SettingsScreen(
         ActivityResultContracts.CreateDocument("application/zip")
     ) { uri -> uri?.let(viewModel::exportBackup) }
 
-    // Импорт: сначала выбор файла, затем подтверждение замены данных.
+    // Импорт: выбор файла → читаем шапку копии (дату, число фото) →
+    // осознанное подтверждение → восстановление.
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { pendingImportUri = it } }
+    ) { uri ->
+        uri?.let {
+            pendingImportUri = it
+            viewModel.describeImport(it)
+        }
+    }
 
     // Разовые уведомления по результату операции с копией.
     LaunchedEffect(uiState.backupResult) {
         when (val result = uiState.backupResult) {
-            BackupResult.Exported ->
-                Toast.makeText(context, R.string.backup_exported, Toast.LENGTH_SHORT).show()
-            BackupResult.Imported -> showRestartDialog = true
+            is BackupResult.Exported -> Toast.makeText(
+                context,
+                if (result.missing > 0) {
+                    context.getString(R.string.backup_exported_missing, result.missing)
+                } else {
+                    context.getString(R.string.backup_exported)
+                },
+                Toast.LENGTH_LONG
+            ).show()
+            is BackupResult.Imported -> {
+                showRestartDialog = true
+                Toast.makeText(
+                    context,
+                    if (result.missing > 0) {
+                        context.getString(R.string.backup_imported_missing, result.photos, result.missing)
+                    } else {
+                        context.getString(R.string.backup_imported, result.photos)
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
+            }
             is BackupResult.Failed -> Toast.makeText(
                 context,
                 context.getString(R.string.backup_error, result.message),
@@ -237,18 +264,43 @@ fun SettingsScreen(
             pendingImportUri?.let { uri ->
                 AppDialog(
                     title = stringResource(R.string.backup_import_confirm_title),
-                    onDismissRequest = { pendingImportUri = null },
+                    onDismissRequest = {
+                        pendingImportUri = null
+                        viewModel.dismissPendingImport()
+                    },
                     text = {
                         Text(
                             text = stringResource(R.string.backup_import_confirm_text),
                             style = MaterialTheme.typography.bodyLarge,
                             color = AppTheme.colors.dialogContent
                         )
+                        // Метаданные копии: видно, ТОТ ли файл и не пустой ли он.
+                        pendingImport?.let { meta ->
+                            Text(
+                                text = if (meta.missingPhotos > 0) {
+                                    stringResource(
+                                        R.string.backup_import_meta_missing,
+                                        formatDateTime(meta.createdAt),
+                                        meta.photos,
+                                        meta.missingPhotos
+                                    )
+                                } else {
+                                    stringResource(
+                                        R.string.backup_import_meta,
+                                        formatDateTime(meta.createdAt),
+                                        meta.photos
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AppTheme.colors.dialogContentMuted
+                            )
+                        }
                     },
                     confirmButton = {
                         AppTextButton(
                             onClick = {
                                 pendingImportUri = null
+                                viewModel.dismissPendingImport()
                                 viewModel.importBackup(uri)
                             },
                             textRes = R.string.backup_restore
@@ -294,4 +346,7 @@ private fun restartApp(context: Context) {
     context.startActivity(intent)
     exitProcess(0)
 }
+
+private fun formatDateTime(millis: Long): String =
+    SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(millis)
 

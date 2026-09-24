@@ -51,6 +51,11 @@
     <string name="backup_import">Restore from copy</string>
     <string name="backup_restore">Restore</string>
     <string name="backup_exported">Backup saved</string>
+    <string name="backup_exported_missing">Backup saved, but %1$d photo(s) were not found on the device and are not included</string>
+    <string name="backup_import_meta">Backup from %1$s · photos in backup: %2$d</string>
+    <string name="backup_import_meta_missing">Backup from %1$s · photos in backup: %2$d · already missing before it was created: %3$d</string>
+    <string name="backup_imported">Data restored, photos: %1$d</string>
+    <string name="backup_imported_missing">Data restored, photos: %1$d. Another %2$d photo(s) were already missing when the backup was created</string>
     <string name="backup_error">Backup error: %1$s</string>
     <string name="backup_import_confirm_title">Restore from copy?</string>
     <string name="backup_import_confirm_text">Current lists, tasks, notes, events and documents will be replaced by the contents of the backup.</string>
