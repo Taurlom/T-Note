@@ -22,14 +22,18 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.timemanager"
+        // Идентификатор в магазинах и на устройстве. Отличается от namespace:
+        // код остаётся в com.example.timemanager, а пакет публикации —
+        // ru.taurlom.tnote (префикс com.example зарезервирован Google Play).
+        // Смена пакета = новая установка: перенос данных через резервную копию.
+        applicationId = "ru.taurlom.tnote"
         minSdk = 24
         targetSdk = 34
         // Версионирование: семантическое (см. CHANGELOG.md).
         // versionCode = MAJOR*100 + MINOR*10 + PATCH — растёт монотонно,
         // синхронно с versionName при каждом релизе.
-        versionCode = 210
-        versionName = "1.11.0"
+        versionCode = 211
+        versionName = "1.11.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
