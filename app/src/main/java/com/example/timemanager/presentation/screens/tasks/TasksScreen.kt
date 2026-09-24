@@ -1,5 +1,6 @@
 package com.example.timemanager.presentation.screens.tasks
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Task
+import com.example.timemanager.presentation.components.AppButton
+import com.example.timemanager.presentation.components.AppDialog
 import com.example.timemanager.presentation.components.AppFab
 import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
@@ -37,6 +41,8 @@ import com.example.timemanager.presentation.components.ReorderableLazyColumn
 import com.example.timemanager.presentation.components.TaskInputDialog
 import com.example.timemanager.presentation.components.TaskItem
 import com.example.timemanager.presentation.util.shareList
+import com.example.timemanager.presentation.util.shareListFile
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,9 +53,11 @@ fun TasksScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
 
@@ -69,15 +77,7 @@ fun TasksScreen(
                 actions = {
                     // Список ещё грузится (category == null) — делиться нечем.
                     if (uiState.category != null) {
-                        IconButton(
-                            onClick = {
-                                shareList(
-                                    context = context,
-                                    categoryName = uiState.category?.name.orEmpty(),
-                                    tasks = uiState.tasks
-                                )
-                            }
-                        ) {
+                        IconButton(onClick = { showShareDialog = true }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_share),
                                 contentDescription = stringResource(R.string.share_list)
@@ -133,7 +133,6 @@ fun TasksScreen(
     if (showAddDialog) {
         TaskInputDialog(
             dialogTitle = stringResource(R.string.add_task),
-            hasExistingTasks = uiState.tasks.isNotEmpty(),
             onDismiss = { showAddDialog = false },
             onConfirm = { title, description ->
                 viewModel.onEvent(TasksEvent.OnAddTask(title, description))
@@ -178,6 +177,49 @@ fun TasksScreen(
                 viewModel.onEvent(TasksEvent.OnDeleteTask(task))
                 taskToDelete = null
             }
+        )
+    }
+
+    if (showShareDialog) {
+        AppDialog(
+            title = stringResource(R.string.share_list),
+            onDismissRequest = { showShareDialog = false },
+            text = {
+                AppButton(
+                    onClick = {
+                        showShareDialog = false
+                        shareList(
+                            context = context,
+                            categoryName = uiState.category?.name.orEmpty(),
+                            tasks = uiState.tasks
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.share_list_text))
+                }
+                AppButton(
+                    onClick = {
+                        showShareDialog = false
+                        scope.launch {
+                            val uri = viewModel.createShareFileUri()
+                            if (uri != null) {
+                                shareListFile(context, uri)
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    R.string.share_list_file_error,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.share_list_file))
+                }
+            },
+            confirmButton = {}
         )
     }
 }

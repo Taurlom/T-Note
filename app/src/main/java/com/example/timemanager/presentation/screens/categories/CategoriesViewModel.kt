@@ -3,11 +3,14 @@ package com.example.timemanager.presentation.screens.categories
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timemanager.domain.model.Category
+import com.example.timemanager.domain.repository.ListShareRepository
 import com.example.timemanager.domain.usecase.AddCategoryUseCase
 import com.example.timemanager.domain.usecase.DeleteCategoryUseCase
 import com.example.timemanager.domain.usecase.GetCategoriesUseCase
+import com.example.timemanager.domain.usecase.ImportSharedListUseCase
 import com.example.timemanager.domain.usecase.ReorderCategoriesUseCase
 import com.example.timemanager.domain.usecase.UpdateCategoryUseCase
+import com.example.timemanager.presentation.components.defaultCategoryColor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +27,9 @@ class CategoriesViewModel @Inject constructor(
     private val addCategoryUseCase: AddCategoryUseCase,
     private val updateCategoryUseCase: UpdateCategoryUseCase,
     private val deleteCategoryUseCase: DeleteCategoryUseCase,
-    private val reorderCategoriesUseCase: ReorderCategoriesUseCase
+    private val reorderCategoriesUseCase: ReorderCategoriesUseCase,
+    private val listShareRepository: ListShareRepository,
+    private val importSharedListUseCase: ImportSharedListUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CategoriesUiState())
@@ -76,6 +81,48 @@ class CategoriesViewModel @Inject constructor(
                     }
                     reorderCategoriesUseCase(reordered)
                 }
+            }
+            is CategoriesEvent.OnReadSharedList -> {
+                viewModelScope.launch {
+                    val shared = runCatching {
+                        listShareRepository.importFromFile(event.uri)
+                    }.getOrNull()
+                    _uiState.update {
+                        it.copy(
+                            incomingShare = shared,
+                            shareFeedback =
+                                if (shared == null) ShareFeedback.Failed else null
+                        )
+                    }
+                }
+            }
+            is CategoriesEvent.OnConfirmImportSharedList -> {
+                viewModelScope.launch {
+                    val shared = _uiState.value.incomingShare ?: return@launch
+                    runCatching {
+                        importSharedListUseCase(shared, defaultCategoryColor())
+                    }.onSuccess {
+                        _uiState.update {
+                            it.copy(
+                                incomingShare = null,
+                                shareFeedback = ShareFeedback.Imported(shared.name)
+                            )
+                        }
+                    }.onFailure {
+                        _uiState.update {
+                            it.copy(
+                                incomingShare = null,
+                                shareFeedback = ShareFeedback.Failed
+                            )
+                        }
+                    }
+                }
+            }
+            is CategoriesEvent.OnDismissImportSharedList -> {
+                _uiState.update { it.copy(incomingShare = null) }
+            }
+            is CategoriesEvent.OnShareFeedbackShown -> {
+                _uiState.update { it.copy(shareFeedback = null) }
             }
         }
     }

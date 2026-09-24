@@ -369,7 +369,7 @@ private fun DayCell(
                 if (isBirthday) {
                     // День рождения: иконка подарка, не «тухнет» — он повторяется.
                     Icon(
-                        painter = painterResource(R.drawable.ic_redeem),
+                        painter = painterResource(R.drawable.ic_event_cake),
                         contentDescription = stringResource(R.string.event_type_birthday),
                         tint = colors.calendarEventMarker,
                         modifier = Modifier.size(12.dp)

@@ -2,7 +2,9 @@ package com.example.timemanager.presentation.util
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.example.timemanager.R
+import com.example.timemanager.domain.model.ListShareFormat
 import com.example.timemanager.domain.model.Task
 
 /**
@@ -15,6 +17,21 @@ fun shareList(context: Context, categoryName: String, tasks: List<Task>) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, body)
+    }
+    context.startActivity(
+        Intent.createChooser(send, context.getString(R.string.share_list))
+    )
+}
+
+/**
+ * Поделиться списком файлом `.tnote` — получатель с T-Note сможет
+ * импортировать его к себе (открытием файла или через настройки «Списков»).
+ */
+fun shareListFile(context: Context, uri: Uri) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = ListShareFormat.MIME_TYPE
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(
         Intent.createChooser(send, context.getString(R.string.share_list))

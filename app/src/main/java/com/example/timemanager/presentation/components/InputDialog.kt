@@ -79,7 +79,6 @@ fun TaskInputDialog(
     titleInitial: String = "",
     descriptionInitial: String = "",
     dialogTitle: String,
-    hasExistingTasks: Boolean = false,
     copyTargets: List<Category> = emptyList(),
     onCopyTo: ((Long, String, String) -> Unit)? = null,
     onDismiss: () -> Unit,
@@ -155,7 +154,7 @@ fun TaskInputDialog(
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (hasExistingTasks && onNext != null) {
+                if (onNext != null) {
                     AppButton(
                         onClick = {
                             onNext(title, description)

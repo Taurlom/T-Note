@@ -61,6 +61,16 @@
     <string name="app_version">Версия %1$s (%2$d)</string>
     <string name="share_photo">Поделиться фото</string>
     <string name="share_list">Поделиться списком</string>
+    <string name="share_list_text">Текстом (в любой чат)</string>
+    <string name="share_list_file">Файлом для T-Note (.tnote)</string>
+    <string name="share_list_file_error">Не удалось создать файл списка</string>
+    <string name="import_list">Импортировать список из файла</string>
+    <string name="shared_list_import_title">Список из файла</string>
+    <string name="shared_list_import_text">Добавить список «%1$s» с пунктами (%2$d)? Текущие данные не изменятся.</string>
+    <string name="shared_list_import_summary">Осталось выполнить: %1$d, готово: %2$d</string>
+    <string name="shared_list_add_action">Добавить</string>
+    <string name="shared_list_added">Список «%1$s» добавлен</string>
+    <string name="shared_list_error">Не удалось прочитать: это не файл списка T-Note</string>
 
     <!-- События календаря -->
     <string name="events_label">События</string>

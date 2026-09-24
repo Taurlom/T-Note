@@ -44,7 +44,7 @@ fun eventIconColor(colorArgb: Long, isPast: Boolean, defaultColor: Color): Color
 val ScheduledEventType.iconRes: Int
     get() = when (this) {
         ScheduledEventType.REGULAR -> R.drawable.ic_event_note
-        ScheduledEventType.BIRTHDAY -> R.drawable.ic_redeem
+        ScheduledEventType.BIRTHDAY -> R.drawable.ic_event_cake
         ScheduledEventType.REPEATING -> R.drawable.ic_event_chronic
         ScheduledEventType.WEEKEND -> R.drawable.ic_weekend
     }

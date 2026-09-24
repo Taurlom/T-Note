@@ -2,6 +2,7 @@ package com.example.timemanager.presentation.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -30,7 +31,8 @@ import com.example.timemanager.presentation.theme.AppTheme
 @Composable
 fun AppBrandHeader(
     modifier: Modifier = Modifier,
-    title: String = stringResource(R.string.app_name)
+    title: String = stringResource(R.string.app_name),
+    actions: @Composable RowScope.() -> Unit = {}
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -51,7 +53,9 @@ fun AppBrandHeader(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = AppTheme.colors.brandTitle
+            color = AppTheme.colors.brandTitle,
+            modifier = Modifier.weight(1f)
         )
+        actions()
     }
 }

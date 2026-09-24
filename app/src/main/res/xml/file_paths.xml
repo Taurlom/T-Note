@@ -3,6 +3,9 @@
     <cache-path
         name="document_camera_captures"
         path="camera_captures/" />
+    <cache-path
+        name="list_shares"
+        path="list_shares/" />
     <files-path
         name="document_photos"
         path="document_photos/" />

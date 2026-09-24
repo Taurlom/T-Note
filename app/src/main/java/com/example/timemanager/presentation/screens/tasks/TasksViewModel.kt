@@ -1,9 +1,13 @@
 package com.example.timemanager.presentation.screens.tasks
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.timemanager.domain.model.SharedList
+import com.example.timemanager.domain.model.SharedTask
 import com.example.timemanager.domain.model.Task
+import com.example.timemanager.domain.repository.ListShareRepository
 import com.example.timemanager.domain.usecase.AddTaskUseCase
 import com.example.timemanager.domain.usecase.CopyTaskToCategoryUseCase
 import com.example.timemanager.domain.usecase.DeleteTaskUseCase
@@ -32,7 +36,8 @@ class TasksViewModel @Inject constructor(
     private val updateTaskUseCase: UpdateTaskUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
     private val reorderTasksUseCase: ReorderTasksUseCase,
-    private val copyTaskToCategoryUseCase: CopyTaskToCategoryUseCase
+    private val copyTaskToCategoryUseCase: CopyTaskToCategoryUseCase,
+    private val listShareRepository: ListShareRepository
 ) : ViewModel() {
 
     private val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
@@ -71,6 +76,27 @@ class TasksViewModel @Inject constructor(
                 _uiState.update { it.copy(tasks = tasks) }
             }
             .launchIn(viewModelScope)
+    }
+
+    /**
+     * Файл `.tnote` текущего списка для «Поделиться файлом».
+     * null — список ещё не загрузился или не удалось записать файл.
+     */
+    suspend fun createShareFileUri(): Uri? {
+        val snapshot = _uiState.value
+        val category = snapshot.category ?: return null
+        val shared = SharedList(
+            name = category.name,
+            color = category.color,
+            tasks = snapshot.tasks.map {
+                SharedTask(
+                    title = it.title,
+                    description = it.description,
+                    completed = it.isCompleted
+                )
+            }
+        )
+        return runCatching { listShareRepository.exportToFile(shared) }.getOrNull()
     }
 
     fun onEvent(event: TasksEvent) {

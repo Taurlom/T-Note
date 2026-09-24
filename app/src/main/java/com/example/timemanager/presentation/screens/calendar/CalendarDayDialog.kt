@@ -178,7 +178,7 @@ private fun ScheduledEventRow(
         Icon(
             painter = painterResource(
                 when (event.type) {
-                    ScheduledEventType.BIRTHDAY -> R.drawable.ic_redeem
+                    ScheduledEventType.BIRTHDAY -> R.drawable.ic_event_cake
                     ScheduledEventType.WEEKEND -> R.drawable.ic_weekend
                     else -> event.icon.drawableRes
                 }

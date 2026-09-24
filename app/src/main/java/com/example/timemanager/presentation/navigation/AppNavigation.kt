@@ -2,6 +2,8 @@ package com.example.timemanager.presentation.navigation
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -16,23 +18,30 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.timemanager.R
 import com.example.timemanager.presentation.components.BottomNavBar
 import com.example.timemanager.presentation.components.BottomNavItem
+import com.example.timemanager.presentation.components.SharedListImportDialog
 import com.example.timemanager.presentation.screens.calendar.CalendarScreen
 import com.example.timemanager.presentation.screens.calendar.CalendarViewModel
+import com.example.timemanager.presentation.screens.categories.CategoriesEvent
 import com.example.timemanager.presentation.screens.categories.CategoriesScreen
 import com.example.timemanager.presentation.screens.categories.CategoriesViewModel
+import com.example.timemanager.presentation.screens.categories.ShareFeedback
 import com.example.timemanager.presentation.screens.documents.DocumentDetailScreen
 import com.example.timemanager.presentation.screens.documents.DocumentsScreen
 import com.example.timemanager.presentation.screens.documents.DocumentsViewModel
@@ -73,10 +82,18 @@ private val mainNoExit: ExitTransition = ExitTransition.None
  * ViewModel всех разделов живут в скоупе активности — данные раздела
  * загружаются один раз и остаются в памяти при любых переключениях и
  * погружениях вглубь.
+ *
+ * [pendingShareUri] — `.tnote`-файл, переданный в приложение тапом
+ * («Открыть в T-Note»): читаем его, показываем диалог подтверждения импорта
+ * поверх текущего экрана и гасим интент после обработки.
  */
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    pendingShareUri: Uri? = null,
+    onPendingShareUriHandled: () -> Unit = {}
+) {
     val navController = rememberNavController()
+    val context = LocalContext.current
 
     val tabViewModelStoreOwner: ViewModelStoreOwner = LocalContext.current
         .viewModelStoreOwnerOrNull()
@@ -89,6 +106,32 @@ fun AppNavigation() {
     val calendarViewModel: CalendarViewModel = hiltViewModel(tabViewModelStoreOwner)
     val documentsViewModel: DocumentsViewModel = hiltViewModel(tabViewModelStoreOwner)
     val settingsViewModel: SettingsViewModel = hiltViewModel(tabViewModelStoreOwner)
+
+    val categoriesState by categoriesViewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(pendingShareUri) {
+        if (pendingShareUri != null) {
+            categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(pendingShareUri))
+            onPendingShareUriHandled()
+        }
+    }
+
+    LaunchedEffect(categoriesState.shareFeedback) {
+        when (val feedback = categoriesState.shareFeedback) {
+            is ShareFeedback.Imported -> Toast.makeText(
+                context,
+                context.getString(R.string.shared_list_added, feedback.listName),
+                Toast.LENGTH_SHORT
+            ).show()
+            ShareFeedback.Failed -> Toast.makeText(
+                context,
+                R.string.shared_list_error,
+                Toast.LENGTH_LONG
+            ).show()
+            null -> return@LaunchedEffect
+        }
+        categoriesViewModel.onEvent(CategoriesEvent.OnShareFeedbackShown)
+    }
 
     NavHost(
         navController = navController,
@@ -151,6 +194,19 @@ fun AppNavigation() {
                 LaunchedEffect(Unit) { navController.popBackStack() }
             }
         }
+    }
+
+    // Диалог импорта — поверх NavHost: файл могут открыть из любого экрана.
+    categoriesState.incomingShare?.let { shared ->
+        SharedListImportDialog(
+            shared = shared,
+            onConfirm = {
+                categoriesViewModel.onEvent(CategoriesEvent.OnConfirmImportSharedList)
+            },
+            onDismiss = {
+                categoriesViewModel.onEvent(CategoriesEvent.OnDismissImportSharedList)
+            }
+        )
     }
 }
 

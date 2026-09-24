@@ -1,5 +1,7 @@
-package com.example.timemanager
+﻿package com.example.timemanager
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
@@ -31,6 +33,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
+    // Compose-состояние вне composition: пишет его onNewIntent, читает AppNavigation.
+    private val pendingShareUri = mutableStateOf<Uri?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setOnExitAnimationListener { splashView ->
             splashView.remove()
@@ -38,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleIncomingShare(intent)
         setContent {
             val selectedFont by settingsRepository.selectedFont
                 .collectAsState(initial = AppFont.PT_SANS)
@@ -62,10 +68,32 @@ class MainActivity : ComponentActivity() {
                     if (showSplash) {
                         SplashScreen()
                     } else {
-                        AppNavigation()
+                        AppNavigation(
+                            pendingShareUri = pendingShareUri.value,
+                            onPendingShareUriHandled = { pendingShareUri.value = null }
+                        )
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // launchMode="singleTop": файл, открытый в запущенном приложении,
+        // приходит сюда, а не в новую активность.
+        handleIncomingShare(intent)
+    }
+
+    private fun handleIncomingShare(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_VIEW ->
+                intent.data?.let { pendingShareUri.value = it }
+            // «Поделиться → T-Note»: файл лежит в EXTRA_STREAM.
+            Intent.ACTION_SEND ->
+                @Suppress("DEPRECATION")
+                (intent.extras?.getParcelable(Intent.EXTRA_STREAM) as? Uri)
+                    ?.let { pendingShareUri.value = it }
         }
     }
 }
