@@ -1,7 +1,6 @@
 package com.example.timemanager.presentation.screens.calendar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,12 +41,14 @@ import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
 import com.example.timemanager.presentation.components.AppButton
 import com.example.timemanager.presentation.components.AppCheckbox
+import com.example.timemanager.presentation.components.AppColorPicker
 import com.example.timemanager.presentation.components.AppDialog
 import com.example.timemanager.presentation.components.AppDropdown
 import com.example.timemanager.presentation.components.AppOutlinedButton
 import com.example.timemanager.presentation.components.AppSaveButton
 import com.example.timemanager.presentation.components.AppTextButton
 import com.example.timemanager.presentation.components.AppTextField
+import com.example.timemanager.presentation.components.ColorSwatchOption
 import com.example.timemanager.presentation.theme.AppTheme
 import java.time.LocalDate
 
@@ -70,9 +72,10 @@ fun CalendarDayDialog(
     // null — редактор закрыт; ScheduledEvent с id == 0 — новый черновик.
     var editorTarget by remember { mutableStateOf<ScheduledEvent?>(null) }
     val dateKey = date.toIsoString()
+    val locale = LocalConfiguration.current.locales[0]
 
     AppDialog(
-        title = date.toDisplayName(),
+        title = date.toDisplayName(locale),
         onDismissRequest = onDismiss,
         text = {
             AppTextField(
@@ -350,26 +353,23 @@ private fun ScheduledEventEditorDialog(
                     style = MaterialTheme.typography.labelLarge,
                     color = AppTheme.colors.dialogContent
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Первый кружок — «по умолчанию»: цвет маркера события в сетке.
-                    EventColorOption(
-                        swatch = AppTheme.colors.calendarEventMarker,
-                        selected = colorArgb == ScheduledEvent.DEFAULT_COLOR,
-                        label = stringResource(R.string.color_default),
-                        onClick = { colorArgb = ScheduledEvent.DEFAULT_COLOR }
-                    )
-                    eventColorPresets.forEach { preset ->
-                        EventColorOption(
-                            swatch = Color(preset),
-                            selected = colorArgb == preset,
-                            label = null,
-                            onClick = { colorArgb = preset }
+                AppColorPicker(
+                    options = buildList {
+                        // Первая плашка — «по умолчанию»: цвет маркера события в сетке.
+                        add(
+                            ColorSwatchOption(
+                                value = ScheduledEvent.DEFAULT_COLOR,
+                                swatch = AppTheme.colors.calendarEventMarker,
+                                label = stringResource(R.string.color_default)
+                            )
                         )
-                    }
-                }
+                        eventColorPresets.forEach { preset ->
+                            add(ColorSwatchOption(value = preset, swatch = Color(preset)))
+                        }
+                    },
+                    selected = colorArgb,
+                    onSelect = { colorArgb = it }
+                )
             }
         },
         confirmButton = {
@@ -413,39 +413,6 @@ private fun ScheduledEventEditorDialog(
             null
         }
     )
-}
-
-/** Кружок-переключатель цвета иконки события. */
-@Composable
-private fun EventColorOption(
-    swatch: Color,
-    selected: Boolean,
-    label: String?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .size(28.dp)
-            .clip(CircleShape)
-            .background(swatch)
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) AppTheme.colors.dialogContent else Color.Transparent,
-                shape = CircleShape
-            )
-            .clickable(onClickLabel = label) { onClick() }
-    ) {
-        if (selected) {
-            Icon(
-                painter = painterResource(R.drawable.ic_check),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-    }
 }
 
 /** Кружок-переключатель иконки события — в размер палитры цветов. */

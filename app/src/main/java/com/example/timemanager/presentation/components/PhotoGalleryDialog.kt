@@ -126,7 +126,7 @@ fun PhotoGalleryDialog(
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_rotate_right),
-                                    contentDescription = "Rotate",
+                                    contentDescription = stringResource(R.string.rotate),
                                     tint = Color.White
                                 )
                             }
@@ -134,7 +134,7 @@ fun PhotoGalleryDialog(
                             IconButton(onClick = { showCropDialog = true }) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_crop),
-                                    contentDescription = "Crop",
+                                    contentDescription = stringResource(R.string.crop),
                                     tint = Color.White
                                 )
                             }
@@ -256,7 +256,7 @@ private fun Cropper(
 
         Image(
             bitmap = bmp.asImageBitmap(),
-            contentDescription = "Crop",
+            contentDescription = stringResource(R.string.crop),
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize()
         )
@@ -379,7 +379,7 @@ private fun Cropper(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
-                        contentDescription = "Cancel",
+                        contentDescription = stringResource(R.string.cancel),
                         tint = Color.White,
                         modifier = Modifier.size(48.dp)
                     )

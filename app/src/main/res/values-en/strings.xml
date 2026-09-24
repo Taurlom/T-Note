@@ -1,0 +1,145 @@
+<resources>
+    <string name="tasks_title">List</string>
+    <string name="add_category">Add list</string>
+    <string name="edit_category">Edit list</string>
+    <string name="add_task">Add item</string>
+    <string name="edit_task">Edit item</string>
+    <string name="category_name">List name</string>
+    <string name="task_title">Name</string>
+    <string name="task_description">Description</string>
+    <string name="copy_to">Copy to</string>
+    <string name="copy">Copy</string>
+    <string name="choose_list">Choose a list</string>
+    <string name="task_copied">Copied to list \"%1$s\"</string>
+    <string name="save">Save</string>
+    <string name="next">Next</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="no_categories">No lists yet</string>
+    <string name="no_tasks">This list is empty</string>
+    <string name="choose_color">Choose a color</string>
+    <string name="bottom_nav_calendar">Calendar</string>
+    <string name="bottom_nav_documents">Documents</string>
+    <string name="bottom_nav_settings">Settings</string>
+    <string name="bottom_nav_categories">Lists</string>
+    <string name="calendar_title">Calendar</string>
+    <string name="note_label">Note</string>
+    <string name="settings_title">Settings</string>
+    <string name="font_label">Font</string>
+    <string name="theme_label">Theme</string>
+    <string name="clear_calendar">Clear calendar</string>
+    <string name="clear_calendar_message">All calendar notes will be deleted. This action cannot be undone.</string>
+    <string name="back">Back</string>
+    <string name="documents_title">Documents</string>
+    <string name="add_document">Add document</string>
+    <string name="edit_document">Edit document</string>
+    <string name="no_documents">No documents yet</string>
+    <string name="document_name">Name</string>
+    <string name="document_description">Description</string>
+    <string name="created_at">Added: %1$s</string>
+    <string name="add_photo">Add photo</string>
+    <string name="take_photo">Take photo</string>
+    <string name="document_photo">Document photo</string>
+    <string name="document_detail">Document</string>
+    <string name="document_not_found">Document not found</string>
+    <string name="create">Create</string>
+
+    <!-- Backup -->
+    <string name="backup_section">Backup</string>
+    <string name="backup_export">Save a copy</string>
+    <string name="backup_import">Restore from copy</string>
+    <string name="backup_restore">Restore</string>
+    <string name="backup_exported">Backup saved</string>
+    <string name="backup_error">Backup error: %1$s</string>
+    <string name="backup_import_confirm_title">Restore from copy?</string>
+    <string name="backup_import_confirm_text">Current lists, tasks, notes, events and documents will be replaced by the contents of the backup.</string>
+    <string name="backup_restart_title">Restart required</string>
+    <string name="backup_restart_text">Data restored. Restart the app for the changes to take effect.</string>
+    <string name="backup_restart_action">Restart</string>
+    <string name="app_version">Version %1$s (%2$d)</string>
+    <string name="share_photo">Share photo</string>
+    <string name="share_list">Share list</string>
+    <string name="share_list_text">As text (any chat)</string>
+    <string name="share_list_file">As a T-Note file (.tnote)</string>
+    <string name="share_list_file_error">Could not create the list file</string>
+    <string name="import_list">Import list from file</string>
+    <string name="shared_list_import_title">List from file</string>
+    <string name="shared_list_import_text">Add list \"%1$s\" with %2$d item(s)? Your current data will not change.</string>
+    <string name="shared_list_import_summary">To do: %1$d, done: %2$d</string>
+    <string name="shared_list_add_action">Add</string>
+    <string name="shared_list_added">List \"%1$s\" added</string>
+    <string name="shared_list_error">Could not read: this is not a T-Note list file</string>
+
+    <!-- Calendar events -->
+    <string name="events_label">Events</string>
+    <string name="add_event">Add event</string>
+    <string name="edit_event">Edit event</string>
+    <string name="event_name">Name</string>
+    <string name="event_type">Event type</string>
+    <string name="event_type_regular">Regular</string>
+    <string name="event_type_birthday">Birthday</string>
+    <string name="event_type_repeating">Repeating</string>
+    <string name="event_type_weekend">Weekend</string>
+
+    <!-- Repeating event -->
+    <string name="repeat_every_days">Every N days</string>
+    <string name="repeat_days">Repeat for days</string>
+    <string name="repeat_hide_past">Delete past ones</string>
+    <string name="event_icon">Icon</string>
+    <string name="event_color">Color</string>
+    <string name="color_default">Default</string>
+
+    <string name="icon_note">Note</string>
+    <string name="icon_hospital">Hospital</string>
+    <string name="icon_travel">Travel</string>
+    <string name="icon_forest">Forest</string>
+    <string name="icon_gifts">Gifts</string>
+    <string name="icon_home">Home</string>
+    <string name="icon_health">Health</string>
+    <string name="icon_beach">Beach</string>
+    <string name="icon_footprint">Walk</string>
+    <string name="icon_celebration">Celebration</string>
+    <string name="icon_build">Renovation</string>
+    <string name="icon_fitness">Sport</string>
+    <string name="icon_groups">Meeting</string>
+    <string name="icon_delivery">Delivery</string>
+    <string name="icon_selfcare">Self-care</string>
+    <string name="icon_bar">Bar</string>
+    <string name="icon_garden">Garden</string>
+
+    <string name="event_delete_description">Delete event</string>
+
+    <!-- UI languages -->
+    <string name="language_label">Language</string>
+    <string name="language_system">System default</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_en">English</string>
+    <string name="language_es">Español</string>
+
+    <!-- Theme names -->
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_ocean">Ocean</string>
+    <string name="theme_forest">Forest</string>
+    <string name="theme_autumn">Autumn</string>
+
+    <!-- Small UI strings -->
+    <string name="edit">Edit</string>
+    <string name="rotate">Rotate</string>
+    <string name="crop">Crop</string>
+    <string name="prev_month">Previous month</string>
+    <string name="next_month">Next month</string>
+    <string name="delete_task_confirm">Delete item \"%1$s\"?</string>
+    <string name="delete_category_confirm">Delete list \"%1$s\"? All items inside it will be deleted too.</string>
+    <string name="delete_document_confirm">Delete document \"%1$s\"?</string>
+
+    <!-- Weekday labels, short -->
+    <string name="weekday_mon">Mo</string>
+    <string name="weekday_tue">Tu</string>
+    <string name="weekday_wed">We</string>
+    <string name="weekday_thu">Th</string>
+    <string name="weekday_fri">Fr</string>
+    <string name="weekday_sat">Sa</string>
+    <string name="weekday_sun">Su</string>
+</resources>

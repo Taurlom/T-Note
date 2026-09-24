@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,14 +74,14 @@ fun TaskItem(
             IconButton(onClick = onEdit) {
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
-                    contentDescription = "Редактировать",
+                    contentDescription = stringResource(R.string.edit),
                     tint = AppTheme.colors.actionIcon
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(R.drawable.ic_delete),
-                    contentDescription = "Удалить",
+                    contentDescription = stringResource(R.string.delete),
                     tint = AppTheme.colors.actionIcon
                 )
             }

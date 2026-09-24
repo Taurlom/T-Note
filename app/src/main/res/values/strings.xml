@@ -111,8 +111,38 @@
 
     <string name="event_delete_description">Удалить событие</string>
 
+    <!-- Языки интерфейса -->
+    <string name="language_label">Язык</string>
+    <string name="language_system">Как в системе</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_en">English</string>
+    <string name="language_es">Español</string>
 
+    <!-- Названия тем -->
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_ocean">Океан</string>
+    <string name="theme_forest">Лес</string>
+    <string name="theme_autumn">Осень</string>
 
+    <!-- Мелкие UI-строки, ранее захардкоженные в коде -->
+    <string name="edit">Редактировать</string>
+    <string name="rotate">Повернуть</string>
+    <string name="crop">Обрезать</string>
+    <string name="prev_month">Предыдущий месяц</string>
+    <string name="next_month">Следующий месяц</string>
+    <string name="delete_task_confirm">Удалить пункт «%1$s»?</string>
+    <string name="delete_category_confirm">Удалить список «%1$s»? Все задачи внутри него также будут удалены.</string>
+    <string name="delete_document_confirm">Удалить документ «%1$s»?</string>
+
+    <!-- Дни недели, коротко (Пн…Вс) -->
+    <string name="weekday_mon">Пн</string>
+    <string name="weekday_tue">Вт</string>
+    <string name="weekday_wed">Ср</string>
+    <string name="weekday_thu">Чт</string>
+    <string name="weekday_fri">Пт</string>
+    <string name="weekday_sat">Сб</string>
+    <string name="weekday_sun">Вс</string>
 
 </resources>
 

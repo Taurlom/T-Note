@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -141,34 +142,42 @@ private fun CalendarHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth()
     ) {
+        val locale = LocalConfiguration.current.locales[0]
         IconButton(onClick = onPrevious) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_left),
-                contentDescription = "Предыдущий месяц",
+                contentDescription = stringResource(R.string.prev_month),
                 tint = AppTheme.colors.calendarHeader
             )
         }
         Text(
             // Название месяца форматируется один раз за перерисовку заголовка.
-            text = remember(yearMonth) { yearMonth.toDisplayName() },
+            text = remember(yearMonth, locale) { yearMonth.toDisplayName(locale) },
             style = MaterialTheme.typography.headlineSmall,
             color = AppTheme.colors.calendarHeader
         )
         IconButton(onClick = onNext) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = "Следующий месяц",
+                contentDescription = stringResource(R.string.next_month),
                 tint = AppTheme.colors.calendarHeader
             )
         }
     }
 }
 
-private val weekDays = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
-
-
 @Composable
 private fun WeekDayLabels() {
+    // Неделя начинается с понедельника во всех локалях приложения.
+    val weekDays = listOf(
+        stringResource(R.string.weekday_mon),
+        stringResource(R.string.weekday_tue),
+        stringResource(R.string.weekday_wed),
+        stringResource(R.string.weekday_thu),
+        stringResource(R.string.weekday_fri),
+        stringResource(R.string.weekday_sat),
+        stringResource(R.string.weekday_sun)
+    )
     Row(modifier = Modifier.fillMaxWidth()) {
         weekDays.forEach { day ->
             Text(

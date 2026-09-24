@@ -70,7 +70,7 @@ fun TasksScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = "Назад"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -171,7 +171,7 @@ fun TasksScreen(
     taskToDelete?.let { task ->
         ConfirmDeleteDialog(
             title = stringResource(R.string.delete),
-            text = "Удалить задачу \"${task.title}\"?",
+            text = stringResource(R.string.delete_task_confirm, task.title),
             onDismiss = { taskToDelete = null },
             onConfirm = {
                 viewModel.onEvent(TasksEvent.OnDeleteTask(task))

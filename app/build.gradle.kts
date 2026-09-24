@@ -28,8 +28,8 @@ android {
         // Версионирование: семантическое (см. CHANGELOG.md).
         // versionCode = MAJOR*100 + MINOR*10 + PATCH — растёт монотонно,
         // синхронно с versionName при каждом релизе.
-        versionCode = 200
-        versionName = "1.10.0"
+        versionCode = 210
+        versionName = "1.11.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -99,6 +99,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
+    // Per-app language: AppCompatDelegate.setApplicationLocales работает и
+    // на Android < 13 (там, где нет системного LocaleManager).
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

@@ -150,7 +150,7 @@ fun CategoriesScreen(
     categoryToDelete?.let { category ->
         ConfirmDeleteDialog(
             title = stringResource(R.string.delete),
-            text = "Удалить категорию \"${category.name}\"? Все задачи внутри неё также будут удалены.",
+            text = stringResource(R.string.delete_category_confirm, category.name),
             onDismiss = { categoryToDelete = null },
             onConfirm = {
                 viewModel.onEvent(CategoriesEvent.OnDeleteCategory(category))

@@ -1,0 +1,145 @@
+<resources>
+    <string name="tasks_title">Lista</string>
+    <string name="add_category">Añadir lista</string>
+    <string name="edit_category">Editar lista</string>
+    <string name="add_task">Añadir elemento</string>
+    <string name="edit_task">Editar elemento</string>
+    <string name="category_name">Nombre de la lista</string>
+    <string name="task_title">Nombre</string>
+    <string name="task_description">Descripción</string>
+    <string name="copy_to">Copiar a</string>
+    <string name="copy">Copiar</string>
+    <string name="choose_list">Elige una lista</string>
+    <string name="task_copied">Copiado a la lista «%1$s»</string>
+    <string name="save">Guardar</string>
+    <string name="next">Siguiente</string>
+    <string name="delete">Eliminar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="close">Cerrar</string>
+    <string name="no_categories">Aún no hay listas</string>
+    <string name="no_tasks">Esta lista está vacía</string>
+    <string name="choose_color">Elige un color</string>
+    <string name="bottom_nav_calendar">Calendario</string>
+    <string name="bottom_nav_documents">Documentos</string>
+    <string name="bottom_nav_settings">Ajustes</string>
+    <string name="bottom_nav_categories">Listas</string>
+    <string name="calendar_title">Calendario</string>
+    <string name="note_label">Nota</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="font_label">Fuente</string>
+    <string name="theme_label">Tema</string>
+    <string name="clear_calendar">Vaciar calendario</string>
+    <string name="clear_calendar_message">Se eliminarán todas las notas del calendario. Esta acción no se puede deshacer.</string>
+    <string name="back">Atrás</string>
+    <string name="documents_title">Documentos</string>
+    <string name="add_document">Añadir documento</string>
+    <string name="edit_document">Editar documento</string>
+    <string name="no_documents">Aún no hay documentos</string>
+    <string name="document_name">Nombre</string>
+    <string name="document_description">Descripción</string>
+    <string name="created_at">Añadido: %1$s</string>
+    <string name="add_photo">Añadir foto</string>
+    <string name="take_photo">Hacer foto</string>
+    <string name="document_photo">Foto del documento</string>
+    <string name="document_detail">Documento</string>
+    <string name="document_not_found">Documento no encontrado</string>
+    <string name="create">Crear</string>
+
+    <!-- Copias de seguridad -->
+    <string name="backup_section">Copia de seguridad</string>
+    <string name="backup_export">Guardar copia</string>
+    <string name="backup_import">Restaurar desde copia</string>
+    <string name="backup_restore">Restaurar</string>
+    <string name="backup_exported">Copia de seguridad guardada</string>
+    <string name="backup_error">Error de copia de seguridad: %1$s</string>
+    <string name="backup_import_confirm_title">¿Restaurar desde copia?</string>
+    <string name="backup_import_confirm_text">Las listas, tareas, notas, eventos y documentos actuales serán reemplazados por el contenido de la copia.</string>
+    <string name="backup_restart_title">Se requiere reiniciar</string>
+    <string name="backup_restart_text">Datos restaurados. Reinicia la aplicación para que surtan efecto.</string>
+    <string name="backup_restart_action">Reiniciar</string>
+    <string name="app_version">Versión %1$s (%2$d)</string>
+    <string name="share_photo">Compartir foto</string>
+    <string name="share_list">Compartir lista</string>
+    <string name="share_list_text">Como texto (cualquier chat)</string>
+    <string name="share_list_file">Como archivo T-Note (.tnote)</string>
+    <string name="share_list_file_error">No se pudo crear el archivo de lista</string>
+    <string name="import_list">Importar lista desde archivo</string>
+    <string name="shared_list_import_title">Lista desde archivo</string>
+    <string name="shared_list_import_text">¿Añadir la lista «%1$s» con %2$d elemento(s)? Tus datos actuales no cambiarán.</string>
+    <string name="shared_list_import_summary">Pendientes: %1$d, hechos: %2$d</string>
+    <string name="shared_list_add_action">Añadir</string>
+    <string name="shared_list_added">Lista «%1$s» añadida</string>
+    <string name="shared_list_error">No se pudo leer: esto no es un archivo de lista de T-Note</string>
+
+    <!-- Eventos del calendario -->
+    <string name="events_label">Eventos</string>
+    <string name="add_event">Añadir evento</string>
+    <string name="edit_event">Editar evento</string>
+    <string name="event_name">Nombre</string>
+    <string name="event_type">Tipo de evento</string>
+    <string name="event_type_regular">Normal</string>
+    <string name="event_type_birthday">Cumpleaños</string>
+    <string name="event_type_repeating">Repetible</string>
+    <string name="event_type_weekend">Fin de semana</string>
+
+    <!-- Evento repetible -->
+    <string name="repeat_every_days">Cada N días</string>
+    <string name="repeat_days">Repetir durante días</string>
+    <string name="repeat_hide_past">Eliminar pasados</string>
+    <string name="event_icon">Icono</string>
+    <string name="event_color">Color</string>
+    <string name="color_default">Predeterminado</string>
+
+    <string name="icon_note">Nota</string>
+    <string name="icon_hospital">Hospital</string>
+    <string name="icon_travel">Viaje</string>
+    <string name="icon_forest">Bosque</string>
+    <string name="icon_gifts">Regalos</string>
+    <string name="icon_home">Casa</string>
+    <string name="icon_health">Salud</string>
+    <string name="icon_beach">Playa</string>
+    <string name="icon_footprint">Paseo</string>
+    <string name="icon_celebration">Fiesta</string>
+    <string name="icon_build">Reformas</string>
+    <string name="icon_fitness">Deporte</string>
+    <string name="icon_groups">Encuentro</string>
+    <string name="icon_delivery">Entrega</string>
+    <string name="icon_selfcare">Autocuidado</string>
+    <string name="icon_bar">Bar</string>
+    <string name="icon_garden">Jardín</string>
+
+    <string name="event_delete_description">Eliminar evento</string>
+
+    <!-- Idiomas de la interfaz -->
+    <string name="language_label">Idioma</string>
+    <string name="language_system">El del sistema</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_en">English</string>
+    <string name="language_es">Español</string>
+
+    <!-- Nombres de temas -->
+    <string name="theme_dark">Oscura</string>
+    <string name="theme_light">Clara</string>
+    <string name="theme_ocean">Océano</string>
+    <string name="theme_forest">Bosque</string>
+    <string name="theme_autumn">Otoño</string>
+
+    <!-- Cadenas breves -->
+    <string name="edit">Editar</string>
+    <string name="rotate">Girar</string>
+    <string name="crop">Recortar</string>
+    <string name="prev_month">Mes anterior</string>
+    <string name="next_month">Mes siguiente</string>
+    <string name="delete_task_confirm">¿Eliminar «%1$s»?</string>
+    <string name="delete_category_confirm">¿Eliminar la lista «%1$s»? También se eliminarán todos sus elementos.</string>
+    <string name="delete_document_confirm">¿Eliminar el documento «%1$s»?</string>
+
+    <!-- Días de la semana, abreviados -->
+    <string name="weekday_mon">Lu</string>
+    <string name="weekday_tue">Ma</string>
+    <string name="weekday_wed">Mi</string>
+    <string name="weekday_thu">Ju</string>
+    <string name="weekday_fri">Vi</string>
+    <string name="weekday_sat">Sá</string>
+    <string name="weekday_sun">Do</string>
+</resources>

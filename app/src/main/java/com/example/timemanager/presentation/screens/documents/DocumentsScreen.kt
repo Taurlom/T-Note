@@ -132,7 +132,7 @@ fun DocumentsScreen(
     documentToDelete?.let { document ->
         ConfirmDeleteDialog(
             title = stringResource(R.string.delete),
-            text = "Удалить документ \"${document.title}\"?",
+            text = stringResource(R.string.delete_document_confirm, document.title),
             onDismiss = { documentToDelete = null },
             onConfirm = {
                 viewModel.onEvent(DocumentsEvent.OnDeleteDocument(document))

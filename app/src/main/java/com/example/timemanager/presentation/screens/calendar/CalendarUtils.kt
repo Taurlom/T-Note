@@ -10,26 +10,28 @@ data class CalendarDate(val year: Int, val month: Int, val day: Int) {
     fun toIsoString(): String = String.format(Locale.US, "%04d-%02d-%02d", year, month, day)
 }
 
-fun CalendarYearMonth.toDisplayName(): String {
+fun CalendarYearMonth.toDisplayName(locale: Locale): String {
     val calendar = Calendar.getInstance().apply {
         set(Calendar.YEAR, year)
         set(Calendar.MONTH, month - 1)
         set(Calendar.DAY_OF_MONTH, 1)
     }
 
-    return SimpleDateFormat("LLLL yyyy", Locale("ru"))
+    return SimpleDateFormat("LLLL yyyy", locale)
         .format(calendar.time)
-        .replaceFirstChar { it.uppercaseChar() }
+        .replaceFirstChar { it.titlecase(locale) }
 }
 
-fun CalendarDate.toDisplayName(): String {
+fun CalendarDate.toDisplayName(locale: Locale): String {
     val calendar = Calendar.getInstance().apply {
         set(Calendar.YEAR, year)
         set(Calendar.MONTH, month - 1)
         set(Calendar.DAY_OF_MONTH, day)
     }
-    return String.format(Locale("ru"), "%1\$te %1\$tB %1\$tY", calendar)
-        .replaceFirstChar { it.uppercaseChar() }
+    // Locale передают из конфигурации контекста: per-app язык на Android < 13
+    // не меняет Locale.getDefault, а конфигурацию — меняет.
+    return String.format(locale, "%1\$te %1\$tB %1\$tY", calendar)
+        .replaceFirstChar { it.titlecase(locale) }
 }
 
 fun CalendarYearMonth.plusMonths(delta: Int): CalendarYearMonth {

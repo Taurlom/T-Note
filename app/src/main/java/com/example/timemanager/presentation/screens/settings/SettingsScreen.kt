@@ -141,16 +141,33 @@ fun SettingsScreen(
             // Тема применяется сразу при выборе — так видно, что она делает.
             AppDropdown(
                 label = stringResource(R.string.theme_label),
-                selectedLabel = uiState.selectedTheme.displayName,
+                selectedLabel = stringResource(uiState.selectedTheme.labelRes),
                 options = ThemeKind.entries.toList(),
                 optionText = { theme ->
                     Text(
-                        text = theme.displayName,
+                        text = stringResource(theme.labelRes),
                         style = MaterialTheme.typography.bodyLarge,
                         color = AppTheme.colors.dialogContent
                     )
                 },
                 onSelect = { viewModel.applyTheme(it) },
+                onDarkBackground = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            // Язык: «Как в системе» или явный выбор (пересоздаёт экран).
+            AppDropdown(
+                label = stringResource(R.string.language_label),
+                selectedLabel = stringResource(uiState.selectedLanguage.labelRes),
+                options = AppLanguage.entries.toList(),
+                optionText = { language ->
+                    Text(
+                        text = stringResource(language.labelRes),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = AppTheme.colors.dialogContent
+                    )
+                },
+                onSelect = { viewModel.applyLanguage(it) },
                 onDarkBackground = true,
                 modifier = Modifier.fillMaxWidth()
             )

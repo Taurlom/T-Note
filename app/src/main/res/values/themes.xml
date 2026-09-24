@@ -1,13 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!--
+        Тема запуска: системный сплэш (core-splashscreen). windowActionBar /
+        windowNoTitle обязательны: MainActivity — AppCompatActivity, он читает
+        эти атрибуты ещё до переключения на postSplashScreenTheme.
+    -->
     <style name="Theme.TNote.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.TNote</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
     </style>
 
-    <style name="Theme.TNote" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+        Light-наследие AppCompat — как и прежняя платформенная тема: светлый
+        фон окна на кадр до старта Compose. Всё остальное рисует сам Compose
+        (TNoteTheme), здесь только «окно под ним».
+    -->
+    <style name="Theme.TNote" parent="Theme.AppCompat.Light.NoActionBar" />
 </resources>
-
-

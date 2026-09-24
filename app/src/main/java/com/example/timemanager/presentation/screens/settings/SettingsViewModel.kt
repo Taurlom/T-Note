@@ -1,6 +1,8 @@
 package com.example.timemanager.presentation.screens.settings
 
 import android.net.Uri
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timemanager.domain.repository.BackupRepository
@@ -26,6 +28,11 @@ class SettingsViewModel @Inject constructor(
 
     private val backupStatus = MutableStateFlow(BackupStatus())
 
+    // Язык живёт в состоянии, а не вычисляется в combine: ViewModel
+    // переживает пересоздание активности при смене локали, и без явного
+    // обновления дропдаун показывал бы старое значение из кэша stateIn.
+    private val selectedLanguage = MutableStateFlow(AppLanguage.current())
+
     private data class BackupStatus(
         val isBusy: Boolean = false,
         val result: BackupResult? = null
@@ -35,11 +42,13 @@ class SettingsViewModel @Inject constructor(
         combine(
             settingsRepository.selectedFont,
             settingsRepository.selectedTheme,
-            backupStatus
-        ) { font, theme, backup ->
+            backupStatus,
+            selectedLanguage
+        ) { font, theme, backup, language ->
             SettingsUiState(
                 selectedFont = font,
                 selectedTheme = theme,
+                selectedLanguage = language,
                 isBackupBusy = backup.isBusy,
                 backupResult = backup.result
             )
@@ -54,6 +63,22 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.setSelectedTheme(theme)
         }
+    }
+
+    /**
+     * Смена языка интерфейса: AppCompat сам пересоздаёт активность
+     * (на Android 13+ это делает система), выбор сохраняется автоматически.
+     */
+    fun applyLanguage(language: AppLanguage) {
+        if (selectedLanguage.value == language) return
+        selectedLanguage.value = language
+        AppCompatDelegate.setApplicationLocales(
+            if (language.tag == null) {
+                LocaleListCompat.getEmptyLocaleList()
+            } else {
+                LocaleListCompat.forLanguageTags(language.tag)
+            }
+        )
     }
 
     fun applyFont(font: AppFont) {

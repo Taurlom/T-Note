@@ -54,9 +54,12 @@ fun CategoryInputDialog(
                     style = MaterialTheme.typography.labelLarge,
                     color = AppTheme.colors.dialogContent
                 )
-                ColorPicker(
-                    selectedColor = selectedColor,
-                    onColorSelected = { selectedColor = it }
+                AppColorPicker(
+                    options = categoryColorOptions(),
+                    selected = selectedColor,
+                    onSelect = { selectedColor = it },
+                    size = 40.dp,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
