@@ -48,19 +48,28 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
-      - name: Assemble signed release APK
+      - name: Assemble signed release APKs (store + legacy package)
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk store.apk
+          # Второй прогон с прежним пакетом: для уже установленных копий,
+          # чтобы никому не приходилось принудительно мигрировать.
+          ./gradlew --no-daemon :app:assembleRelease -PlegacyPackage
+          cp app/build/outputs/apk/release/app-release.apk legacy.apk
 
-      - name: Prepare artifact
+      - name: Prepare artifacts
         id: apk
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          APK="TNote-${VERSION}.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$APK"
-          sha256sum "$APK" | cut -d' ' -f1 > "${APK}.sha256"
-          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          STORE="TNote-${VERSION}-store.apk"
+          LEGACY="TNote-${VERSION}-legacy.apk"
+          cp store.apk "$STORE"
+          cp legacy.apk "$LEGACY"
+          sha256sum "$STORE" | cut -d' ' -f1 > "${STORE}.sha256"
+          sha256sum "$LEGACY" | cut -d' ' -f1 > "${LEGACY}.sha256"
+          echo "store=$STORE" >> "$GITHUB_OUTPUT"
+          echo "legacy=$LEGACY" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Extract changelog section
@@ -71,6 +80,17 @@ jobs:
           if [ ! -s release-notes.md ]; then
             printf '## %s\n\nСм. CHANGELOG.md\n' "${GITHUB_REF_NAME}" > release-notes.md
           fi
+          cat >> release-notes.md <<'EOF'
+
+          ---
+          **Какой файл выбрать**
+          - `*-store.apk` — пакет `ru.taurlom.tnote`: новая установка и версии из магазинов.
+          - `*-legacy.apk` — пакет `com.example.timemanager`: для тех, у кого T-Note уже
+            установлен, обновится поверх без переноса данных.
+          - Переезд между пакетами (по желанию, один раз): в старом приложении
+            «Настройки → Сохранить копию», установить store-версию,
+            «Настройки → Восстановить из копии». Дальше обновления прилетают из магазина.
+          EOF
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -79,6 +99,8 @@ jobs:
           name: T-Note ${{ steps.apk.outputs.version }}
           body_path: release-notes.md
           files: |
-            ${{ steps.apk.outputs.apk }}
-            ${{ steps.apk.outputs.apk }}.sha256
+            ${{ steps.apk.outputs.store }}
+            ${{ steps.apk.outputs.store }}.sha256
+            ${{ steps.apk.outputs.legacy }}
+            ${{ steps.apk.outputs.legacy }}.sha256
           make_latest: true

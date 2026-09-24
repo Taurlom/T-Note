@@ -25,8 +25,14 @@ android {
         // Идентификатор в магазинах и на устройстве. Отличается от namespace:
         // код остаётся в com.example.timemanager, а пакет публикации —
         // ru.taurlom.tnote (префикс com.example зарезервирован Google Play).
-        // Смена пакета = новая установка: перенос данных через резервную копию.
-        applicationId = "ru.taurlom.tnote"
+        // -PlegacyPackage собирает прежний пакет для тех, кто уже пользуется
+        // приложением: им обновляться поверх, без миграции (см. CHANGELOG 1.11.1).
+        applicationId =
+            if (project.hasProperty("legacyPackage")) {
+                "com.example.timemanager"
+            } else {
+                "ru.taurlom.tnote"
+            }
         minSdk = 24
         targetSdk = 34
         // Версионирование: семантическое (см. CHANGELOG.md).
