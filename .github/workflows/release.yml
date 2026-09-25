@@ -55,6 +55,9 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk store.apk
           # Второй прогон с прежним пакетом: для уже установленных копий,
           # чтобы никому не приходилось принудительно мигрировать.
+          # clean между прогонами: инкрементальные кэши KSP/Room не должны
+          # видеть смену applicationId в том же workspace.
+          ./gradlew --no-daemon :app:clean
           ./gradlew --no-daemon :app:assembleRelease -PlegacyPackage
           cp app/build/outputs/apk/release/app-release.apk legacy.apk
 
