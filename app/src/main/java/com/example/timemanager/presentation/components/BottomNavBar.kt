@@ -27,6 +27,11 @@ sealed class BottomNavItem(
         R.string.bottom_nav_documents
     )
 
+    data object Notes : BottomNavItem(
+        R.drawable.ic_event_note,
+        R.string.bottom_nav_notes
+    )
+
     data object Settings : BottomNavItem(
         R.drawable.ic_settings,
         R.string.bottom_nav_settings
@@ -46,7 +51,7 @@ sealed class BottomNavItem(
          * Порядок списка = порядок страниц пейджера разделов.
          */
         val items: List<BottomNavItem>
-            get() = listOf(Categories, Calendar, Documents, Settings)
+            get() = listOf(Categories, Notes, Calendar, Documents, Settings)
     }
 }
 

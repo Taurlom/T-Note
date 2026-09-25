@@ -45,6 +45,9 @@ import com.example.timemanager.presentation.screens.categories.ShareFeedback
 import com.example.timemanager.presentation.screens.documents.DocumentDetailScreen
 import com.example.timemanager.presentation.screens.documents.DocumentsScreen
 import com.example.timemanager.presentation.screens.documents.DocumentsViewModel
+import com.example.timemanager.presentation.screens.notes.NoteDetailScreen
+import com.example.timemanager.presentation.screens.notes.NotesScreen
+import com.example.timemanager.presentation.screens.notes.NotesViewModel
 import com.example.timemanager.presentation.screens.settings.SettingsScreen
 import com.example.timemanager.presentation.screens.settings.SettingsViewModel
 import com.example.timemanager.presentation.screens.tasks.TasksScreen
@@ -54,9 +57,11 @@ object Routes {
     const val MAIN = "main"
     const val TASKS = "tasks/{categoryId}"
     const val DOCUMENT_DETAIL = "documentDetail/{documentId}"
+    const val NOTE_DETAIL = "noteDetail/{noteId}"
 
     fun tasks(categoryId: Long): String = "tasks/$categoryId"
     fun documentDetail(documentId: Long): String = "documentDetail/$documentId"
+    fun noteDetail(noteId: Long): String = "noteDetail/$noteId"
 }
 
 // Для вложенных экранов остаётся короткий slide+fade.
@@ -99,12 +104,13 @@ fun AppNavigation(
         .viewModelStoreOwnerOrNull()
         ?: error("AppNavigation должен вызываться из Activity (MainActivity)")
 
-    // Создаются все четыре ViewModel сразу: каждый раздел подписан на свою
+    // Создаются все пять ViewModel сразу: каждый раздел подписан на свою
     // Room-выборку и держит её открытой. Первый переход в раздел больше не
     // тратит время на создание ViewModel и запрос к базе.
     val categoriesViewModel: CategoriesViewModel = hiltViewModel(tabViewModelStoreOwner)
     val calendarViewModel: CalendarViewModel = hiltViewModel(tabViewModelStoreOwner)
     val documentsViewModel: DocumentsViewModel = hiltViewModel(tabViewModelStoreOwner)
+    val notesViewModel: NotesViewModel = hiltViewModel(tabViewModelStoreOwner)
     val settingsViewModel: SettingsViewModel = hiltViewModel(tabViewModelStoreOwner)
 
     val categoriesState by categoriesViewModel.uiState.collectAsStateWithLifecycle()
@@ -149,12 +155,16 @@ fun AppNavigation(
                 categoriesViewModel = categoriesViewModel,
                 calendarViewModel = calendarViewModel,
                 documentsViewModel = documentsViewModel,
+                notesViewModel = notesViewModel,
                 settingsViewModel = settingsViewModel,
                 onCategoryClick = { categoryId ->
                     navController.navigate(Routes.tasks(categoryId))
                 },
                 onDocumentClick = { documentId ->
                     navController.navigate(Routes.documentDetail(documentId))
+                },
+                onNoteClick = { noteId ->
+                    navController.navigate(Routes.noteDetail(noteId))
                 }
             )
         }
@@ -194,6 +204,22 @@ fun AppNavigation(
                 LaunchedEffect(Unit) { navController.popBackStack() }
             }
         }
+        composable(
+            route = Routes.NOTE_DETAIL,
+            arguments = listOf(navArgument("noteId") { type = NavType.LongType }),
+            enterTransition = { detailEnter },
+            exitTransition = { detailExit },
+            popEnterTransition = { detailPopEnter },
+            popExitTransition = { detailPopExit }
+        ) { backStackEntry ->
+            if (backStackEntry.arguments?.getLong("noteId") != null) {
+                NoteDetailScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            } else {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            }
+        }
     }
 
     // Диалог импорта — поверх NavHost: файл могут открыть из любого экрана.
@@ -211,7 +237,7 @@ fun AppNavigation(
 }
 
 /**
- * Четыре раздела в [HorizontalPager]: переключение свайпом ведёт страницу
+ * Пять разделов в [HorizontalPager]: переключение свайпом ведёт страницу
  * за пальцем, тап по бару доезжает плавно (animateScrollToPage).
  *
  * Все страницы держим в композиции (beyondViewportPageCount): скролл
@@ -224,9 +250,11 @@ private fun MainTabsScreen(
     categoriesViewModel: CategoriesViewModel,
     calendarViewModel: CalendarViewModel,
     documentsViewModel: DocumentsViewModel,
+    notesViewModel: NotesViewModel,
     settingsViewModel: SettingsViewModel,
     onCategoryClick: (Long) -> Unit,
-    onDocumentClick: (Long) -> Unit
+    onDocumentClick: (Long) -> Unit,
+    onNoteClick: (Long) -> Unit
 ) {
     val items = BottomNavItem.items
     // Страница не проставляется в маршруте: раздел — состояние экрана
@@ -239,7 +267,7 @@ private fun MainTabsScreen(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.weight(1f),
-            // Держим все страницы живыми: 4 раздела, цена небольшая,
+            // Держим все страницы живыми: 5 разделов, цена небольшая,
             // зато скролл и локальное состояние списков не сбрасываются.
             beyondViewportPageCount = items.size - 1,
             // Жёсткие границы страницы без «щелей» между разделами.
@@ -254,6 +282,10 @@ private fun MainTabsScreen(
                 BottomNavItem.Documents -> DocumentsScreen(
                     onDocumentClick = onDocumentClick,
                     viewModel = documentsViewModel
+                )
+                BottomNavItem.Notes -> NotesScreen(
+                    onNoteClick = onNoteClick,
+                    viewModel = notesViewModel
                 )
                 BottomNavItem.Settings -> SettingsScreen(viewModel = settingsViewModel)
             }

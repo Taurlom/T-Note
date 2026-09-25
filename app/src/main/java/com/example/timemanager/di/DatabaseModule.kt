@@ -7,6 +7,7 @@ import com.example.timemanager.data.local.AppDatabaseMigration
 import com.example.timemanager.data.local.CalendarNoteDao
 import com.example.timemanager.data.local.CategoryDao
 import com.example.timemanager.data.local.DocumentDao
+import com.example.timemanager.data.local.NoteDao
 import com.example.timemanager.data.local.ScheduledEventDao
 import com.example.timemanager.data.local.TaskDao
 import dagger.Module
@@ -37,7 +38,8 @@ object DatabaseModule {
                 AppDatabaseMigration.MIGRATION_10_11,
                 AppDatabaseMigration.MIGRATION_11_12,
                 AppDatabaseMigration.MIGRATION_12_13,
-                AppDatabaseMigration.MIGRATION_13_14
+                AppDatabaseMigration.MIGRATION_13_14,
+                AppDatabaseMigration.MIGRATION_14_15
             )
             // Никакого destructive fallback: отсутствие миграции должно падать
             // loudly на этапе разработки, а не молча стирать пользовательские данные.
@@ -59,4 +61,7 @@ object DatabaseModule {
 
     @Provides
     fun provideDocumentDao(database: AppDatabase): DocumentDao = database.documentDao()
+
+    @Provides
+    fun provideNoteDao(database: AppDatabase): NoteDao = database.noteDao()
 }

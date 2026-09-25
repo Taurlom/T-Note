@@ -21,6 +21,7 @@
     <string name="choose_color">Elige un color</string>
     <string name="bottom_nav_calendar">Calendario</string>
     <string name="bottom_nav_documents">Documentos</string>
+    <string name="bottom_nav_notes">Notas</string>
     <string name="bottom_nav_settings">Ajustes</string>
     <string name="bottom_nav_categories">Listas</string>
     <string name="calendar_title">Calendario</string>
@@ -43,6 +44,21 @@
     <string name="document_photo">Foto del documento</string>
     <string name="document_detail">Documento</string>
     <string name="document_not_found">Documento no encontrado</string>
+
+    <!-- Notas -->
+    <string name="notes_title">Notas</string>
+    <string name="add_note">Añadir nota</string>
+    <string name="edit_note">Editar nota</string>
+    <string name="no_notes">Aún no hay notas</string>
+    <string name="note_detail">Nota</string>
+    <string name="note_not_found">Nota no encontrada</string>
+    <string name="delete_note_confirm">¿Eliminar la nota «%1$s»?</string>
+    <string name="note_title_label">Título</string>
+    <string name="note_content_label">Texto de la nota</string>
+    <string name="note_format_bold">Texto en negrita</string>
+    <string name="note_format_heading">Encabezado</string>
+    <string name="note_format_list">Lista</string>
+    <string name="note_format_link">Enlace</string>
     <string name="create">Crear</string>
 
     <!-- Copias de seguridad -->

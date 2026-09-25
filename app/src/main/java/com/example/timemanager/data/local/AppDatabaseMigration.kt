@@ -5,6 +5,25 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigration {
 
+    val MIGRATION_14_15 = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Новый раздел «Заметки»: таблица добавляется, существующие данные
+            // не затрагиваются вовсе. DDL повторяет генерируемый Room для
+            // чистой установки (колонки, порядок, DEFAULT у position).
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS notes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    position INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
     /**
      * Заметки календаря: eventDate становится первичным ключом вместо
      * авто-increment id. До этого каждое сохранение добавляло копию строки

@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import com.example.timemanager.presentation.theme.AppTheme
@@ -48,20 +49,7 @@ fun AppTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = {
-            Text(
-                text = if (required) {
-                    buildAnnotatedString {
-                        append(label)
-                        withStyle(SpanStyle(color = AppTheme.colors.requiredMarker)) {
-                            append(" *")
-                        }
-                    }
-                } else {
-                    AnnotatedString(label)
-                }
-            )
-        },
+        label = { AppFieldLabel(label, required) },
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = singleLine,
         minLines = minLines,
@@ -73,6 +61,58 @@ fun AppTextField(
         trailingIcon = trailingIcon,
         modifier = modifier,
         colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors()
+    )
+}
+
+/**
+ * Тот же поле, но с полным [TextFieldValue]: позиция курсора и выделение
+ * живут в состоянии вызывающего — нужно редактору заметок, где панель
+ * форматирования вставляет метки у выделения.
+ */
+@Composable
+fun AppTextField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String? = null,
+    singleLine: Boolean = false,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    textStyle: TextStyle = LocalTextStyle.current,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    required: Boolean = false,
+    onDarkBackground: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { AppFieldLabel(label, required) },
+        placeholder = placeholder?.let { { Text(it) } },
+        singleLine = singleLine,
+        minLines = minLines,
+        maxLines = maxLines,
+        textStyle = textStyle,
+        keyboardOptions = keyboardOptions,
+        modifier = modifier,
+        colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors()
+    )
+}
+
+/** Лейбл поля: у обязательных — звёздочка цвета [AppColors.requiredMarker]. */
+@Composable
+private fun AppFieldLabel(label: String, required: Boolean) {
+    Text(
+        text = if (required) {
+            buildAnnotatedString {
+                append(label)
+                withStyle(SpanStyle(color = AppTheme.colors.requiredMarker)) {
+                    append(" *")
+                }
+            }
+        } else {
+            AnnotatedString(label)
+        }
     )
 }
 

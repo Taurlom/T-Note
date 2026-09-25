@@ -21,6 +21,7 @@
     <string name="choose_color">Choose a color</string>
     <string name="bottom_nav_calendar">Calendar</string>
     <string name="bottom_nav_documents">Documents</string>
+    <string name="bottom_nav_notes">Notes</string>
     <string name="bottom_nav_settings">Settings</string>
     <string name="bottom_nav_categories">Lists</string>
     <string name="calendar_title">Calendar</string>
@@ -43,6 +44,21 @@
     <string name="document_photo">Document photo</string>
     <string name="document_detail">Document</string>
     <string name="document_not_found">Document not found</string>
+
+    <!-- Notes -->
+    <string name="notes_title">Notes</string>
+    <string name="add_note">Add note</string>
+    <string name="edit_note">Edit note</string>
+    <string name="no_notes">No notes yet</string>
+    <string name="note_detail">Note</string>
+    <string name="note_not_found">Note not found</string>
+    <string name="delete_note_confirm">Delete note "%1$s"?</string>
+    <string name="note_title_label">Title</string>
+    <string name="note_content_label">Note text</string>
+    <string name="note_format_bold">Bold text</string>
+    <string name="note_format_heading">Heading</string>
+    <string name="note_format_list">List</string>
+    <string name="note_format_link">Link</string>
     <string name="create">Create</string>
 
     <!-- Backup -->

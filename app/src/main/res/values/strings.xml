@@ -22,6 +22,7 @@
     <string name="choose_color">Выберите цвет</string>
     <string name="bottom_nav_calendar">Календарь</string>
     <string name="bottom_nav_documents">Документы</string>
+    <string name="bottom_nav_notes">Заметки</string>
     <string name="bottom_nav_settings">Настройки</string>
     <string name="bottom_nav_categories">Списки</string>
     <string name="calendar_title">Календарь</string>
@@ -44,6 +45,21 @@
     <string name="document_photo">Фотография документа</string>
     <string name="document_detail">Документ</string>
     <string name="document_not_found">Документ не найден</string>
+
+    <!-- Заметки -->
+    <string name="notes_title">Заметки</string>
+    <string name="add_note">Добавить заметку</string>
+    <string name="edit_note">Редактировать заметку</string>
+    <string name="no_notes">Пока нет заметок</string>
+    <string name="note_detail">Заметка</string>
+    <string name="note_not_found">Заметка не найдена</string>
+    <string name="delete_note_confirm">Удалить заметку «%1$s»?</string>
+    <string name="note_title_label">Заголовок</string>
+    <string name="note_content_label">Текст заметки</string>
+    <string name="note_format_bold">Полужирный текст</string>
+    <string name="note_format_heading">Заголовок</string>
+    <string name="note_format_list">Список</string>
+    <string name="note_format_link">Ссылка</string>
     <string name="create">Создать</string>
 
     <!-- Резервные копии -->

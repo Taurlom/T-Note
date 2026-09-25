@@ -6,6 +6,7 @@ import com.example.timemanager.data.local.entity.CalendarNoteEntity
 import com.example.timemanager.data.local.entity.CategoryEntity
 import com.example.timemanager.data.local.entity.DocumentEntity
 import com.example.timemanager.data.local.entity.DocumentPhotoEntity
+import com.example.timemanager.data.local.entity.NoteEntity
 import com.example.timemanager.data.local.entity.ScheduledEventEntity
 import com.example.timemanager.data.local.entity.TaskEntity
 
@@ -16,9 +17,10 @@ import com.example.timemanager.data.local.entity.TaskEntity
         CalendarNoteEntity::class,
         ScheduledEventEntity::class,
         DocumentEntity::class,
-        DocumentPhotoEntity::class
+        DocumentPhotoEntity::class,
+        NoteEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,4 +30,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun calendarNoteDao(): CalendarNoteDao
     abstract fun scheduledEventDao(): ScheduledEventDao
     abstract fun documentDao(): DocumentDao
+    abstract fun noteDao(): NoteDao
 }
