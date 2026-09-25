@@ -38,8 +38,8 @@ android {
         // Версионирование: семантическое (см. CHANGELOG.md).
         // versionCode = MAJOR*100 + MINOR*10 + PATCH — растёт монотонно,
         // синхронно с versionName при каждом релизе.
-        versionCode = 211
-        versionName = "1.11.1"
+        versionCode = 212
+        versionName = "1.11.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

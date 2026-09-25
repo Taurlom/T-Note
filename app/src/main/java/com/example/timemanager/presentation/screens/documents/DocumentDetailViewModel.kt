@@ -56,15 +56,10 @@ class DocumentDetailViewModel @Inject constructor(
     }
     
     fun updatePhotoPath(oldPath: String, newPath: String) {
-        val document = _uiState.value.document ?: return
-        val updatedPhotos = document.photoPaths.map { 
-            if (it == oldPath) newPath 
-            else it 
-        }
-        val updatedDocument = document.copy(photoPaths = updatedPhotos)
         viewModelScope.launch {
-            // oldPath передаём как removedPhotoPaths — UseCase удалит старый файл с диска
-            updateDocumentUseCase(updatedDocument, removedPhotoPaths = listOf(oldPath))
+            // Свежее чтение из базы внутри use-case: снапшот uiState мог
+            // отстать и перезаписать список фото без новых путей.
+            updateDocumentUseCase.renamePhotoPath(documentId, oldPath, newPath)
         }
     }
 }

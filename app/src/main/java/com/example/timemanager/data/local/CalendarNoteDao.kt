@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CalendarNoteDao {
 
-    @Query("SELECT * FROM calendar_notes WHERE eventDate LIKE :monthPrefix")
+    @Query(
+        "SELECT * FROM calendar_notes WHERE eventDate LIKE :monthPrefix " +
+            "ORDER BY eventDate ASC"
+    )
     fun getByMonthPrefix(monthPrefix: String): Flow<List<CalendarNoteEntity>>
 
     @Query("DELETE FROM calendar_notes WHERE eventDate = :date")

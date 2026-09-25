@@ -6,6 +6,33 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 object AppDatabaseMigration {
 
     /**
+     * Заметки календаря: eventDate становится первичным ключом вместо
+     * авто-increment id. До этого каждое сохранение добавляло копию строки
+     * (показывалась последняя по id, но дубли росли бесконечно). При миграции
+     * на день оставляем последнюю по id заметку — ровно то, что и так
+     * показывал интерфейс.
+     */
+    val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS calendar_notes_new (
+                    eventDate TEXT NOT NULL PRIMARY KEY,
+                    text TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "INSERT INTO calendar_notes_new (eventDate, text) " +
+                    "SELECT eventDate, text FROM calendar_notes " +
+                    "WHERE id IN (SELECT MAX(id) FROM calendar_notes GROUP BY eventDate)"
+            )
+            db.execSQL("DROP TABLE calendar_notes")
+            db.execSQL("ALTER TABLE calendar_notes_new RENAME TO calendar_notes")
+        }
+    }
+
+    /**
      * Убирает из scheduled_events колонку repeatPeriod (поле «Повторять» с
      * выбором периода удалён). Существующие периоды переводятся в свой
      * интервал «раз в N дней», чтобы частота повторов сохранилась.
@@ -151,30 +178,27 @@ object AppDatabaseMigration {
         }
     }
 
+    /**
+     * Документы: фото переезжают из колонки documents.photoPath в таблицу
+     * document_photos. Порядок операций важен: Room выполняет миграцию внутри
+     * транзакции, а PRAGMA foreign_keys внутри транзакции — no-op. Поэтому
+     * document_photos создаётся ПОСЛЕ DROP старых documents: каскад от
+     * пересоздаваемого родителя не задевает детскую таблицу, ссылки на фото
+     * на время переезда лежат в отдельной таблице-кладе.
+     */
     val MIGRATION_5_6 = object : Migration(5, 6) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("PRAGMA foreign_keys = OFF")
-
             db.execSQL(
                 """
-                CREATE TABLE IF NOT EXISTS document_photos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                CREATE TABLE photo_links_stash (
                     documentId INTEGER NOT NULL,
-                    photoPath TEXT NOT NULL,
-                    orderIndex INTEGER NOT NULL DEFAULT 0,
-                    FOREIGN KEY(documentId) REFERENCES documents(id) ON DELETE CASCADE
+                    photoPath TEXT NOT NULL
                 )
                 """.trimIndent()
             )
             db.execSQL(
-                "CREATE INDEX IF NOT EXISTS index_document_photos_documentId ON document_photos(documentId)"
-            )
-
-            db.execSQL(
-                """
-                INSERT INTO document_photos (documentId, photoPath, orderIndex)
-                SELECT id, photoPath, 0 FROM documents WHERE photoPath IS NOT NULL
-                """.trimIndent()
+                "INSERT INTO photo_links_stash (documentId, photoPath) " +
+                    "SELECT id, photoPath FROM documents WHERE photoPath IS NOT NULL"
             )
 
             db.execSQL(
@@ -196,7 +220,25 @@ object AppDatabaseMigration {
             db.execSQL("DROP TABLE documents")
             db.execSQL("ALTER TABLE documents_new RENAME TO documents")
 
-            db.execSQL("PRAGMA foreign_keys = ON")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS document_photos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    documentId INTEGER NOT NULL,
+                    photoPath TEXT NOT NULL,
+                    orderIndex INTEGER NOT NULL,
+                    FOREIGN KEY(documentId) REFERENCES documents(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_document_photos_documentId ON document_photos(documentId)"
+            )
+            db.execSQL(
+                "INSERT INTO document_photos (documentId, photoPath, orderIndex) " +
+                    "SELECT documentId, photoPath, 0 FROM photo_links_stash"
+            )
+            db.execSQL("DROP TABLE photo_links_stash")
         }
     }
 }

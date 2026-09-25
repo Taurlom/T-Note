@@ -58,12 +58,19 @@ class BackupRepositoryImpl @Inject constructor(
                 .flatMap { it.photoPaths }
             val missing = referenced.filterNot { File(context.filesDir, it).exists() }
             val photoFiles = photosDir().walkTopDown().filter { it.isFile }.toList()
+            // Сироты: файлы есть, ссылок нет — наследие старых гонок записи.
+            val orphans = photoFiles.count { file ->
+                "$PHOTOS_DIR/${file.relativeTo(photosDir()).path}" !in referenced
+            }
 
             val stream = context.contentResolver.openOutputStream(target, "wt")
                 ?: throw IllegalStateException("Не удалось открыть файл для записи")
             stream.use { output ->
                 ZipOutputStream(BufferedOutputStream(output)).use { zip ->
-                    zip.writeJson(MANIFEST_ENTRY, manifestJson(photoFiles.size, missing))
+                    zip.writeJson(
+                        MANIFEST_ENTRY,
+                        manifestJson(photoFiles.size, missing, orphans)
+                    )
 
                     val dbFile = context.getDatabasePath(DB_NAME)
                     if (dbFile.exists()) {
@@ -195,7 +202,11 @@ class BackupRepositoryImpl @Inject constructor(
             .use { it.moveToFirst() }
     }
 
-    private suspend fun manifestJson(photoCount: Int, missing: List<String>): JSONObject {
+    private suspend fun manifestJson(
+        photoCount: Int,
+        missing: List<String>,
+        orphans: Int
+    ): JSONObject {
         val appVersion = runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull().orEmpty()
@@ -205,6 +216,7 @@ class BackupRepositoryImpl @Inject constructor(
             .put("createdAt", System.currentTimeMillis())
             .put("photos", photoCount)
             .put("missingPhotos", JSONArray(missing))
+            .put("orphanPhotos", orphans)
             .put("theme", settingsRepository.selectedTheme.first().name)
             .put("font", settingsRepository.selectedFont.first().name)
     }
@@ -215,8 +227,11 @@ class BackupRepositoryImpl @Inject constructor(
         closeEntry()
     }
 
+    /** Время записи = время файла на устройстве: история для разборов потерь. */
     private fun ZipOutputStream.writeFile(name: String, file: File) {
-        putNextEntry(ZipEntry(name))
+        putNextEntry(
+            ZipEntry(name).apply { time = file.lastModified() }
+        )
         file.inputStream().buffered().use { it.copyTo(this) }
         closeEntry()
     }

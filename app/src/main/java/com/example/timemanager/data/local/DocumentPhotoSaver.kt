@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,13 +21,18 @@ class DocumentPhotoSaver @Inject constructor(
         val fileName = "document_${UUID.randomUUID()}.jpg"
         val destFile = File(photosDir, fileName)
 
-        context.contentResolver.openInputStream(sourceUri)?.use { input ->
-            destFile.outputStream().use { output ->
-                input.copyTo(output)
-            }
+        // openInputStream возвращает null, когда URI «умер» (разрешение истекло
+        // после возвращения из камеры) — лучше потерять одно фото, чем оставить
+        // в базе ссылку на несуществующий файл. Прерванную копию убираем,
+        // чтобы не плодить сирот на диске.
+        return try {
+            val input = context.contentResolver.openInputStream(sourceUri) ?: return null
+            input.use { src -> destFile.outputStream().use { dst -> src.copyTo(dst) } }
+            "${PHOTOS_DIR}/$fileName"
+        } catch (e: IOException) {
+            destFile.delete()
+            null
         }
-
-        return "${PHOTOS_DIR}/$fileName"
     }
 
     fun savePhotos(uris: List<Uri>): List<String> = uris.mapNotNull { savePhoto(it) }
