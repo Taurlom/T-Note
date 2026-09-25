@@ -12,12 +12,20 @@
         <item name="postSplashScreenTheme">@style/Theme.TNote</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
 
     <!--
         Light-наследие AppCompat — как и прежняя платформенная тема: светлый
         фон окна на кадр до старта Compose. Всё остальное рисует сам Compose
         (TNoteTheme), здесь только «окно под ним».
+        statusBarColor прозрачный: контент рисуется за статус-баром
+        (enableEdgeToEdge), а дефолт AppCompat (#757575 из colorPrimaryDark)
+        перекрывал его серой полосой — AppCompat переприменяет цвет темы на
+        фокус окна позже, чем SideEffect в TNoteTheme (потому и лечилось
+        сменой темы туда-обратно).
     -->
-    <style name="Theme.TNote" parent="Theme.AppCompat.Light.NoActionBar" />
+    <style name="Theme.TNote" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
 </resources>

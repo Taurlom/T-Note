@@ -2,7 +2,9 @@ package com.example.timemanager.presentation.screens.notes
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -149,6 +152,9 @@ fun NoteDetailScreen(
                     label = stringResource(R.string.note_title_label),
                     singleLine = true,
                     required = true,
+                    // Как полей в настройках: светлая обводка и текст — на
+                    // тёмном фоне экрана их стандартная палитра не читается.
+                    onDarkBackground = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 FormattingToolbar(
@@ -160,6 +166,7 @@ fun NoteDetailScreen(
                     onValueChange = { editContent = it },
                     label = stringResource(R.string.note_content_label),
                     minLines = 10,
+                    onDarkBackground = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -176,11 +183,24 @@ fun NoteDetailScreen(
                     text = note.title,
                     style = MaterialTheme.typography.headlineSmall
                 )
-                Text(
-                    text = Markdown.render(note.content),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (note.content.isNotBlank()) {
+                    // Текст — на светлой «карточке» цвета диалогов: на тёмном
+                    // фоне экрана длинные заметы читаются плохо.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(AppTheme.colors.dialogContainer)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = Markdown.render(note.content),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.dialogContent,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
                 Text(
                     text = stringResource(R.string.created_at, note.createdAt.formatDate()),
                     style = MaterialTheme.typography.labelMedium,
@@ -251,7 +271,7 @@ private fun FormattingButton(
         Icon(
             painter = painterResource(iconRes),
             contentDescription = stringResource(descriptionRes),
-            tint = AppTheme.colors.dialogContent,
+            tint = AppTheme.colors.fieldOnDarkContent,
             modifier = Modifier.size(20.dp)
         )
     }
