@@ -28,12 +28,14 @@ class ScheduledEventRepositoryImpl @Inject constructor(
 
     override suspend fun update(event: ScheduledEvent) {
         var entity = event.toEntity()
-        // День рождения и повторяющееся событие хранятся с исходной якорной
-        // датой: в UI они показываются как вхождения, и год/день вхждения
-        // менять нельзя.
-        if (event.type == ScheduledEventType.BIRTHDAY ||
-            event.type == ScheduledEventType.REPEATING
-        ) {
+        // В редакторе нет поля даты: в снапшоте лежит день, в котором открыт
+        // диалог. Для дней рождения и повторяющихся событий UI показывает
+        // развёрнутые вхождения, поэтому записи всегда возвращаем сохранённую
+        // якорную дату — иначе конвертация «день рождения → обычное» молча
+        // затирала год рождения годом просматриваемого вхождения.
+        // Для «Выходного» правило обратное: он помечает конкретный открытый
+        // день, поэтому берётся дата из снапшота.
+        if (event.type != ScheduledEventType.WEEKEND) {
             eventDao.getByIdOnce(event.id)?.let { existing ->
                 entity = entity.copy(eventDate = existing.eventDate)
             }

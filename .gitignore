@@ -36,3 +36,5 @@ captures/
 .externalNativeBuild
 .cxx/
 jdk17/
+
+dist/

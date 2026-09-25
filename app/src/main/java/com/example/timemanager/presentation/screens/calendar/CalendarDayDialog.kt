@@ -378,9 +378,9 @@ private fun ScheduledEventEditorDialog(
                     onSave(
                         ScheduledEvent(
                             id = original?.id ?: 0L,
-                            // Для дня рождения и повторяющегося события год в
-                            // дате не меняется (см. репозиторий), обычное
-                            // событие остаётся на открытой дате.
+                            // Дату открытого дня передаём только для новых
+                            // событий; для сохранённых репозиторий вернёт
+                            // якорную дату строки (см. ScheduledEventRepositoryImpl.update).
                             date = original?.date ?: defaultDate,
                             title = title,
                             type = type,
