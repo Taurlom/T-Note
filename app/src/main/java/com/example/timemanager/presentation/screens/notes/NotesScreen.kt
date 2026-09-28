@@ -29,6 +29,7 @@ import com.example.timemanager.R
 import com.example.timemanager.domain.model.Note
 import com.example.timemanager.presentation.components.AppFab
 import com.example.timemanager.presentation.components.AppTopBar
+import com.example.timemanager.presentation.components.SectionTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.NoteItem
 import com.example.timemanager.presentation.components.ReorderableLazyColumn
@@ -37,6 +38,8 @@ import com.example.timemanager.presentation.components.ReorderableLazyColumn
 @Composable
 fun NotesScreen(
     onNoteClick: (Long) -> Unit,
+    showBrandHeader: Boolean,
+    onImportLists: () -> Unit,
     viewModel: NotesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -51,9 +54,11 @@ fun NotesScreen(
         // Нижний бар лежит под пейджером в MainTabsScreen — его не учитываем.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            AppTopBar(
+            SectionTopBar(
                 title = stringResource(R.string.notes_title),
-                scrollBehavior = scrollBehavior
+                showBrandHeader = showBrandHeader,
+                scrollBehavior = scrollBehavior,
+                onImportLists = onImportLists
             )
         },
         floatingActionButton = {

@@ -29,6 +29,7 @@ import com.example.timemanager.R
 import com.example.timemanager.domain.model.Document
 import com.example.timemanager.presentation.components.AppFab
 import com.example.timemanager.presentation.components.AppTopBar
+import com.example.timemanager.presentation.components.SectionTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.DocumentInputDialog
 import com.example.timemanager.presentation.components.DocumentItem
@@ -39,6 +40,8 @@ import com.example.timemanager.presentation.components.ReorderableLazyColumn
 @Composable
 fun DocumentsScreen(
     onDocumentClick: (Long) -> Unit,
+    showBrandHeader: Boolean,
+    onImportLists: () -> Unit,
     viewModel: DocumentsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,9 +58,11 @@ fun DocumentsScreen(
         // Нижний бар лежит под пейджером в MainTabsScreen — его не учитываем.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            AppTopBar(
+            SectionTopBar(
                 title = stringResource(R.string.documents_title),
-                scrollBehavior = scrollBehavior
+                showBrandHeader = showBrandHeader,
+                scrollBehavior = scrollBehavior,
+                onImportLists = onImportLists
             )
         },
         floatingActionButton = {

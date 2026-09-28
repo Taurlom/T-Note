@@ -1,7 +1,5 @@
 package com.example.timemanager.presentation.screens.categories
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -32,18 +27,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
 import com.example.timemanager.domain.model.Category
-import com.example.timemanager.presentation.components.AppBrandHeader
 import com.example.timemanager.presentation.components.AppFab
 import com.example.timemanager.presentation.components.CategoryCard
 import com.example.timemanager.presentation.components.CategoryInputDialog
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.presentation.components.ReorderableLazyColumn
-import com.example.timemanager.presentation.theme.AppTheme
+import com.example.timemanager.presentation.components.SectionTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
     onCategoryClick: (Long) -> Unit,
+    showBrandHeader: Boolean,
+    onImportLists: () -> Unit,
     viewModel: CategoriesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -53,35 +49,21 @@ fun CategoriesScreen(
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
-    // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
-    // всегда отдают наш MIME при «Открыть с помощью». Диалог подтверждения
-    // показывает AppNavigation (он же, что и при открытии файла из чата).
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let { viewModel.onEvent(CategoriesEvent.OnReadSharedList(it)) }
-    }
-
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .fillMaxSize(),
-        // Нижний бар лежит под пейджером в MainTabsScreen, его отступ уже
-        // учтён. Статус-баром занимается шапка.
+        // РќРёР¶РЅРёР№ Р±Р°СЂ Р»РµР¶РёС‚ РїРѕРґ РїРµР№РґР¶РµСЂРѕРј РІ MainTabsScreen, РµРіРѕ РѕС‚СЃС‚СѓРї СѓР¶Рµ
+        // СѓС‡С‚С‘РЅ. РЎС‚Р°С‚СѓСЃ-Р±Р°СЂРѕРј Р·Р°РЅРёРјР°РµС‚СЃСЏ С€Р°РїРєР°.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            AppBrandHeader(
-                actions = {
-                    IconButton(
-                        onClick = { importLauncher.launch(arrayOf("*/*")) }
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_file_download),
-                            contentDescription = stringResource(R.string.import_list),
-                            tint = AppTheme.colors.brandTitle
-                        )
-                    }
-                }
+            // РџРµСЂРІС‹Р№ РїРѕ РЅР°СЃС‚СЂРѕР№РєРµ СЂР°Р·РґРµР» РїРѕР»СѓС‡Р°РµС‚ Р±СЂРµРЅРґ-С€Р°РїРєСѓ СЃ Р»РѕРіРѕС‚РёРїРѕРј Рё
+            // РєРЅРѕРїРєРѕР№ РёРјРїРѕСЂС‚Р°; РѕСЃС‚Р°Р»СЊРЅС‹Рµ вЂ” С‚РѕР»СЊРєРѕ РЅР°Р·РІР°РЅРёРµ.
+            SectionTopBar(
+                title = stringResource(R.string.bottom_nav_categories),
+                showBrandHeader = showBrandHeader,
+                scrollBehavior = scrollBehavior,
+                onImportLists = onImportLists
             )
         },
         floatingActionButton = {

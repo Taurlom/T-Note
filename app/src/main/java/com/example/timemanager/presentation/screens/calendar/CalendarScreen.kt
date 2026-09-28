@@ -43,6 +43,7 @@ import com.example.timemanager.domain.model.CalendarNote
 import com.example.timemanager.domain.model.EventIcon
 import com.example.timemanager.domain.model.ScheduledEvent
 import com.example.timemanager.domain.model.ScheduledEventType
+import com.example.timemanager.presentation.components.SectionTopBar
 import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.theme.AppTheme
 import java.time.DayOfWeek
@@ -51,6 +52,8 @@ import java.time.LocalDate
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
+    showBrandHeader: Boolean,
+    onImportLists: () -> Unit,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -65,9 +68,11 @@ fun CalendarScreen(
         // Нижний бар рендерится под пейджером разделов (MainTabsScreen).
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            AppTopBar(
+            SectionTopBar(
                 title = stringResource(R.string.calendar_title),
-                scrollBehavior = scrollBehavior
+                showBrandHeader = showBrandHeader,
+                scrollBehavior = scrollBehavior,
+                onImportLists = onImportLists
             )
         }
     ) { padding ->

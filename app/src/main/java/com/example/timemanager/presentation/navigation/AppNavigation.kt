@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -288,6 +290,18 @@ private fun MainTabsScreen(
     val pagerState = rememberPagerState(pageCount = { items.size })
     val scrollScope = rememberCoroutineScope()
 
+    // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
+    // всегда отдают наш MIME при «Открыть с помощью». Ланчер живёт здесь, а
+    // не в разделе: бренд-шапка с кнопкой импорта достаётся первому по
+    // настройке разделу, каким бы он ни оказался. Диалог подтверждения
+    // показывает AppNavigation.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(it)) }
+    }
+    val onImportLists = { importLauncher.launch(arrayOf("*/*")) }
+
     // Пейджер держит номер страницы, а вставка/удаление раздела сдвигает
     // номера: без отслеживания id «текущий раздел» под диалогом настройки
     // менялся сам (стоял на «Настройках» — оказался на «Документах»).
@@ -315,15 +329,25 @@ private fun MainTabsScreen(
             when (items[page]) {
                 BottomNavItem.Categories -> CategoriesScreen(
                     onCategoryClick = onCategoryClick,
+                    showBrandHeader = page == 0,
+                    onImportLists = onImportLists,
                     viewModel = categoriesViewModel
                 )
-                BottomNavItem.Calendar -> CalendarScreen(viewModel = calendarViewModel)
+                BottomNavItem.Calendar -> CalendarScreen(
+                    showBrandHeader = page == 0,
+                    onImportLists = onImportLists,
+                    viewModel = calendarViewModel
+                )
                 BottomNavItem.Documents -> DocumentsScreen(
                     onDocumentClick = onDocumentClick,
+                    showBrandHeader = page == 0,
+                    onImportLists = onImportLists,
                     viewModel = documentsViewModel
                 )
                 BottomNavItem.Notes -> NotesScreen(
                     onNoteClick = onNoteClick,
+                    showBrandHeader = page == 0,
+                    onImportLists = onImportLists,
                     viewModel = notesViewModel
                 )
                 BottomNavItem.Settings -> SettingsScreen(viewModel = settingsViewModel)
