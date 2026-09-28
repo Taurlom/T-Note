@@ -48,6 +48,13 @@ data class SettingsUiState(
     val selectedLanguage: AppLanguage = AppLanguage.SYSTEM,
     /** Видимые разделы в порядке панели; пусто — порядок по умолчанию. */
     val visibleSections: List<String> = emptyList(),
+    /**
+     * DataStore ещё не ответил — порядок разделов неизвестен. Панель
+     * держим пустой: иначе пейджер стартует с раздела по умолчанию,
+     * «запоминает» его — и приезд реального порядка не переключает на
+     * первый раздел пользователя.
+     */
+    val sectionsLoaded: Boolean = false,
     val isBackupBusy: Boolean = false,
     val backupResult: BackupResult? = null,
     /** Метаданные выбранного файла копии — для диалога подтверждения. */

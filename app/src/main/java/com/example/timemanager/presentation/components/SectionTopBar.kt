@@ -27,8 +27,9 @@ fun SectionTopBar(
     onImportLists: () -> Unit = {}
 ) {
     if (showBrandHeader) {
+        // Название раздела у первого не показываем: бренд-шапка — это
+        // логотип и «T-Note», имя раздела своё у обычной шапки.
         AppBrandHeader(
-            title = title,
             actions = {
                 IconButton(onClick = onImportLists) {
                     Icon(

@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
@@ -168,6 +169,7 @@ fun AppNavigation(
         ) {
             MainTabsScreen(
                 items = sectionItems,
+                sectionsLoaded = settingsState.sectionsLoaded,
                 categoriesViewModel = categoriesViewModel,
                 calendarViewModel = calendarViewModel,
                 documentsViewModel = documentsViewModel,
@@ -275,6 +277,7 @@ fun AppNavigation(
 @Composable
 private fun MainTabsScreen(
     items: List<BottomNavItem>,
+    sectionsLoaded: Boolean,
     categoriesViewModel: CategoriesViewModel,
     calendarViewModel: CalendarViewModel,
     documentsViewModel: DocumentsViewModel,
@@ -284,12 +287,6 @@ private fun MainTabsScreen(
     onDocumentClick: (Long) -> Unit,
     onNoteClick: (Long) -> Unit
 ) {
-    // Страница не проставляется в маршруте: раздел — состояние экрана
-    // разделов, а не стек навигации. rememberPagerState переживает
-    // уход в drill-down и возврат через SavedStateRegistry навигации.
-    val pagerState = rememberPagerState(pageCount = { items.size })
-    val scrollScope = rememberCoroutineScope()
-
     // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
     // всегда отдают наш MIME при «Открыть с помощью». Ланчер живёт здесь, а
     // не в разделе: бренд-шапка с кнопкой импорта достаётся первому по
@@ -301,6 +298,21 @@ private fun MainTabsScreen(
         uri?.let { categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(it)) }
     }
     val onImportLists = { importLauncher.launch(arrayOf("*/*")) }
+
+    // Порядок разделов ещё не приехал из DataStore — показываем пустой фон
+    // (поверх всё равно сплэш). Без этого пейджер на кадр стартует с
+    // порядка по умолчанию, «запоминает» его текущим — и первый раздел
+    // пользователя не открывается после загрузки настроек.
+    if (!sectionsLoaded) {
+        Box(modifier = Modifier.fillMaxSize())
+        return
+    }
+
+    // Страница не проставляется в маршруте: раздел — состояние экрана
+    // разделов, а не стек навигации. rememberPagerState переживает
+    // уход в drill-down и возврат через SavedStateRegistry навигации.
+    val pagerState = rememberPagerState(pageCount = { items.size })
+    val scrollScope = rememberCoroutineScope()
 
     // Пейджер держит номер страницы, а вставка/удаление раздела сдвигает
     // номера: без отслеживания id «текущий раздел» под диалогом настройки

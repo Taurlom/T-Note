@@ -68,6 +68,7 @@ class SettingsViewModel @Inject constructor(
                 selectedTheme = theme,
                 selectedLanguage = language,
                 visibleSections = sections,
+                sectionsLoaded = true,
                 isBackupBusy = backup.isBusy,
                 backupResult = backup.result
             )
