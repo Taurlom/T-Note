@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -139,35 +140,48 @@ fun NoteDetailScreen(
     ) { padding ->
         when {
             uiState.isEditing -> Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
                     .padding(padding)
-                    .padding(16.dp)
             ) {
-                AppTextField(
-                    value = editTitle,
-                    onValueChange = { editTitle = it },
-                    label = stringResource(R.string.note_title_label),
-                    singleLine = true,
-                    required = true,
-                    // Как полей в настройках: светлая обводка и текст — на
-                    // тёмном фоне экрана их стандартная палитра не читается.
-                    onDarkBackground = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Поля скроллятся, панель форматирования — прижата вниз над
+                // клавиатурой: системный тулбар выделения всплывает НАД
+                // выделенным текстом и, если панель стоит над полем,
+                // перекрывает её кнопки при выделении первой строки.
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
+                ) {
+                    AppTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = stringResource(R.string.note_title_label),
+                        singleLine = true,
+                        required = true,
+                        // Как полей в настройках: светлая обводка и текст — на
+                        // тёмном фоне экрана их стандартная палитра не читается.
+                        onDarkBackground = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    AppTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        label = stringResource(R.string.note_content_label),
+                        minLines = 10,
+                        onDarkBackground = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 FormattingToolbar(
                     content = editContent,
-                    onContentChange = { editContent = it }
-                )
-                AppTextField(
-                    value = editContent,
-                    onValueChange = { editContent = it },
-                    label = stringResource(R.string.note_content_label),
-                    minLines = 10,
-                    onDarkBackground = true,
-                    modifier = Modifier.fillMaxWidth()
+                    onContentChange = { editContent = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .imePadding()
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                 )
             }
 
@@ -239,13 +253,17 @@ fun NoteDetailScreen(
 @Composable
 private fun FormattingToolbar(
     content: TextFieldValue,
-    onContentChange: (TextFieldValue) -> Unit
+    onContentChange: (TextFieldValue) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     fun apply(op: (text: String, selection: TextRange) -> Pair<String, TextRange>) {
         val (text, selection) = op(content.text, content.selection)
         onContentChange(TextFieldValue(text, selection))
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+    ) {
         FormattingButton(R.drawable.ic_format_bold, R.string.note_format_bold) {
             apply { text, sel -> MarkdownEditing.toggleBold(text, sel) }
         }
