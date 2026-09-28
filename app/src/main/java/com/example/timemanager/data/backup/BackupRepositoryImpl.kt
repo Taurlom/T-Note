@@ -7,6 +7,7 @@ import com.example.timemanager.domain.repository.BackupDescription
 import com.example.timemanager.domain.repository.BackupRepository
 import com.example.timemanager.domain.repository.BackupSummary
 import com.example.timemanager.domain.repository.DocumentRepository
+import com.example.timemanager.domain.repository.NoteRepository
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.presentation.theme.AppFont
 import com.example.timemanager.presentation.theme.ThemeKind
@@ -44,24 +45,26 @@ class BackupRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: AppDatabase,
     private val settingsRepository: SettingsRepository,
-    private val documentRepository: DocumentRepository
+    private val documentRepository: DocumentRepository,
+    private val noteRepository: NoteRepository
 ) : BackupRepository {
 
     override suspend fun exportBackup(target: Uri): BackupSummary =
         withContext(Dispatchers.IO) {
             checkpointWal()
 
-            // Самопроверка: каждый путь фото из базы должен существовать на
-            // диске. Несуществующие в копию не попадут — пользователь узнает
-            // об этом сразу (тост), а не после восстановления.
-            val referenced = documentRepository.getAll().first()
-                .flatMap { it.photoPaths }
+            // Самопроверка: каждый путь фото (документов и заметок) из базы
+            // должен существовать на диске. Несуществующие в копию не попадут —
+            // пользователь узнает об этом сразу (тост), а не после восстановления.
+            val referenced = documentRepository.getAll().first().flatMap { it.photoPaths } +
+                noteRepository.getAll().first().flatMap { it.photoPaths }
             val missing = referenced.filterNot { File(context.filesDir, it).exists() }
             val photoFiles = photosDir().walkTopDown().filter { it.isFile }.toList()
+            val notePhotoFiles = notePhotosDir().walkTopDown().filter { it.isFile }.toList()
             // Сироты: файлы есть, ссылок нет — наследие старых гонок записи.
-            val orphans = photoFiles.count { file ->
-                "$PHOTOS_DIR/${file.relativeTo(photosDir()).path}" !in referenced
-            }
+            val orphans =
+                countOrphans(photoFiles, photosDir(), PHOTOS_DIR, referenced) +
+                    countOrphans(notePhotoFiles, notePhotosDir(), NOTE_PHOTOS_DIR, referenced)
 
             val stream = context.contentResolver.openOutputStream(target, "wt")
                 ?: throw IllegalStateException("Не удалось открыть файл для записи")
@@ -69,7 +72,7 @@ class BackupRepositoryImpl @Inject constructor(
                 ZipOutputStream(BufferedOutputStream(output)).use { zip ->
                     zip.writeJson(
                         MANIFEST_ENTRY,
-                        manifestJson(photoFiles.size, missing, orphans)
+                        manifestJson(photoFiles.size, notePhotoFiles.size, missing, orphans)
                     )
 
                     val dbFile = context.getDatabasePath(DB_NAME)
@@ -81,9 +84,16 @@ class BackupRepositoryImpl @Inject constructor(
                         val relative = file.relativeTo(photosDir()).path
                         zip.writeFile("$PHOTOS_DIR/$relative", file)
                     }
+                    notePhotoFiles.forEach { file ->
+                        val relative = file.relativeTo(notePhotosDir()).path
+                        zip.writeFile("$NOTE_PHOTOS_DIR/$relative", file)
+                    }
                 }
             }
-            BackupSummary(photos = photoFiles.size, missingPhotos = missing)
+            BackupSummary(
+                photos = photoFiles.size + notePhotoFiles.size,
+                missingPhotos = missing
+            )
         }
 
     override suspend fun describeBackup(source: Uri): BackupDescription? =
@@ -105,6 +115,7 @@ class BackupRepositoryImpl @Inject constructor(
             val tempDir = File(context.cacheDir, IMPORT_TEMP_DIR)
                 .apply { deleteRecursively(); mkdirs() }
             val photosOut = File(tempDir, PHOTOS_DIR).apply { mkdirs() }
+            val notePhotosOut = File(tempDir, NOTE_PHOTOS_DIR).apply { mkdirs() }
             val dbOut = File(tempDir, DB_NAME)
             var manifest: JSONObject? = null
             var restoredPhotos = 0
@@ -136,6 +147,15 @@ class BackupRepositoryImpl @Inject constructor(
                                 file.outputStream().use { zip.copyTo(it) }
                                 restoredPhotos++
                             }
+                            name.startsWith("$NOTE_PHOTOS_DIR/") &&
+                                File(name).name.isNotEmpty() -> {
+                                val file = File(
+                                    notePhotosOut,
+                                    name.substringAfter("$NOTE_PHOTOS_DIR/").replace('/', '_')
+                                )
+                                file.outputStream().use { zip.copyTo(it) }
+                                restoredPhotos++
+                            }
                         }
                         zip.closeEntry()
                     }
@@ -162,6 +182,10 @@ class BackupRepositoryImpl @Inject constructor(
             val photos = photosDir()
             photos.deleteRecursively()
             photosOut.copyRecursively(photos, overwrite = true)
+
+            val notePhotos = notePhotosDir()
+            notePhotos.deleteRecursively()
+            notePhotosOut.copyRecursively(notePhotos, overwrite = true)
 
             // Настройки «из копии» кладём не файлом (DataStore держит его открытым),
             // а через репозиторий: edit() ждёт записи до возврата.
@@ -195,6 +219,18 @@ class BackupRepositoryImpl @Inject constructor(
 
     private fun photosDir(): File = File(context.filesDir, PHOTOS_DIR)
 
+    private fun notePhotosDir(): File = File(context.filesDir, NOTE_PHOTOS_DIR)
+
+    /** Файлы каталога, на которые нет ссылок в [referenced]. */
+    private fun countOrphans(
+        files: List<File>,
+        dir: File,
+        prefix: String,
+        referenced: List<String>
+    ): Int = files.count { file ->
+        "$prefix/${file.relativeTo(dir).path}" !in referenced
+    }
+
     /** Сливает WAL-журнал в основной файл базы, чтобы копия была полной. */
     private fun checkpointWal() {
         database.openHelper.writableDatabase
@@ -204,6 +240,7 @@ class BackupRepositoryImpl @Inject constructor(
 
     private suspend fun manifestJson(
         photoCount: Int,
+        notePhotoCount: Int,
         missing: List<String>,
         orphans: Int
     ): JSONObject {
@@ -214,7 +251,8 @@ class BackupRepositoryImpl @Inject constructor(
             .put("formatVersion", BACKUP_FORMAT_VERSION)
             .put("appVersionName", appVersion)
             .put("createdAt", System.currentTimeMillis())
-            .put("photos", photoCount)
+            .put("photos", photoCount + notePhotoCount)
+            .put("notePhotos", notePhotoCount)
             .put("missingPhotos", JSONArray(missing))
             .put("orphanPhotos", orphans)
             .put("theme", settingsRepository.selectedTheme.first().name)
@@ -241,6 +279,7 @@ class BackupRepositoryImpl @Inject constructor(
         const val MANIFEST_ENTRY = "manifest.json"
         const val DATABASE_DIR = "database"
         const val PHOTOS_DIR = "document_photos"
+        const val NOTE_PHOTOS_DIR = "note_photos"
         const val DB_NAME = "time_manager.db"
         const val IMPORT_TEMP_DIR = "backup_import"
     }

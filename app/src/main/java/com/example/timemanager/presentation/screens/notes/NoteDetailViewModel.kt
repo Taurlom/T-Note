@@ -1,5 +1,6 @@
 package com.example.timemanager.presentation.screens.notes
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -60,16 +61,30 @@ class NoteDetailViewModel @Inject constructor(
 
     fun stopEditing() = _uiState.update { it.copy(isEditing = false) }
 
-    /** Сохранение: пустой заголовок не пишем, [onSaved] — только после записи. */
-    fun save(title: String, content: String, onSaved: () -> Unit = {}) {
+    /**
+     * Сохранение: пустой заголовок не пишем, [onSaved] — только после записи.
+     * Новые URI фото копирует и связывает с заметкой use-case; удалённые
+     * пути передаются ему же — файлы снимает после коммита базы.
+     */
+    fun save(
+        title: String,
+        content: String,
+        newPhotoUris: List<Uri> = emptyList(),
+        removedPhotoPaths: List<String> = emptyList(),
+        onSaved: () -> Unit = {}
+    ) {
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             val current = _uiState.value.note
             if (current == null) {
-                addNoteUseCase(Note(title = trimmed, content = content))
+                addNoteUseCase(Note(title = trimmed, content = content), newPhotoUris)
             } else {
-                updateNoteUseCase(current.copy(title = trimmed, content = content))
+                updateNoteUseCase(
+                    current.copy(title = trimmed, content = content),
+                    newPhotoUris = newPhotoUris,
+                    removedPhotoPaths = removedPhotoPaths
+                )
             }
             _uiState.update { it.copy(isEditing = false) }
             onSaved()

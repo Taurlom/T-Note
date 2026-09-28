@@ -7,6 +7,7 @@ import com.example.timemanager.data.local.entity.CategoryEntity
 import com.example.timemanager.data.local.entity.DocumentEntity
 import com.example.timemanager.data.local.entity.DocumentPhotoEntity
 import com.example.timemanager.data.local.entity.NoteEntity
+import com.example.timemanager.data.local.entity.NotePhotoEntity
 import com.example.timemanager.data.local.entity.ScheduledEventEntity
 import com.example.timemanager.data.local.entity.TaskEntity
 
@@ -18,9 +19,10 @@ import com.example.timemanager.data.local.entity.TaskEntity
         ScheduledEventEntity::class,
         DocumentEntity::class,
         DocumentPhotoEntity::class,
-        NoteEntity::class
+        NoteEntity::class,
+        NotePhotoEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

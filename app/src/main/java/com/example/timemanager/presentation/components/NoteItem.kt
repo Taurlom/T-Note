@@ -65,6 +65,14 @@ fun NoteItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            if (note.photoPaths.isNotEmpty()) {
+                // Счётчик вложений, как у документов.
+                Text(
+                    text = "${note.photoPaths.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         IconButton(onClick = onDelete) {

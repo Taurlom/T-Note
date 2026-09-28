@@ -5,6 +5,30 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigration {
 
+    /**
+     * Фото заметок: таблица note_photos по образцу document_photos.
+     * Аддитивная миграция — существующие данные не затрагиваются.
+     */
+    val MIGRATION_15_16 = object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS note_photos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    noteId INTEGER NOT NULL,
+                    photoPath TEXT NOT NULL,
+                    orderIndex INTEGER NOT NULL,
+                    FOREIGN KEY(noteId) REFERENCES notes(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_note_photos_noteId " +
+                    "ON note_photos(noteId)"
+            )
+        }
+    }
+
     val MIGRATION_14_15 = object : Migration(14, 15) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Новый раздел «Заметки»: таблица добавляется, существующие данные

@@ -7,6 +7,7 @@ interface NoteRepository {
 
     fun getAll(): Flow<List<Note>>
     fun getById(id: Long): Flow<Note?>
+    suspend fun getByIdOnce(id: Long): Note?
     suspend fun getMaxPosition(): Int
     suspend fun insert(note: Note): Long
     suspend fun update(note: Note)

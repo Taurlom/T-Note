@@ -131,12 +131,17 @@ fun PhotoGalleryDialog(
                                 )
                             }
 
-                            IconButton(onClick = { showCropDialog = true }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_crop),
-                                    contentDescription = stringResource(R.string.crop),
-                                    tint = Color.White
-                                )
+                            // Кроп пишет новый файл в document_photos и требует
+                            // колбэка на замену пути — доступен только там, где
+                            // его обрабатывают (документы).
+                            if (onCropComplete != null) {
+                                IconButton(onClick = { showCropDialog = true }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_crop),
+                                        contentDescription = stringResource(R.string.crop),
+                                        tint = Color.White
+                                    )
+                                }
                             }
                         }
                     },

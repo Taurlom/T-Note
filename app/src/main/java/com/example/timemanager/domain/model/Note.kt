@@ -12,5 +12,7 @@ data class Note(
     val content: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     /** Порядок в списке (перетаскивание), как у документов. */
-    val position: Int = 0
+    val position: Int = 0,
+    /** Прикреплённые фото (относительные пути в filesDir/note_photos). */
+    val photoPaths: List<String> = emptyList()
 )
