@@ -31,6 +31,10 @@
     <string name="font_label">Шрифт</string>
     <string name="theme_label">Тема</string>
     <string name="clear_calendar">Очистить календарь</string>
+    <string name="sections_button">Настройка разделов</string>
+    <string name="section_move_up">Поднять раздел выше</string>
+    <string name="section_move_down">Опустить раздел ниже</string>
+    <string name="done">Готово</string>
     <string name="clear_calendar_message">Все заметки в календаре будут удалены. Это действие нельзя отменить.</string>
     <string name="back">Назад</string>
     <string name="documents_title">Документы</string>

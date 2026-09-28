@@ -19,7 +19,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,6 +38,7 @@ import androidx.navigation.navArgument
 import com.example.timemanager.R
 import com.example.timemanager.presentation.components.BottomNavBar
 import com.example.timemanager.presentation.components.BottomNavItem
+import com.example.timemanager.presentation.components.SectionsDialog
 import com.example.timemanager.presentation.components.SharedListImportDialog
 import com.example.timemanager.presentation.screens.calendar.CalendarScreen
 import com.example.timemanager.presentation.screens.calendar.CalendarViewModel
@@ -114,6 +118,15 @@ fun AppNavigation(
     val settingsViewModel: SettingsViewModel = hiltViewModel(tabViewModelStoreOwner)
 
     val categoriesState by categoriesViewModel.uiState.collectAsStateWithLifecycle()
+    val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val sectionsDialogOpen by settingsViewModel.sectionsDialogOpen
+        .collectAsStateWithLifecycle()
+
+    // Разделы нижней панели и страниц пейджера: видимость и порядок
+    // настраиваются в «Настройках» (SectionsDialog); «Настройки» — всегда в конце.
+    val sectionItems = remember(settingsState.visibleSections) {
+        BottomNavItem.itemsFor(settingsState.visibleSections)
+    }
 
     LaunchedEffect(pendingShareUri) {
         if (pendingShareUri != null) {
@@ -152,6 +165,7 @@ fun AppNavigation(
             popExitTransition = { mainNoExit }
         ) {
             MainTabsScreen(
+                items = sectionItems,
                 categoriesViewModel = categoriesViewModel,
                 calendarViewModel = calendarViewModel,
                 documentsViewModel = documentsViewModel,
@@ -234,6 +248,17 @@ fun AppNavigation(
             }
         )
     }
+
+    // «Настройка разделов» — тоже поверх NavHost: при скрытии раздела
+    // пейджер перестраивает страницы, и диалог внутри SettingsScreen
+    // закрывался бы вместе с пересозданной страницей.
+    if (sectionsDialogOpen) {
+        SectionsDialog(
+            visibleSections = settingsState.visibleSections,
+            onDismiss = settingsViewModel::closeSectionsDialog,
+            onApply = settingsViewModel::updateSections
+        )
+    }
 }
 
 /**
@@ -247,6 +272,7 @@ fun AppNavigation(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MainTabsScreen(
+    items: List<BottomNavItem>,
     categoriesViewModel: CategoriesViewModel,
     calendarViewModel: CalendarViewModel,
     documentsViewModel: DocumentsViewModel,
@@ -256,12 +282,25 @@ private fun MainTabsScreen(
     onDocumentClick: (Long) -> Unit,
     onNoteClick: (Long) -> Unit
 ) {
-    val items = BottomNavItem.items
     // Страница не проставляется в маршруте: раздел — состояние экрана
     // разделов, а не стек навигации. rememberPagerState переживает
     // уход в drill-down и возврат через SavedStateRegistry навигации.
     val pagerState = rememberPagerState(pageCount = { items.size })
     val scrollScope = rememberCoroutineScope()
+
+    // Пейджер держит номер страницы, а вставка/удаление раздела сдвигает
+    // номера: без отслеживания id «текущий раздел» под диалогом настройки
+    // менялся сам (стоял на «Настройках» — оказался на «Документах»).
+    var currentItemId by remember { mutableStateOf(items.first().id) }
+    LaunchedEffect(pagerState.currentPage) {
+        items.getOrNull(pagerState.currentPage)?.let { currentItemId = it.id }
+    }
+    LaunchedEffect(items) {
+        val target = items.indexOfFirst { it.id == currentItemId }
+        if (target >= 0 && pagerState.currentPage != target) {
+            pagerState.scrollToPage(target)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(
@@ -292,7 +331,8 @@ private fun MainTabsScreen(
         }
 
         BottomNavBar(
-            selectedItem = items[pagerState.currentPage],
+            items = items,
+            selectedItem = items.getOrNull(pagerState.currentPage),
             onItemSelected = { item ->
                 scrollScope.launch { pagerState.animateScrollToPage(items.indexOf(item)) }
             }

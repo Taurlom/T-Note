@@ -19,6 +19,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     private val fontKey = stringPreferencesKey("selected_font")
     private val themeKey = stringPreferencesKey("selected_theme")
+    // У preferences 1.1.1 нет ключа для List<String>, а stringSet не хранит
+    // порядок — список разделов живёт одной строкой через запятую (id —
+    // стабильные ASCII-метки, экранирование не нужно).
+    private val sectionsKey = stringPreferencesKey("visible_sections")
 
     override val selectedFont: Flow<AppFont> = dataStore.data
         .map { preferences ->
@@ -40,5 +44,22 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { preferences ->
             preferences[themeKey] = theme.name
         }
+    }
+
+    override val visibleSections: Flow<List<String>> = dataStore.data
+        .map { preferences ->
+            preferences[sectionsKey]?.split(SECTIONS_DELIMITER)
+                ?.filter { it.isNotBlank() }
+                ?: emptyList()
+        }
+
+    override suspend fun setVisibleSections(sections: List<String>) {
+        dataStore.edit { preferences ->
+            preferences[sectionsKey] = sections.joinToString(SECTIONS_DELIMITER)
+        }
+    }
+
+    private companion object {
+        const val SECTIONS_DELIMITER = ","
     }
 }

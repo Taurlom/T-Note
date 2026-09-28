@@ -14,44 +14,67 @@ import com.example.timemanager.R
 import com.example.timemanager.presentation.theme.AppTheme
 
 sealed class BottomNavItem(
+    /** Стабильный идентификатор для настроек видимости/порядка. */
+    val id: String,
     @DrawableRes val iconRes: Int,
     @StringRes val contentDescriptionRes: Int
 ) {
     data object Calendar : BottomNavItem(
+        "calendar",
         R.drawable.ic_calendar_month,
         R.string.bottom_nav_calendar
     )
 
     data object Documents : BottomNavItem(
+        "documents",
         R.drawable.ic_description,
         R.string.bottom_nav_documents
     )
 
     data object Notes : BottomNavItem(
+        "notes",
         R.drawable.ic_event_note,
         R.string.bottom_nav_notes
     )
 
     data object Settings : BottomNavItem(
+        "settings",
         R.drawable.ic_settings,
         R.string.bottom_nav_settings
     )
 
     data object Categories : BottomNavItem(
+        "categories",
         R.drawable.ic_list_alt,
         R.string.bottom_nav_categories
     )
 
     companion object {
         /**
-         * Список намеренно геттер, а не `val`: как `val` в companion object он
-         * инициализировался во время `<clinit>` самого [BottomNavItem], когда
-         * синглтоны вложенных `data object` ещё не созданы, и список оказывался
-         * с null-элементами (NPE в баре при запуске).
-         * Порядок списка = порядок страниц пейджера разделов.
+         * Разделы, доступные для скрытия и перетаскивания, в порядке
+         * по умолчанию. «Настройки» не участвуют: без них приложение
+         * теряет доступ к себе.
          */
-        val items: List<BottomNavItem>
-            get() = listOf(Categories, Notes, Calendar, Documents, Settings)
+        val toggleable: List<BottomNavItem>
+            get() = listOf(Categories, Notes, Calendar, Documents)
+
+        /**
+         * Порядок страниц пейджера из сохранённого списка id: пустой или
+         * null — порядок по умолчанию; незнакомые id (после отката версии)
+         * игнорируются; «Настройки» всегда в конце. Хранится только видимая
+         * часть — её порядок и есть порядок в баре.
+         */
+        fun itemsFor(visibleIds: List<String>?): List<BottomNavItem> {
+            val known = toggleable.associateBy { it.id }
+            val visible = if (visibleIds.isNullOrEmpty()) {
+                toggleable
+            } else {
+                visibleIds.mapNotNull { known[it] }
+            }
+            // Скрыть последний раздел нельзя, но повреждённый список не должен
+            // оставить бар без страниц.
+            return (if (visible.isEmpty()) toggleable else visible) + Settings
+        }
     }
 }
 
@@ -64,6 +87,7 @@ sealed class BottomNavItem(
  */
 @Composable
 fun BottomNavBar(
+    items: List<BottomNavItem>,
     selectedItem: BottomNavItem?,
     onItemSelected: (BottomNavItem) -> Unit,
     modifier: Modifier = Modifier
@@ -72,7 +96,7 @@ fun BottomNavBar(
         containerColor = AppTheme.colors.bottomNavContainer,
         modifier = modifier
     ) {
-        BottomNavItem.items.forEach { item ->
+        items.forEach { item ->
             NavigationBarItem(
                 icon = {
                     Icon(

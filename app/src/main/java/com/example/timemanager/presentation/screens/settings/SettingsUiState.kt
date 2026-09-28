@@ -46,6 +46,8 @@ data class SettingsUiState(
     val selectedFont: AppFont = AppFont.PT_SANS,
     val selectedTheme: ThemeKind = ThemeKind.DARK,
     val selectedLanguage: AppLanguage = AppLanguage.SYSTEM,
+    /** Видимые разделы в порядке панели; пусто — порядок по умолчанию. */
+    val visibleSections: List<String> = emptyList(),
     val isBackupBusy: Boolean = false,
     val backupResult: BackupResult? = null,
     /** Метаданные выбранного файла копии — для диалога подтверждения. */

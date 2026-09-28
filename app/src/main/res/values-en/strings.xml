@@ -30,6 +30,10 @@
     <string name="font_label">Font</string>
     <string name="theme_label">Theme</string>
     <string name="clear_calendar">Clear calendar</string>
+    <string name="sections_button">Section layout</string>
+    <string name="section_move_up">Move section up</string>
+    <string name="section_move_down">Move section down</string>
+    <string name="done">Done</string>
     <string name="clear_calendar_message">All calendar notes will be deleted. This action cannot be undone.</string>
     <string name="back">Back</string>
     <string name="documents_title">Documents</string>

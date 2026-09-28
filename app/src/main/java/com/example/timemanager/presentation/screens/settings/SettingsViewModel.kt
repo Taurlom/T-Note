@@ -29,6 +29,18 @@ class SettingsViewModel @Inject constructor(
 
     private val backupStatus = MutableStateFlow(BackupStatus())
 
+    /**
+     * Диалог «Настройка разделов» живёт здесь, а не в remember на экране:
+     * при скрытии раздела пейджер перестраивает страницы, SettingsScreen
+     * пересоздаётся и локальный remember терялся — диалог закрывался
+     * на первом же чекбоксе.
+     */
+    private val _sectionsDialogOpen = MutableStateFlow(false)
+    val sectionsDialogOpen: StateFlow<Boolean> = _sectionsDialogOpen
+
+    fun openSectionsDialog() { _sectionsDialogOpen.value = true }
+    fun closeSectionsDialog() { _sectionsDialogOpen.value = false }
+
     /** Метаданные выбранного файла копии — для диалога подтверждения. */
     private val _pendingImport = MutableStateFlow<BackupDescription?>(null)
     val pendingImport: StateFlow<BackupDescription?> = _pendingImport
@@ -47,13 +59,15 @@ class SettingsViewModel @Inject constructor(
         combine(
             settingsRepository.selectedFont,
             settingsRepository.selectedTheme,
+            settingsRepository.visibleSections,
             backupStatus,
             selectedLanguage
-        ) { font, theme, backup, language ->
+        ) { font, theme, sections, backup, language ->
             SettingsUiState(
                 selectedFont = font,
                 selectedTheme = theme,
                 selectedLanguage = language,
+                visibleSections = sections,
                 isBackupBusy = backup.isBusy,
                 backupResult = backup.result
             )
@@ -89,6 +103,13 @@ class SettingsViewModel @Inject constructor(
     fun applyFont(font: AppFont) {
         viewModelScope.launch {
             settingsRepository.setSelectedFont(font)
+        }
+    }
+
+    /** Порядок и видимость разделов применяются сразу, как тема. */
+    fun updateSections(sections: List<String>) {
+        viewModelScope.launch {
+            settingsRepository.setVisibleSections(sections)
         }
     }
 

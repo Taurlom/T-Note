@@ -227,6 +227,12 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
             AppTextButton(
+                onClick = { viewModel.openSectionsDialog() },
+                textRes = R.string.sections_button,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            AppTextButton(
                 onClick = { showClearDialog = true },
                 textRes = R.string.clear_calendar,
                 modifier = Modifier.fillMaxWidth()

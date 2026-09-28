@@ -30,6 +30,10 @@
     <string name="font_label">Fuente</string>
     <string name="theme_label">Tema</string>
     <string name="clear_calendar">Vaciar calendario</string>
+    <string name="sections_button">Ajustar secciones</string>
+    <string name="section_move_up">Subir sección</string>
+    <string name="section_move_down">Bajar sección</string>
+    <string name="done">Listo</string>
     <string name="clear_calendar_message">Se eliminarán todas las notas del calendario. Esta acción no se puede deshacer.</string>
     <string name="back">Atrás</string>
     <string name="documents_title">Documentos</string>
