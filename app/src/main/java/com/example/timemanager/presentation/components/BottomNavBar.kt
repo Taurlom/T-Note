@@ -27,13 +27,13 @@ sealed class BottomNavItem(
 
     data object Documents : BottomNavItem(
         "documents",
-        R.drawable.ic_description,
+        R.drawable.ic_article_person,
         R.string.bottom_nav_documents
     )
 
     data object Notes : BottomNavItem(
         "notes",
-        R.drawable.ic_event_note,
+        R.drawable.ic_contract_edit,
         R.string.bottom_nav_notes
     )
 
