@@ -281,10 +281,8 @@ fun NoteDetailScreen(
                     .padding(padding)
                     .padding(16.dp)
             ) {
-                Text(
-                    text = note.title,
-                    style = MaterialTheme.typography.headlineSmall
-                )
+                // Название — только в шапке: повтор в теле — дубль, а внутри
+                // заметки автор сам пишет заголовок, когда он нужен.
                 if (note.content.isNotBlank()) {
                     // Текст — на светлой «карточке» цвета диалогов: на тёмном
                     // фоне экрана длинные заметы читаются плохо.
