@@ -8,21 +8,31 @@ import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Копирование выбранных фото заметки в filesDir/[PHOTOS_DIR].
+ * Копирование выбранных фото заметки в filesDir/note_photos.
  *
  * Отдельно от [DocumentPhotoSaver]: разные каталоги означают разную семантику
  * вложений (у документа фото — главное, у заметки — приложение), и удаление
- * раздела не должно задевать чужие файлы. Поведение то же: null при
- * недоступном источнике, очистка прерванной копии.
+ * раздела не должно задевать чужие файлы. Публичные методы — suspend на
+ * [Dispatchers.IO] (см. комментарий в [DocumentPhotoSaver]).
  */
 @Singleton
 class NotePhotoSaver @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
-    fun savePhoto(sourceUri: Uri?): String? {
+    suspend fun savePhotos(uris: List<Uri>): List<String> = withContext(Dispatchers.IO) {
+        uris.mapNotNull { savePhotoBlocking(it) }
+    }
+
+    suspend fun deletePhotos(relativePaths: List<String>) = withContext(Dispatchers.IO) {
+        relativePaths.forEach { File(context.filesDir, it).delete() }
+    }
+
+    private fun savePhotoBlocking(sourceUri: Uri?): String? {
         if (sourceUri == null) return null
 
         val photosDir = File(context.filesDir, PHOTOS_DIR).apply { mkdirs() }
@@ -37,12 +47,6 @@ class NotePhotoSaver @Inject constructor(
             destFile.delete()
             null
         }
-    }
-
-    fun savePhotos(uris: List<Uri>): List<String> = uris.mapNotNull { savePhoto(it) }
-
-    fun deletePhotos(relativePaths: List<String>) {
-        relativePaths.forEach { File(context.filesDir, it).delete() }
     }
 
     companion object {

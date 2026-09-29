@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val CROP_DISPLAY_MAX_DIM = 2048
@@ -76,9 +78,13 @@ fun PhotoGalleryDialog(
 ) {
     val context = LocalContext.current
     val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = { photoPaths.size })
+    val scope = rememberCoroutineScope()
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var showCropDialog by remember { mutableStateOf(false) }
     var currentPhotoPath by remember { mutableStateOf("") }
+    // Поворот и сохранение кропа — тяжёлый bitmap-IO; флаг занятости держит
+    // кнопки от двойного тапа, пока операция не дошла до диска.
+    var busy by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -118,10 +124,18 @@ fun PhotoGalleryDialog(
                             }
 
                             IconButton(
+                                enabled = !busy,
                                 onClick = {
+                                    busy = true
                                     val file = File(context.filesDir, currentPhotoPath)
-                                    rotateImage(file)
-                                    refreshTrigger++
+                                    scope.launch {
+                                        try {
+                                            withContext(Dispatchers.IO) { rotateImage(file) }
+                                            refreshTrigger++
+                                        } finally {
+                                            busy = false
+                                        }
+                                    }
                                 }
                             ) {
                                 Icon(
@@ -135,7 +149,10 @@ fun PhotoGalleryDialog(
                             // колбэка на замену пути — доступен только там, где
                             // его обрабатывают (документы).
                             if (onCropComplete != null) {
-                                IconButton(onClick = { showCropDialog = true }) {
+                                IconButton(
+                                    enabled = !busy,
+                                    onClick = { showCropDialog = true }
+                                ) {
                                     Icon(
                                         painter = painterResource(R.drawable.ic_crop),
                                         contentDescription = stringResource(R.string.crop),
@@ -161,23 +178,35 @@ fun PhotoGalleryDialog(
                     onCropComplete = { bitmap ->
                         showCropDialog = false
 
-                        // Сохраняем обрезанное изображение в ту же папку, что и остальные фото документов
-                        val originalFileName = currentPhotoPath.substringAfterLast("/")
+                        // Сохраняем обрезанное изображение в ту же папку, что
+                        // и остальные фото документов. Запись — на IO: JPEG
+                        // full-size может весить десятки МБ.
+                        val oldPath = currentPhotoPath
+                        val originalFileName = oldPath.substringAfterLast("/")
                         val photosDir = File(context.filesDir, "document_photos").apply { mkdirs() }
                         val newFile = File(photosDir, "cropped_${System.currentTimeMillis()}_$originalFileName")
-                        FileOutputStream(newFile).use { out ->
-                            bitmap.compress(
-                                android.graphics.Bitmap.CompressFormat.JPEG,
-                                100,
-                                out
-                            )
+                        busy = true
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    FileOutputStream(newFile).use { out ->
+                                        bitmap.compress(
+                                            android.graphics.Bitmap.CompressFormat.JPEG,
+                                            100,
+                                            out
+                                        )
+                                    }
+                                    bitmap.recycle()
+                                }
+                                // Вызываем callback для обновления пути
+                                // (относительный путь, как у остальных фото)
+                                // и закрываем диалог уже после записи на диск.
+                                onCropComplete?.invoke(oldPath, "document_photos/${newFile.name}")
+                                onDismiss()
+                            } finally {
+                                busy = false
+                            }
                         }
-
-                        // Вызываем callback для обновления пути (относительный путь, как у остальных фото)
-                        onCropComplete?.invoke(currentPhotoPath, "document_photos/${newFile.name}")
-
-                        // Закрываем диалог
-                        onDismiss()
                     }
                 )
             } else {

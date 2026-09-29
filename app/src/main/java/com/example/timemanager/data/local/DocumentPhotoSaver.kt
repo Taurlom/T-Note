@@ -8,13 +8,32 @@ import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
+/**
+ * Копирование выбранных фото документов в filesDir/document_photos.
+ *
+ * Публичные методы — suspend и на [Dispatchers.IO]: копирование нескольких
+ * тяжёлых JPEG блокировало главный поток (подтормаживания и ANR при
+ * сохранении документа с фото).
+ */
 @Singleton
 class DocumentPhotoSaver @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
-    fun savePhoto(sourceUri: Uri?): String? {
+    suspend fun savePhotos(uris: List<Uri>): List<String> = withContext(Dispatchers.IO) {
+        uris.mapNotNull { savePhotoBlocking(it) }
+    }
+
+    suspend fun deletePhotos(relativePaths: List<String?>) = withContext(Dispatchers.IO) {
+        relativePaths.filterNotNull().forEach {
+            File(context.filesDir, it).delete()
+        }
+    }
+
+    private fun savePhotoBlocking(sourceUri: Uri?): String? {
         if (sourceUri == null) return null
 
         val photosDir = File(context.filesDir, PHOTOS_DIR).apply { mkdirs() }
@@ -33,17 +52,6 @@ class DocumentPhotoSaver @Inject constructor(
             destFile.delete()
             null
         }
-    }
-
-    fun savePhotos(uris: List<Uri>): List<String> = uris.mapNotNull { savePhoto(it) }
-
-    fun deletePhoto(relativePath: String?) {
-        if (relativePath == null) return
-        File(context.filesDir, relativePath).delete()
-    }
-
-    fun deletePhotos(relativePaths: List<String?>) {
-        relativePaths.filterNotNull().forEach { deletePhoto(it) }
     }
 
     companion object {
