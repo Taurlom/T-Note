@@ -120,6 +120,9 @@ dependencies {
     // vector drawables из набора Material Symbols в res/drawable (ic_*.xml).
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    // Чтение/запись EXIF Orientation без декодирования всего JPEG: поворот
+    // фото = правка одного тега, а не перекодирование пикселей.
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")

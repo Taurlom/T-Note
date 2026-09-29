@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.exifinterface.media.ExifInterface
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
@@ -135,7 +136,16 @@ fun PhotoGalleryDialog(
                                     val file = File(context.filesDir, currentPhotoPath)
                                     scope.launch {
                                         try {
-                                            withContext(Dispatchers.IO) { rotateImage(file) }
+                                            withContext(Dispatchers.IO) {
+                                                // Поворот = правка EXIF-тега:
+                                                // пиксели не декодируются и не
+                                                // пережимаются, память не грузится.
+                                                // Зеркальные варианты тега — редкость,
+                                                // для них старый пиксельный путь.
+                                                if (!rotateViaExifTag(file)) {
+                                                    rotateImage(file)
+                                                }
+                                            }
                                             refreshTrigger++
                                         } finally {
                                             busy = false
@@ -468,63 +478,147 @@ private fun decodeSampledBitmap(path: String, maxDim: Int): SampledPhoto? {
     while (max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxDim) {
         sample *= 2
     }
-    val bitmap = runCatching {
+    val decoded = runCatching {
         BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
     }.getOrNull() ?: return null
+
+    // BitmapFactory игнорирует EXIF-ориентацию — окно кропа должно показывать
+    // то же, что пользователь видит в галерее (там тег применяет Coil).
+    val orientation = readOrientation(File(path))
     return SampledPhoto(
-        bitmap = bitmap,
+        bitmap = applyOrientation(decoded, orientation),
         sourceWidth = bounds.outWidth,
-        sourceHeight = bounds.outHeight
+        sourceHeight = bounds.outHeight,
+        orientation = orientation
     )
 }
 
 /**
- * Показываемое для кропа уменьшенное фото плюс размеры оригинала: по ним
- * рамка выделения пересчитывается в пиксели исходного файла.
+ * Показываемое для кропа уменьшенное фото (уже прямое, по тегу) плюс размеры
+ * и ориентация «сырого» оригинала: по ним рамка пересчитывается в пиксели
+ * файла — region-декодер тег не применяет и видит пиксели как лежат.
  */
 private data class SampledPhoto(
     val bitmap: Bitmap,
     val sourceWidth: Int,
-    val sourceHeight: Int
+    val sourceHeight: Int,
+    val orientation: Int
 )
 
+private fun readOrientation(file: File): Int = runCatching {
+    ExifInterface(file.absolutePath).getAttributeInt(
+        ExifInterface.TAG_ORIENTATION,
+        ExifInterface.ORIENTATION_NORMAL
+    )
+}.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+/** Поворачивает уже декодированный (малый) битмап по EXIF-тегу. */
+private fun applyOrientation(source: Bitmap, orientation: Int): Bitmap {
+    val degrees = when (orientation) {
+        ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+        ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+        ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+        else -> return source
+    }
+    val matrix = Matrix().apply { postRotate(degrees) }
+    val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+    if (rotated != source) source.recycle()
+    return rotated
+}
+
 /**
- * Вырезает область из оригинала в полном разрешении: координаты рамки
- * (пиксели показанного bitmap) масштабируются до пикселей источника,
- * [BitmapRegionDecoder] декодирует только этот прямоугольник — не весь
- * файл и не уменьшенную копию, как было раньше (кроп резал 2048-пиксельный
- * даунсемпл и безвозвратно терял разрешение).
- *
- * Гигантская область сэмплируется до [CROP_OUTPUT_MAX_DIM] — защита от OOM
- * на 100-мегапиксельных панорамах. Форматы без region-декода возвращают
- * null — вызывающий откатывается к кропу из уменьшенной копии.
+ * Поворот на 90° правкой EXIF Orientation: байты JPEG не трогаются — ни
+ * декодирования, ни пережатия, ни расхода памяти (прежний путь выкладывал
+ * весь bitmap в RAM и заново кодировал JPEG). 1→6→3→8→1.
+ * Возвращает false для зеркальных значений тега — вызывающий пойдёт
+ * пиксельным путём.
  */
-@Suppress("DEPRECATION")
+private fun rotateViaExifTag(file: File): Boolean {
+    val exif = runCatching { ExifInterface(file.absolutePath) }.getOrNull() ?: return false
+    val current = exif.getAttributeInt(
+        ExifInterface.TAG_ORIENTATION,
+        ExifInterface.ORIENTATION_UNDEFINED
+    )
+    val next = when (current) {
+        ExifInterface.ORIENTATION_UNDEFINED,
+        ExifInterface.ORIENTATION_NORMAL -> ExifInterface.ORIENTATION_ROTATE_90
+        ExifInterface.ORIENTATION_ROTATE_90 -> ExifInterface.ORIENTATION_ROTATE_180
+        ExifInterface.ORIENTATION_ROTATE_180 -> ExifInterface.ORIENTATION_ROTATE_270
+        ExifInterface.ORIENTATION_ROTATE_270 -> ExifInterface.ORIENTATION_NORMAL
+        else -> return false
+    }
+    return runCatching {
+        exif.setAttribute(ExifInterface.TAG_ORIENTATION, next.toString())
+        exif.saveAttributes()
+    }.isSuccess
+}
+
+/**
+ * Вырезает область из оригинала в полном разрешении: нормализованные
+ * координаты рамки (0..1 прямого показанного bitmap) пересчитываются в
+ * «сырые» пиксели источника с учётом EXIF-ориентации, [BitmapRegionDecoder]
+ * декодирует только этот прямоугольник. Результат поднимается тегом, чтобы
+ * сохранённый кроп был прямым сам по себе.
+ *
+ * Гигантская область сэмплируется до [CROP_OUTPUT_MAX_DIM] — защита от OOM.
+ * Зеркальные ориентации и форматы без region-декода возвращают null —
+ * вызывающий откатывается к кропу из уменьшенной копии.
+ */
 private fun decodeRegionCrop(
     path: String,
     selection: CropRect,
     photo: SampledPhoto
 ): Bitmap? {
-    val scaleX = photo.sourceWidth.toFloat() / photo.bitmap.width
-    val scaleY = photo.sourceHeight.toFloat() / photo.bitmap.height
-    val left = (selection.left * scaleX).roundToInt().coerceIn(0, photo.sourceWidth - 1)
-    val top = (selection.top * scaleY).roundToInt().coerceIn(0, photo.sourceHeight - 1)
-    val right = (selection.right * scaleX).roundToInt().coerceIn(left + 1, photo.sourceWidth)
-    val bottom = (selection.bottom * scaleY).roundToInt().coerceIn(top + 1, photo.sourceHeight)
-    val rect = Rect(left, top, right, bottom)
+    val dw = photo.bitmap.width.toFloat()
+    val dh = photo.bitmap.height.toFloat()
+    if (dw <= 0f || dh <= 0f) return null
+    val nl = (selection.left / dw).coerceIn(0f, 1f)
+    val nt = (selection.top / dh).coerceIn(0f, 1f)
+    val nr = (selection.right / dw).coerceIn(0f, 1f)
+    val nb = (selection.bottom / dh).coerceIn(0f, 1f)
+    val sw = photo.sourceWidth
+    val sh = photo.sourceHeight
+
+    val rawRect = when (photo.orientation) {
+        // показ = raw, повёрнутый на 90° по часовой: x = v·W, y = (1−u)·H
+        ExifInterface.ORIENTATION_ROTATE_90 -> Rect(
+            (nt * sw).roundToInt(), ((1f - nr) * sh).roundToInt(),
+            (nb * sw).roundToInt(), ((1f - nl) * sh).roundToInt()
+        )
+        ExifInterface.ORIENTATION_ROTATE_180 -> Rect(
+            ((1f - nr) * sw).roundToInt(), ((1f - nb) * sh).roundToInt(),
+            ((1f - nl) * sw).roundToInt(), ((1f - nt) * sh).roundToInt()
+        )
+        // показ = raw, повёрнутый на 270° по часовой: x = (1−v)·W, y = u·H
+        ExifInterface.ORIENTATION_ROTATE_270 -> Rect(
+            ((1f - nb) * sw).roundToInt(), (nl * sh).roundToInt(),
+            ((1f - nt) * sw).roundToInt(), (nr * sh).roundToInt()
+        )
+        ExifInterface.ORIENTATION_NORMAL, ExifInterface.ORIENTATION_UNDEFINED -> Rect(
+            (nl * sw).roundToInt(), (nt * sh).roundToInt(),
+            (nr * sw).roundToInt(), (nb * sh).roundToInt()
+        )
+        // Зеркальные варианты: эта математика осей не годится — откат на копию.
+        else -> return null
+    }
+    val left = rawRect.left.coerceIn(0, sw - 1)
+    val top = rawRect.top.coerceIn(0, sh - 1)
+    val right = rawRect.right.coerceIn(left + 1, sw)
+    val bottom = rawRect.bottom.coerceIn(top + 1, sh)
 
     var sample = 1
-    while (max(rect.width(), rect.height()) / (sample * 2) >= CROP_OUTPUT_MAX_DIM) {
+    while (max(right - left, bottom - top) / (sample * 2) >= CROP_OUTPUT_MAX_DIM) {
         sample *= 2
     }
 
-    // В API-стабах 34 у декодера есть только recycle(); на живых устройствах
-    // 24–30 newInstance(String) — deprecated-перегрузка, возвращающая тот же
-    // объект, recycle() на них тоже есть.
     return try {
         val decoder = BitmapRegionDecoder.newInstance(path)
         try {
-            decoder.decodeRegion(rect, BitmapFactory.Options().apply { inSampleSize = sample })
+            val region = decoder.decodeRegion(
+                Rect(left, top, right, bottom),
+                BitmapFactory.Options().apply { inSampleSize = sample }
+            )
+            region?.let { applyOrientation(it, photo.orientation) }
         } finally {
             decoder.recycle()
         }
@@ -590,6 +684,10 @@ private fun ZoomableImage(
     }
 }
 
+/**
+ * Пиксельный поворот — запасной путь для зеркальных EXIF-ориентаций
+ * (встречаются редко: камера пишет 1/6/3/8, теговый поворот их не создаёт).
+ */
 private fun rotateImage(file: File) {
     val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return
 
