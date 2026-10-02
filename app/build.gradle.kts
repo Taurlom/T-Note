@@ -27,7 +27,7 @@ val appVersionCode = appVersionName.split(".").map(String::toInt)
 
 android {
     namespace = "com.example.timemanager"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         // Идентификатор в магазинах и на устройстве. Отличается от namespace:
@@ -42,7 +42,7 @@ android {
                 "ru.taurlom.tnote"
             }
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         // Версия задаётся один раз — в appVersionName/appVersionCode выше
         // (см. комментарий там про формулу и исторический минимум 241).
         versionCode = appVersionCode
