@@ -63,6 +63,17 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        // Robolectric-тестам нужны ресурсы и assets на JVM-класспасе.
+        unitTests.isIncludeAndroidResources = true
+    }
+    sourceSets {
+        // Схемы Room читаются MigrationTestHelper'ом как assets. Подключаем их
+        // только в debug-вариант: unit-тесты (testDebugUnitTest) их видят,
+        // а в релизный APK схемы не попадают вообще.
+        getByName("debug").assets.srcDir("$projectDir/schemas")
+    }
+
     // Подпись релизов: если keystore.properties нет — собираем без подписи
     // (debug всё равно подписан отладочным ключом и ставится на устройство).
     signingConfigs {
@@ -150,6 +161,11 @@ dependencies {
     testImplementation(libs.junit)
     // Настоящий org.json в JVM-тестах (в android.jar он — заглушки).
     testImplementation(libs.json)
+    // Тесты миграций Room на JVM: Robolectric + MigrationTestHelper
+    // (схемы из app/schemas подключены выше как assets тестового source set).
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
