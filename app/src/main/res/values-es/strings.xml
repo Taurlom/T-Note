@@ -63,6 +63,7 @@
     <string name="note_format_heading">Encabezado</string>
     <string name="note_format_list">Lista</string>
     <string name="note_format_link">Enlace</string>
+    <string name="markdown_link_placeholder">texto</string>
     <string name="create">Crear</string>
 
     <!-- Copias de seguridad -->
@@ -77,6 +78,8 @@
     <string name="backup_imported">Datos restaurados, fotos: %1$d</string>
     <string name="backup_imported_missing">Datos restaurados, fotos: %1$d. Otras %2$d foto(s) ya faltaban cuando se creó la copia</string>
     <string name="backup_error">Error de copia de seguridad: %1$s</string>
+    <string name="backup_error_not_a_backup">el archivo seleccionado no es una copia de seguridad de T-Note</string>
+    <string name="backup_error_unknown">error desconocido</string>
     <string name="backup_import_confirm_title">¿Restaurar desde copia?</string>
     <string name="backup_import_confirm_text">Las listas, tareas, notas, eventos y documentos actuales serán reemplazados por el contenido de la copia.</string>
     <string name="backup_restart_title">Se requiere reiniciar</string>

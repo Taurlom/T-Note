@@ -43,9 +43,11 @@ import com.example.timemanager.presentation.components.AppDropdown
 import com.example.timemanager.presentation.components.AppTextButton
 import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
-import com.example.timemanager.presentation.theme.AppFont
+import com.example.timemanager.domain.model.AppFont
+import com.example.timemanager.domain.model.ThemeKind
 import com.example.timemanager.presentation.theme.AppTheme
-import com.example.timemanager.presentation.theme.ThemeKind
+import com.example.timemanager.presentation.theme.fontFamily
+import com.example.timemanager.presentation.theme.labelRes
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Locale
@@ -104,11 +106,19 @@ fun SettingsScreen(
                     Toast.LENGTH_LONG
                 ).show()
             }
-            is BackupResult.Failed -> Toast.makeText(
-                context,
-                context.getString(R.string.backup_error, result.message),
-                Toast.LENGTH_LONG
-            ).show()
+            is BackupResult.Failed -> {
+                val message = when (result) {
+                    BackupResult.Failed.NotABackup ->
+                        context.getString(R.string.backup_error_not_a_backup)
+                    is BackupResult.Failed.Error ->
+                        result.detail ?: context.getString(R.string.backup_error_unknown)
+                }
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.backup_error, message),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
             null -> return@LaunchedEffect
         }
         viewModel.backupResultShown()

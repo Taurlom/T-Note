@@ -41,12 +41,20 @@ object MarkdownEditing {
         return result to TextRange(caret + prefix.length)
     }
 
-    /** Выделение превращает в `[выбранное](url)`; курсор встаёт на `url`. */
-    fun insertLink(text: String, selection: TextRange): Pair<String, TextRange> {
+    /**
+     * Выделение превращает в `[выбранное](url)`; курсор встаёт на `url`.
+     * [placeholder] — подпись ссылки, если выделение пусто (локализуемый
+     * ресурс, передаёт экран).
+     */
+    fun insertLink(
+        text: String,
+        selection: TextRange,
+        placeholder: String
+    ): Pair<String, TextRange> {
         val start = selection.start.coerceIn(0, text.length)
         val end = selection.end.coerceIn(0, text.length)
         val selected = text.substring(start, end)
-        val label = selected.ifEmpty { "текст" }
+        val label = selected.ifEmpty { placeholder }
         val result = text.take(start) + "[$label]()" + text.substring(end)
         val urlStart = start + label.length + 3
         return result to TextRange(urlStart, urlStart)

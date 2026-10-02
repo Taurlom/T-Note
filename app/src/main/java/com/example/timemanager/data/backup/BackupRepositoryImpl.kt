@@ -9,8 +9,8 @@ import com.example.timemanager.domain.repository.BackupSummary
 import com.example.timemanager.domain.repository.DocumentRepository
 import com.example.timemanager.domain.repository.NoteRepository
 import com.example.timemanager.domain.repository.SettingsRepository
-import com.example.timemanager.presentation.theme.AppFont
-import com.example.timemanager.presentation.theme.ThemeKind
+import com.example.timemanager.domain.model.AppFont
+import com.example.timemanager.domain.model.ThemeKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream

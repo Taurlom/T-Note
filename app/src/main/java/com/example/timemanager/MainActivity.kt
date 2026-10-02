@@ -16,12 +16,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.example.timemanager.domain.model.AppFont
+import com.example.timemanager.domain.model.ThemeKind
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.presentation.navigation.AppNavigation
 import com.example.timemanager.presentation.splash.SplashScreen
-import com.example.timemanager.presentation.theme.AppFont
-import com.example.timemanager.presentation.theme.ThemeKind
 import com.example.timemanager.presentation.theme.TNoteTheme
+import com.example.timemanager.presentation.theme.fontFamily
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import dagger.hilt.android.AndroidEntryPoint

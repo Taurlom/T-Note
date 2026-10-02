@@ -100,14 +100,14 @@ class MarkdownTest {
 
     @Test
     fun `insertLink wraps selection and parks caret in url`() {
-        val (text, sel) = MarkdownEditing.insertLink("смотри тут", TextRange(7, 10))
+        val (text, sel) = MarkdownEditing.insertLink("смотри тут", TextRange(7, 10), "текст")
         assertEquals("смотри [тут]()", text)
         assertEquals(13, sel.start)
     }
 
     @Test
     fun `insertLink without selection uses placeholder label`() {
-        val (text, _) = MarkdownEditing.insertLink("", TextRange(0))
+        val (text, _) = MarkdownEditing.insertLink("", TextRange(0), "текст")
         assertEquals("[текст]()", text)
     }
 }

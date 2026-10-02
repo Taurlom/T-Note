@@ -158,7 +158,7 @@ class CalendarViewModel @Inject constructor(
             if (trimmed.isBlank()) return@launch
             val dateEvents = _uiState.value.events[date].orEmpty()
             val nextPosition = (dateEvents.maxOfOrNull { it.position } ?: -1) + 1
-            val id = addEventUseCase(
+            addEventUseCase(
                 draft.copy(date = date, title = trimmed, position = nextPosition)
             )
         }

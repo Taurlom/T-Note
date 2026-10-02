@@ -1,12 +1,11 @@
 import java.util.Properties
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.kapt")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.dagger.hilt.android")
-    id("com.google.devtools.ksp")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 // Ключ подписи релизов: keystore.properties в корне (в .gitignore).
@@ -16,6 +15,15 @@ val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
 }
+
+// Версионирование: семантическое (см. CHANGELOG.md). versionCode вычисляется
+// из versionName: MAJOR*10000 + MINOR*100 + PATCH — растёт монотонно при любой
+// смене версии и не регрессирует на переходе MAJOR (2.0.0 → 20000).
+// Исторический минимум — 241: до 1.14.0 включительно действовала формула
+// MAJOR*100 + MINOR*10 + PATCH (1.14.0 = 240 ушла в RuStore на модерацию).
+val appVersionName = "1.14.1"
+val appVersionCode = appVersionName.split(".").map(String::toInt)
+    .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
 
 android {
     namespace = "com.example.timemanager"
@@ -35,11 +43,10 @@ android {
             }
         minSdk = 24
         targetSdk = 34
-        // Версионирование: семантическое (см. CHANGELOG.md).
-        // versionCode = MAJOR*100 + MINOR*10 + PATCH — растёт монотонно,
-        // синхронно с versionName при каждом релизе.
-        versionCode = 240
-        versionName = "1.14.0"
+        // Версия задаётся один раз — в appVersionName/appVersionCode выше
+        // (см. комментарий там про формулу и исторический минимум 241).
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -102,50 +109,50 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2025.02.00")
+    val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation(libs.core.ktx)
+    implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.activity.compose)
     // Per-app language: AppCompatDelegate.setApplicationLocales работает и
     // на Android < 13 (там, где нет системного LocaleManager).
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
+    implementation(libs.appcompat)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
     // material-icons-extended (Material Icons) устарел: все иконки проекта —
     // vector drawables из набора Material Symbols в res/drawable (ic_*.xml).
 
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation(libs.datastore.preferences)
     // Чтение/запись EXIF Orientation без декодирования всего JPEG: поворот
     // фото = правка одного тега, а не перекодирование пикселей.
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation(libs.exifinterface)
+    implementation(libs.lifecycle.runtime.compose)
 
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.navigation.compose)
+    implementation(libs.hilt.navigation.compose)
 
-    implementation("com.google.dagger:hilt-android:2.54")
-    kapt("com.google.dagger:hilt-compiler:2.54")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
 
-    implementation("io.coil-kt:coil-compose:2.6.0")
-    implementation("androidx.core:core-splashscreen:1.0.1")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation(libs.coil.compose)
+    implementation(libs.core.splashscreen)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
     // Настоящий org.json в JVM-тестах (в android.jar он — заглушки).
-    testImplementation("org.json:json:20240303")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation(libs.json)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

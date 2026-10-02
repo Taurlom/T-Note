@@ -1,7 +1,7 @@
 package com.example.timemanager.domain.repository
 
-import com.example.timemanager.presentation.theme.AppFont
-import com.example.timemanager.presentation.theme.ThemeKind
+import com.example.timemanager.domain.model.AppFont
+import com.example.timemanager.domain.model.ThemeKind
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {

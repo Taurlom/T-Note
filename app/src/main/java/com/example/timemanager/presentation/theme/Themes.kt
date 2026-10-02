@@ -3,6 +3,7 @@ package com.example.timemanager.presentation.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import com.example.timemanager.domain.model.ThemeKind
 
 /**
  * Готовые темы: маппинг примитивов (Color.kt) в роли Material 3 и в

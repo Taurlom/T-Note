@@ -64,6 +64,7 @@
     <string name="note_format_heading">Заголовок</string>
     <string name="note_format_list">Список</string>
     <string name="note_format_link">Ссылка</string>
+    <string name="markdown_link_placeholder">текст</string>
     <string name="create">Создать</string>
 
     <!-- Резервные копии -->
@@ -78,6 +79,8 @@
     <string name="backup_imported">Данные восстановлены, фотографий: %1$d</string>
     <string name="backup_imported_missing">Данные восстановлены, фотографий: %1$d. Ещё %2$d фото отсутствовали уже в момент создания копии</string>
     <string name="backup_error">Ошибка резервной копии: %1$s</string>
+    <string name="backup_error_not_a_backup">выбранный файл — не резервная копия T-Note</string>
+    <string name="backup_error_unknown">неизвестная ошибка</string>
     <string name="backup_import_confirm_title">Восстановить из копии?</string>
     <string name="backup_import_confirm_text">Текущие списки, задачи, заметки, события и документы будут заменены содержимым копии.</string>
     <string name="backup_restart_title">Нужен перезапуск</string>

@@ -9,8 +9,8 @@ import com.example.timemanager.domain.repository.BackupDescription
 import com.example.timemanager.domain.repository.BackupRepository
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.domain.usecase.ClearCalendarUseCase
-import com.example.timemanager.presentation.theme.AppFont
-import com.example.timemanager.presentation.theme.ThemeKind
+import com.example.timemanager.domain.model.AppFont
+import com.example.timemanager.domain.model.ThemeKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -150,7 +150,7 @@ class SettingsViewModel @Inject constructor(
             val description = backupRepository.describeBackup(source)
             if (description == null) {
                 backupStatus.value =
-                    BackupStatus(result = BackupResult.Failed("не резервная копия T-Note"))
+                    BackupStatus(result = BackupResult.Failed.NotABackup)
             } else {
                 _pendingImport.value = description
             }
@@ -166,7 +166,7 @@ class SettingsViewModel @Inject constructor(
         backupStatus.value = try {
             BackupStatus(result = success())
         } catch (e: Exception) {
-            BackupStatus(result = BackupResult.Failed(e.message ?: "неизвестная ошибка"))
+            BackupStatus(result = BackupResult.Failed.Error(e.message))
         }
     }
 

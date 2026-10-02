@@ -5,8 +5,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.example.timemanager.R
 import com.example.timemanager.domain.repository.BackupDescription
-import com.example.timemanager.presentation.theme.AppFont
-import com.example.timemanager.presentation.theme.ThemeKind
+import com.example.timemanager.domain.model.AppFont
+import com.example.timemanager.domain.model.ThemeKind
 
 /**
  * Результат операции с резервной копией; читается экраном один раз и
@@ -16,7 +16,19 @@ import com.example.timemanager.presentation.theme.ThemeKind
 sealed interface BackupResult {
     data class Exported(val photos: Int, val missing: Int) : BackupResult
     data class Imported(val photos: Int, val missing: Int) : BackupResult
-    data class Failed(val message: String) : BackupResult
+
+    /**
+     * Ошибка — типизированная причина вместо готовой строки: текст
+     * собирает экран из ресурсов, иначе ViewModel хардкодил бы русские
+     * подписи для английской и испанской локалей.
+     */
+    sealed interface Failed : BackupResult {
+        /** Выбранный файл — не архив резервной копии T-Note. */
+        data object NotABackup : Failed
+
+        /** Любая другая ошибка чтения/записи; [detail] — текст исключения. */
+        data class Error(val detail: String?) : Failed
+    }
 }
 
 /**

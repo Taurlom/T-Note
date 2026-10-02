@@ -1,0 +1,15 @@
+# Dependabot: еженедельные PR с обновлениями зависимостей.
+# Все версии лежат в gradle/libs.versions.toml — PR приходят точечно на него.
+# Крупные обновления (Compose BOM, Room, AGP) прогонять локально перед merge:
+# см. комментарии о совместимости в gradle.properties (KSP2, Room).
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

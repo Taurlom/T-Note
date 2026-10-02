@@ -48,7 +48,7 @@
 | UI | Jetpack Compose, Material 3 (BOM 2025.02) |
 | Архитектура | MVVM + Clean Architecture (domain / data / presentation) |
 | Хранилище | Room (миграции), DataStore Preferences |
-| DI | Hilt + KSP/kapt |
+| DI | Hilt (компилятор на KSP) |
 | Навигация | Navigation Compose + HorizontalPager для разделов |
 | Изображения | Coil |
 | Мин. Android | 24 (target 34) |
@@ -120,7 +120,12 @@ keyPassword=...
 
 Каждый релиз — аннотированный тег `vX.Y.Z`. Проверка локально:
 
-1. обновить `versionName`/`versionCode` в `app/build.gradle.kts`;
+1. обновить `versionName` (`appVersionName`) в `app/build.gradle.kts` —
+   `versionCode` вычисляется из неё автоматически: MAJOR·10000 + MINOR·100 + PATCH
+   (например, 1.15.0 → 11500). Сторы требуют, чтобы код каждой загрузки был
+   больше предыдущего: исторический минимум — 241, т.к. версии до 1.14.0
+   включительно считались по формуле MAJOR·100 + MINOR·10 + PATCH
+   (1.14.0 = 240, опубликована в RuStore);
 2. добавить секцию в [CHANGELOG.md](CHANGELOG.md);
 3. закоммитить и смержить в `main`.
 

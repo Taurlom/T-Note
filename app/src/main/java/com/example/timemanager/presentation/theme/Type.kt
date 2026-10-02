@@ -7,6 +7,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.timemanager.R
+import com.example.timemanager.domain.model.AppFont
 
 val PtSansFontFamily = FontFamily(
     Font(R.font.pt_sans_regular, FontWeight.Normal),
@@ -60,22 +61,24 @@ val RubikFontFamily = FontFamily(
     Font(R.font.rubik, FontWeight.Normal)
 )
 
-enum class AppFont(val displayName: String, val fontFamily: FontFamily) {
-    PT_SANS("PT Sans", PtSansFontFamily),
-    OPEN_SANS("Open Sans", OpenSansFontFamily),
-    ROBOTO("Roboto", RobotoFontFamily),
-    INTER("Inter", InterFontFamily),
-    NUNITO("Nunito", NunitoFontFamily),
-    LATO("Lato", LatoFontFamily),
-    LOBSTER("Lobster", LobsterFontFamily),
-    JONOVA("Jonova", JonovaFontFamily),
-    MAZZARD("Mazzard", MazzardFontFamily),
-    RUBIK("Rubik", RubikFontFamily);
-
-    companion object {
-        fun fromName(name: String): AppFont = entries.find { it.name == name } ?: PT_SANS
+/**
+ * Привязка шрифта к FontFamily — presentation-концерн (Compose-типы и
+ * ресурсы R.font). Сам enum AppFont живёт в domain (domain/model/AppFont.kt):
+ * его значение хранится в настройках и в манифесте резервной копии.
+ */
+val AppFont.fontFamily: FontFamily
+    get() = when (this) {
+        AppFont.PT_SANS -> PtSansFontFamily
+        AppFont.OPEN_SANS -> OpenSansFontFamily
+        AppFont.ROBOTO -> RobotoFontFamily
+        AppFont.INTER -> InterFontFamily
+        AppFont.NUNITO -> NunitoFontFamily
+        AppFont.LATO -> LatoFontFamily
+        AppFont.LOBSTER -> LobsterFontFamily
+        AppFont.JONOVA -> JonovaFontFamily
+        AppFont.MAZZARD -> MazzardFontFamily
+        AppFont.RUBIK -> RubikFontFamily
     }
-}
 
 fun appTypography(fontFamily: FontFamily): Typography = Typography(
     headlineLarge = TextStyle(

@@ -417,6 +417,9 @@ private fun FormattingToolbar(
     onContentChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Подпись пустой ссылки локализуема — читаем ресурс здесь, а не в onClick.
+    val linkPlaceholder = stringResource(R.string.markdown_link_placeholder)
+
     fun apply(op: (text: String, selection: TextRange) -> Pair<String, TextRange>) {
         val (text, selection) = op(content.text, content.selection)
         onContentChange(TextFieldValue(text, selection))
@@ -435,7 +438,7 @@ private fun FormattingToolbar(
             apply { text, sel -> MarkdownEditing.toggleLinePrefix(text, sel, "- ") }
         }
         FormattingButton(R.drawable.ic_link, R.string.note_format_link) {
-            apply { text, sel -> MarkdownEditing.insertLink(text, sel) }
+            apply { text, sel -> MarkdownEditing.insertLink(text, sel, linkPlaceholder) }
         }
     }
 }

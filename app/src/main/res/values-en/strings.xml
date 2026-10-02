@@ -63,6 +63,7 @@
     <string name="note_format_heading">Heading</string>
     <string name="note_format_list">List</string>
     <string name="note_format_link">Link</string>
+    <string name="markdown_link_placeholder">text</string>
     <string name="create">Create</string>
 
     <!-- Backup -->
@@ -77,6 +78,8 @@
     <string name="backup_imported">Data restored, photos: %1$d</string>
     <string name="backup_imported_missing">Data restored, photos: %1$d. Another %2$d photo(s) were already missing when the backup was created</string>
     <string name="backup_error">Backup error: %1$s</string>
+    <string name="backup_error_not_a_backup">the selected file is not a T-Note backup</string>
+    <string name="backup_error_unknown">unknown error</string>
     <string name="backup_import_confirm_title">Restore from copy?</string>
     <string name="backup_import_confirm_text">Current lists, tasks, notes, events and documents will be replaced by the contents of the backup.</string>
     <string name="backup_restart_title">Restart required</string>
