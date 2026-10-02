@@ -3,7 +3,7 @@
 # Версии библиотек Compose без version.ref берутся из compose-bom.
 
 [versions]
-agp = "8.13.2"
+agp = "9.4.1"
 kotlin = "2.1.20"
 ksp = "2.1.20-1.0.32"
 compose-bom = "2025.02.00"
