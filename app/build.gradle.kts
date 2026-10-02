@@ -156,3 +156,9 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 }
+
+ksp {
+    // Экспорт схем Room в app/schemas: история схем хранится в git,
+    // а сами JSON — основа для будущих тестов миграций (MigrationTestHelper).
+    arg("room.schemaLocation", "$projectDir/schemas")
+}

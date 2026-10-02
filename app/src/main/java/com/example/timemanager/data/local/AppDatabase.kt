@@ -23,7 +23,8 @@ import com.example.timemanager.data.local.entity.TaskEntity
         NotePhotoEntity::class
     ],
     version = 16,
-    exportSchema = false
+    // Схемы экспортируются в app/schemas (см. ksp-аргумент в build.gradle.kts).
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 

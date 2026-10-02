@@ -451,7 +451,7 @@ private fun EventIconOption(
  * Произошло ли событие уже (для зачёркивания в списке).
  * Повторяющиеся дни рождения не «проходят» — они наступают каждый год.
  */
-private fun ScheduledEvent.isPastOccurrence(today: LocalDate = LocalDate.now()): Boolean {
+internal fun ScheduledEvent.isPastOccurrence(today: LocalDate = LocalDate.now()): Boolean {
     // Дни рождения и пометки «Выходной» не «проходят»: они отмечают день.
     if (type == ScheduledEventType.BIRTHDAY || type == ScheduledEventType.WEEKEND) {
         return false
