@@ -21,7 +21,7 @@ room = "2.6.1"
 coil = "2.6.0"
 desugar-jdk-libs = "2.0.4"
 junit = "4.13.2"
-json = "20240303"
+json = "20260814"
 androidx-test-junit = "1.1.5"
 espresso = "3.5.1"
 
