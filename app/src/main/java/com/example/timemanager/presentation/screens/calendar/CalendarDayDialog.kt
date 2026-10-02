@@ -72,6 +72,9 @@ fun CalendarDayDialog(
     // null — редактор закрыт; ScheduledEvent с id == 0 — новый черновик.
     var editorTarget by remember { mutableStateOf<ScheduledEvent?>(null) }
     val dateKey = date.toIsoString()
+    // День, который показывает диалог: зачёркивание событий считается по нему,
+    // а не по якорной дате события (у повторяющихся якорь может быть в прошлом).
+    val day = remember(date) { LocalDate.of(date.year, date.month, date.day) }
     val locale = LocalConfiguration.current.locales[0]
 
     AppDialog(
@@ -96,6 +99,7 @@ fun CalendarDayDialog(
                 events.forEach { event ->
                     ScheduledEventRow(
                         event = event,
+                        day = day,
                         onClick = { editorTarget = event },
                         onDelete = { onDeleteEvent(event) }
                     )
@@ -165,10 +169,11 @@ fun CalendarDayDialog(
 @Composable
 private fun ScheduledEventRow(
     event: ScheduledEvent,
+    day: LocalDate,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isPast = remember(event) { event.isPastOccurrence() }
+    val isPast = remember(event, day) { event.isPastOccurrence(day) }
     val titleColor = if (isPast) AppTheme.colors.dialogContent.copy(alpha = 0.45f) else AppTheme.colors.dialogContent
 
     Row(
@@ -448,14 +453,17 @@ private fun EventIconOption(
 }
 
 /**
- * Произошло ли событие уже (для зачёркивания в списке).
- * Повторяющиеся дни рождения не «проходят» — они наступают каждый год.
+ * Произошло ли уже событие, показанное в день [day] (для зачёркивания в
+ * списке). Сравнивается именно показанный день, а не якорная дата события:
+ * у повторяющегося события якорь может быть в прошлом, а вхождения — впереди.
+ * Дни рождения и пометки «Выходной» не «проходят»: они отмечают день.
  */
-internal fun ScheduledEvent.isPastOccurrence(today: LocalDate = LocalDate.now()): Boolean {
-    // Дни рождения и пометки «Выходной» не «проходят»: они отмечают день.
+internal fun ScheduledEvent.isPastOccurrence(
+    day: LocalDate,
+    today: LocalDate = LocalDate.now()
+): Boolean {
     if (type == ScheduledEventType.BIRTHDAY || type == ScheduledEventType.WEEKEND) {
         return false
     }
-    val day = dateOrNull() ?: return false
     return day.isBefore(today)
 }
