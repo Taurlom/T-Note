@@ -10,7 +10,6 @@ import com.example.timemanager.domain.usecase.GetCategoriesUseCase
 import com.example.timemanager.domain.usecase.ImportSharedListUseCase
 import com.example.timemanager.domain.usecase.ReorderCategoriesUseCase
 import com.example.timemanager.domain.usecase.UpdateCategoryUseCase
-import com.example.timemanager.presentation.components.defaultCategoryColor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -100,7 +99,7 @@ class CategoriesViewModel @Inject constructor(
                 viewModelScope.launch {
                     val shared = _uiState.value.incomingShare ?: return@launch
                     runCatching {
-                        importSharedListUseCase(shared, defaultCategoryColor())
+                        importSharedListUseCase(shared)
                     }.onSuccess {
                         _uiState.update {
                             it.copy(

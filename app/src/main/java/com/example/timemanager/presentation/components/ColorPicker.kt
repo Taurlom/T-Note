@@ -19,19 +19,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.timemanager.R
+import com.example.timemanager.domain.model.Category
 import com.example.timemanager.presentation.theme.AppTheme
 
-/** Пресеты цветов категорий. */
+/**
+ * Пресеты цветов категорий. Первый — доменный дефолт [Category.DEFAULT_COLOR]:
+ * ссылка, а не копия значения, чтобы «цвет новой категории» и «первая плашка
+ * палитры» не могли разъехаться при правке палитры.
+ */
 private val presetColors = listOf(
-    0xFFE53935, 0xFFD81B60, 0xFF8E24AA, 0xFF5E35B1,
+    Category.DEFAULT_COLOR, 0xFFD81B60, 0xFF8E24AA, 0xFF5E35B1,
     0xFF1E88E5, 0xFF039BE5, 0xFF00ACC1, 0xFF00897B,
     0xFF43A047, 0xFF7CB342, 0xFFC0CA33, 0xFFFDD835,
     0xFFFFB300, 0xFFFB8C00, 0xFFF4511E, 0xFF6D4C41,
     0xFF757575, 0xFF546E7A
 )
-
-/** Цвет нового списка, пока пользователь ничего не выбрал. */
-fun defaultCategoryColor(): Long = presetColors.first()
 
 /** Палитра категорий в формате общего [AppColorPicker]. */
 fun categoryColorOptions(): List<ColorSwatchOption> =

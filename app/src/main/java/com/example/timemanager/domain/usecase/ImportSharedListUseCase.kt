@@ -11,20 +11,21 @@ import kotlinx.coroutines.flow.first
 /**
  * Добавляет список, полученный из файла `.tnote`, как новую категорию:
  * id создаются заново (автоинкремент Room), порядок пунктов сохраняется,
- * категория встаёт в конец.
+ * категория встаёт в конец. Цвет без явного указания — доменный
+ * [Category.DEFAULT_COLOR], а не параметр из UI.
  */
 class ImportSharedListUseCase @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val taskRepository: TaskRepository
 ) {
 
-    suspend operator fun invoke(shared: SharedList, fallbackColor: Long): Long {
+    suspend operator fun invoke(shared: SharedList): Long {
         val nextPosition =
             (categoryRepository.getAll().first().maxOfOrNull { it.position } ?: -1) + 1
         val categoryId = categoryRepository.insert(
             Category(
                 name = shared.name,
-                color = shared.color ?: fallbackColor,
+                color = shared.color ?: Category.DEFAULT_COLOR,
                 position = nextPosition
             )
         )

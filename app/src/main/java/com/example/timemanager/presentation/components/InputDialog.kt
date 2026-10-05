@@ -32,7 +32,7 @@ fun CategoryInputDialog(
     onConfirm: (String, Long) -> Unit
 ) {
     var name by remember { mutableStateOf(category?.name.orEmpty()) }
-    var selectedColor by remember { mutableLongStateOf(category?.color ?: defaultCategoryColor()) }
+    var selectedColor by remember { mutableLongStateOf(category?.color ?: Category.DEFAULT_COLOR) }
 
     AppDialog(
         title = stringResource(
