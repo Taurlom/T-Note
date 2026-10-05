@@ -31,10 +31,17 @@
                 android:value="true" />
         </service>
 
+        <!-- Predictive back (Android 14+): возврат «домой» системным жестом
+             показывает анимированную превью вместо мгновенного исчезновения.
+             Перехватчики на OnBackPressedDispatcher (BackHandler, закрытие
+             диалогов по «назад») продолжают работать без изменений; флаг
+             ломает только прямые оверрайды Activity.onBackPressed — таких
+             в проекте нет. На Android 13 и ниже атрибут игнорируется. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:enableOnBackInvokedCallback="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

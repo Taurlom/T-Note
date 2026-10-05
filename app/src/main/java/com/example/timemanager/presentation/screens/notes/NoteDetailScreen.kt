@@ -1,6 +1,7 @@
 package com.example.timemanager.presentation.screens.notes
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -103,6 +104,16 @@ fun NoteDetailScreen(
             pendingPhotoUris.clear()
             removedPhotoPaths.clear()
         }
+    }
+
+    // Системный «назад» идёт тем же маршрутом, что стрелка тулбара:
+    // из редактора существующей заметки — сначала выход в просмотр,
+    // из новой — закрытие экрана. Без перехвата жест «назад» выкидывал
+    // экран целиком и молча терял набранный текст (черновик живёт
+    // в remember и не переживает ухода экрана из композиции).
+    // В просмотре перехват выключен — «назад» закрывает экран как обычно.
+    BackHandler(enabled = uiState.isEditing) {
+        if (viewModel.isNew) onBackClick() else viewModel.stopEditing()
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
