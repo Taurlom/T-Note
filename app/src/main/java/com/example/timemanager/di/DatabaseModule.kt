@@ -27,7 +27,7 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "time_manager.db"
+            AppDatabase.DB_NAME
         )
             .addMigrations(
                 AppDatabaseMigration.MIGRATION_5_6,

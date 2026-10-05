@@ -94,7 +94,7 @@ class BackupRepositoryImpl @Inject constructor(
                             manifestJson(photoFiles.size, notePhotoFiles.size, missing, orphans)
                         )
 
-                        val dbFile = context.getDatabasePath(DB_NAME)
+                        val dbFile = context.getDatabasePath(AppDatabase.DB_NAME)
                         if (dbFile.exists()) {
                             zip.writeFile("$DATABASE_DIR/${dbFile.name}", dbFile)
                         }
@@ -156,7 +156,7 @@ class BackupRepositoryImpl @Inject constructor(
                 .apply { deleteRecursively(); mkdirs() }
             val photosOut = File(tempDir, PHOTOS_DIR).apply { mkdirs() }
             val notePhotosOut = File(tempDir, NOTE_PHOTOS_DIR).apply { mkdirs() }
-            val dbOut = File(tempDir, DB_NAME)
+            val dbOut = File(tempDir, AppDatabase.DB_NAME)
             var manifest: JSONObject? = null
             var restoredPhotos = 0
 
@@ -213,7 +213,7 @@ class BackupRepositoryImpl @Inject constructor(
                                     }.getOrNull()
                                 }
                                 name.startsWith("$DATABASE_DIR/") &&
-                                    File(name).name == DB_NAME ->
+                                    File(name).name == AppDatabase.DB_NAME ->
                                     // Стриминг на диск, без readBytes(): база
                                     // не обязана влезать в память процесса.
                                     dbOut.outputStream().buffered().use { copyEntry(it) }
@@ -277,7 +277,7 @@ class BackupRepositoryImpl @Inject constructor(
                 // Сначала сливаем WAL в основной файл: после этого -wal/-shm —
                 // пустые хвосты прежней базы, новой они не нужны.
                 checkpointWal()
-                val dbFile = context.getDatabasePath(DB_NAME)
+                val dbFile = context.getDatabasePath(AppDatabase.DB_NAME)
                 File(dbFile.path + "-wal").delete()
                 File(dbFile.path + "-shm").delete()
 
@@ -485,7 +485,8 @@ class BackupRepositoryImpl @Inject constructor(
         const val DATABASE_DIR = "database"
         const val PHOTOS_DIR = "document_photos"
         const val NOTE_PHOTOS_DIR = "note_photos"
-        const val DB_NAME = "time_manager.db"
+        // Имя файла базы — AppDatabase.DB_NAME: Room открывает и копия
+        // подменяет один и тот же файл, источник обязан быть один.
         const val IMPORT_TEMP_DIR = "backup_import"
 
         // Потолки распаковки недоверенного архива (zip-бомба: сжатые до

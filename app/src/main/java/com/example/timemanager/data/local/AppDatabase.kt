@@ -28,6 +28,18 @@ import com.example.timemanager.data.local.entity.TaskEntity
 )
 abstract class AppDatabase : RoomDatabase() {
 
+    companion object {
+        /**
+         * Имя файла базы — единственный источник истины. Его открывает
+         * Room (DatabaseModule) и подменяет резервная копия
+         * (BackupRepositoryImpl); раньше литерал жил в двух местах, и
+         * рассинхрон сломал бы бэкап молча: экспорт упаковал бы чужой
+         * файл, а интеграционные тесты копии закрепляют имя как формат
+         * архива и разницы не увидели бы.
+         */
+        const val DB_NAME = "time_manager.db"
+    }
+
     abstract fun categoryDao(): CategoryDao
     abstract fun taskDao(): TaskDao
     abstract fun calendarNoteDao(): CalendarNoteDao
