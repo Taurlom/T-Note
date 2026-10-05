@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,8 +85,8 @@ fun NoteDetailScreen(
     val note = uiState.note
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var galleryIndex by remember { mutableStateOf<Int?>(null) }
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var galleryIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var photoVersion by remember { mutableIntStateOf(0) }
 
     // Буферы редактирования: заполняются при входе в режим, чтобы отмена

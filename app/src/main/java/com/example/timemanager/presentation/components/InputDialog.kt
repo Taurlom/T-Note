@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,8 +32,13 @@ fun CategoryInputDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, Long) -> Unit
 ) {
-    var name by remember { mutableStateOf(category?.name.orEmpty()) }
-    var selectedColor by remember { mutableLongStateOf(category?.color ?: Category.DEFAULT_COLOR) }
+    // rememberSaveable: набранное имя и выбранный цвет переживают
+    // пересоздание Activity (смена системной темы/языка/масштаба шрифта),
+    // а не только пересборку композиции. Для редактирования это спасает
+    // меньше — объект category в remember экрана при пересоздании
+    // теряется и диалог закроется, — но создание списка защитой покрыто.
+    var name by rememberSaveable { mutableStateOf(category?.name.orEmpty()) }
+    var selectedColor by rememberSaveable { mutableLongStateOf(category?.color ?: Category.DEFAULT_COLOR) }
 
     AppDialog(
         title = stringResource(
@@ -88,9 +94,11 @@ fun TaskInputDialog(
     onConfirm: (String, String) -> Unit,
     onNext: ((String, String) -> Unit)? = null
 ) {
-    var title by remember { mutableStateOf(titleInitial) }
-    var description by remember { mutableStateOf(descriptionInitial) }
-    var targetCategoryId by remember { mutableLongStateOf(0L) }
+    // Аналогично CategoryInputDialog: черновик задачи живёт в Bundle
+    // и не теряется на пересоздании Activity.
+    var title by rememberSaveable { mutableStateOf(titleInitial) }
+    var description by rememberSaveable { mutableStateOf(descriptionInitial) }
+    var targetCategoryId by rememberSaveable { mutableLongStateOf(0L) }
     val context = LocalContext.current
 
     AppDialog(

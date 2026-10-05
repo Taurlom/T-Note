@@ -55,8 +55,12 @@ fun DocumentInputDialog(
 ) {
     val isEdit = document != null
 
-    var title by remember { mutableStateOf(document?.title.orEmpty()) }
-    var description by remember { mutableStateOf(document?.description.orEmpty()) }
+    var title by rememberSaveable { mutableStateOf(document?.title.orEmpty()) }
+    var description by rememberSaveable { mutableStateOf(document?.description.orEmpty()) }
+
+    // Фото в черновике НЕ saveable: списки Uri/путей потребовали бы
+    // кастомного Saver, а потеря переустанавливаема (фото выбираются
+    // заново) — защищаем только невосстановимый текст.
 
     val existingPhotoPaths = remember(document) { document?.photoPaths ?: emptyList() }
     val removedExistingPaths = remember { mutableStateListOf<String>() }

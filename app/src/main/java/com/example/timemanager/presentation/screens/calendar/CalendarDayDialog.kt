@@ -22,6 +22,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -230,17 +231,20 @@ private fun ScheduledEventEditorDialog(
     onSave: (ScheduledEvent) -> Unit,
     onDelete: () -> Unit
 ) {
-    var title by remember { mutableStateOf(original?.title.orEmpty()) }
-    var type by remember { mutableStateOf(original?.type ?: ScheduledEventType.REGULAR) }
-    var icon by remember { mutableStateOf(original?.icon ?: EventIcon.NOTE) }
-    var colorArgb by remember {
+    // Весь черновик события — в Bundle: пересоздание Activity (тема,
+    // язык, масштаб шрифта) не сбрасывает набранное. Енамы сохраняются
+    // как Serializable, числа и строки — напрямую.
+    var title by rememberSaveable { mutableStateOf(original?.title.orEmpty()) }
+    var type by rememberSaveable { mutableStateOf(original?.type ?: ScheduledEventType.REGULAR) }
+    var icon by rememberSaveable { mutableStateOf(original?.icon ?: EventIcon.NOTE) }
+    var colorArgb by rememberSaveable {
         mutableStateOf(original?.colorArgb ?: ScheduledEvent.DEFAULT_COLOR)
     }
-    var intervalText by remember {
+    var intervalText by rememberSaveable {
         mutableStateOf(original?.repeatIntervalDays?.toString().orEmpty())
     }
-    var hidePast by remember { mutableStateOf(original?.hidePastOccurrences ?: false) }
-    var repeatDaysText by remember {
+    var hidePast by rememberSaveable { mutableStateOf(original?.hidePastOccurrences ?: false) }
+    var repeatDaysText by rememberSaveable {
         mutableStateOf(original?.repeatDays?.takeIf { it > 0 }?.toString().orEmpty())
     }
 

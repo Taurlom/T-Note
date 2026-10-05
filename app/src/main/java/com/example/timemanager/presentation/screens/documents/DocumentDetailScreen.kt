@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -52,8 +53,8 @@ fun DocumentDetailScreen(
     val document = uiState.document
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var galleryIndex by remember { mutableStateOf<Int?>(null) }
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var galleryIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var photoVersion by remember { mutableIntStateOf(0) }
 
     Scaffold(

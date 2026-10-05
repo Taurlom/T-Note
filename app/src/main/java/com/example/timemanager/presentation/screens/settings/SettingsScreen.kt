@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -62,9 +63,13 @@ fun SettingsScreen(
     val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    var showClearDialog by remember { mutableStateOf(false) }
-    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
-    var showRestartDialog by remember { mutableStateOf(false) }
+    // Всё это — saveable: подтверждение очистки и особенно
+    // pendingImportUri («файл выбран, ждём подтверждения») не должны
+    // пропадать при пересоздании Activity и заставлять выбирать файл
+    // заново. Uri — Parcelable, Bundle сохраняет его напрямую.
+    var showClearDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingImportUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var showRestartDialog by rememberSaveable { mutableStateOf(false) }
 
     // Экспорт: пользователь сам выбирает, куда положить zip.
     val exportLauncher = rememberLauncherForActivityResult(
