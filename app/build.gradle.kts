@@ -96,7 +96,11 @@ android {
             }
         }
         getByName("release") {
-            isMinifyEnabled = false
+            // R8: выкидывает неиспользуемый код/ресурсы библиотек и обфусцирует.
+            // mapping.txt для деобфускации стектрейсов прикладывается к релизу
+            // на GitHub (см. release.yml).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
