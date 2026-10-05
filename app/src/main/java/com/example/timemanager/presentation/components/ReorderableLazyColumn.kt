@@ -25,7 +25,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -42,6 +44,7 @@ fun <T> ReorderableLazyColumn(
     itemContent: @Composable LazyItemScope.(T, Boolean) -> Unit
 ) {
     val lazyListState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
     var currentItems by remember { mutableStateOf(items) }
     val latestItems by rememberUpdatedState(items)
 
@@ -110,6 +113,16 @@ fun <T> ReorderableLazyColumn(
                                 }
                             },
                             onDragEnd = {
+                                // Порядок зафиксирован: короткая вибрация
+                                // закрывает жест, когда палец уже не
+                                // на экране. Только если перенос был —
+                                // long-press без перемещения не должен
+                                // «звенеть» на отпускание.
+                                if (currentItems != latestItems) {
+                                    haptics.performHapticFeedback(
+                                        HapticFeedbackType.LongPress
+                                    )
+                                }
                                 onReorder(currentItems)
                                 draggingItemIndex = -1
                                 draggingOffset = 0f

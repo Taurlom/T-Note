@@ -15,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
@@ -32,19 +34,31 @@ fun TaskItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
+
+    // Отметка — главное микродействие списка: короткая вибрация
+    // подтверждает его, даже когда палец уже ушёл с экрана. LongPress —
+    // единственный общесистемный тип отклика в текущем Compose UI
+    // (тонкие Confirm/SegmentTick появятся со стеком 1.8+). Обработчик
+    // общий для обоих путей: тапа по чекбоксу и по строке.
+    fun toggleWithHaptic() {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        onToggleCompletion()
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
             .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onToggleCompletion)
+            .clickable(onClick = ::toggleWithHaptic)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         AppCheckbox(
             checked = task.isCompleted,
-            onCheckedChange = { onToggleCompletion() },
+            onCheckedChange = { toggleWithHaptic() },
             onDarkBackground = true
         )
 
