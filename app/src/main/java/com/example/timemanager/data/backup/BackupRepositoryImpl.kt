@@ -36,7 +36,8 @@ import org.json.JSONObject
  *
  * ```
  * manifest.json              — формат, версия приложения, тема, шрифт,
- *                              счётчик фото и список отсутствовавших файлов
+ *                              разделы нижней панели, счётчик фото
+ *                              и список отсутствовавших файлов
  * database/time_manager.db   — файл Room (WAL предварительно сливается в него)
  * document_photos/…          — фотографии документов (filesDir/document_photos)
  * note_photos/…              — фотографии заметок (filesDir/note_photos)
@@ -332,6 +333,15 @@ class BackupRepositoryImpl @Inject constructor(
                     settingsRepository.setSelectedFont(
                         AppFont.fromName(meta.optString("font"))
                     )
+                    // Разделы — поле необязательное: копии до 1.16 его не
+                    // содержат, и настройка на устройстве остаётся как есть.
+                    // optJSONArray в null именно для отсутствующего поля,
+                    // пустой массив — «не задано» — применяется как пустой.
+                    meta.optJSONArray("visibleSections")?.let { sections ->
+                        settingsRepository.setVisibleSections(
+                            (0 until sections.length()).map { sections.optString(it) }
+                        )
+                    }
                 } catch (t: Throwable) {
                     // Откат «транзакции»: лучшее усилие — если и он не удался,
                     // прежние файлы остаются лежать в *.import-old, и их можно
@@ -437,6 +447,12 @@ class BackupRepositoryImpl @Inject constructor(
             .put("orphanPhotos", orphans)
             .put("theme", settingsRepository.selectedTheme.first().name)
             .put("font", settingsRepository.selectedFont.first().name)
+            // Разделы нижней панели. Пустой список — легальное «значение
+            // не задано» (см. SettingsRepository): восстанавливается как
+            // есть и означает дефолтный порядок. Поле добавлено после
+            // 1.15.0: старые приложения его игнорируют, старые копии —
+            // поле без записи, при импорте не трогаем (см. importBackup).
+            .put("visibleSections", JSONArray(settingsRepository.visibleSections.first()))
     }
 
     private fun ZipOutputStream.writeJson(name: String, json: JSONObject) {

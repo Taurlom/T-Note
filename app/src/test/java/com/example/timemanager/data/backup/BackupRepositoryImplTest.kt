@@ -430,6 +430,54 @@ class BackupRepositoryImplTest {
     }
 
     // ------------------------------------------------------------------
+    // Разделы нижней панели в копии
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `visible sections roundtrip through export and import`() {
+        settings.sections.value = listOf("notes", "tasks", "calendar")
+        seedLiveState()
+        val target = File(context.cacheDir, "roundtrip.zip")
+
+        runBlocking { repository.exportBackup(Uri.fromFile(target)) }
+
+        // Порядок разделов упакован в манифест.
+        val packed = JSONObject(zipEntries(target)[MANIFEST]!!.decodeToString())
+            .optJSONArray("visibleSections")!!
+        assertEquals(
+            listOf("notes", "tasks", "calendar"),
+            (0 until packed.length()).map { packed.optString(it) }
+        )
+
+        runBlocking { repository.importBackup(Uri.fromFile(target)) }
+
+        // И восстановлен через репозиторий, а не файлом DataStore.
+        assertEquals(
+            listOf(listOf("notes", "tasks", "calendar")),
+            settings.appliedSections
+        )
+        assertEquals(listOf("notes", "tasks", "calendar"), settings.sections.value)
+    }
+
+    @Test
+    fun `manifest without visible sections keeps the current setting`() {
+        seedLiveState()
+        settings.sections.value = listOf("tasks")
+        // manifest() не пишет visibleSections — формат копий 1.15.0.
+        val source = backupZip(
+            MANIFEST to manifest(),
+            DB_ENTRY to sqliteBytes(currentSchema, "db")
+        )
+
+        runBlocking { repository.importBackup(source) }
+
+        // Старая копия: настройку устройства не трогали — ни вызова,
+        // ни изменения значения.
+        assertTrue(settings.appliedSections.isEmpty())
+        assertEquals(listOf("tasks"), settings.sections.value)
+    }
+
+    // ------------------------------------------------------------------
     // Инструменты
     // ------------------------------------------------------------------
 
@@ -612,9 +660,17 @@ class BackupRepositoryImplTest {
             this.font.value = font
         }
 
-        override val visibleSections: Flow<List<String>> = flowOf(emptyList())
+        val sections = MutableStateFlow<List<String>>(emptyList())
 
-        override suspend fun setVisibleSections(sections: List<String>) = Unit
+        /** Вызовы setVisibleSections: что именно импорт применил из манифеста. */
+        val appliedSections = mutableListOf<List<String>>()
+
+        override val visibleSections: Flow<List<String>> = sections
+
+        override suspend fun setVisibleSections(sections: List<String>) {
+            appliedSections.add(sections)
+            this.sections.value = sections
+        }
     }
 
     private class FakeDocumentRepository : DocumentRepository {
