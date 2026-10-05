@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.example.timemanager.R
+import com.example.timemanager.domain.notifications.DailyDigestSchedule
 import com.example.timemanager.domain.repository.BackupDescription
 import com.example.timemanager.domain.model.AppFont
 import com.example.timemanager.domain.model.ThemeKind
@@ -82,5 +83,15 @@ data class SettingsUiState(
     val isBackupBusy: Boolean = false,
     val backupResult: BackupResult? = null,
     /** Метаданные выбранного файла копии — для диалога подтверждения. */
-    val pendingImport: BackupDescription? = null
+    val pendingImport: BackupDescription? = null,
+    /** Включена ли ежедневная сводка событий (уведомление). */
+    val remindersEnabled: Boolean = false,
+    /** Время сводки — минуты от полуночи (540 = 09:00). */
+    val reminderTimeMinutes: Int = DailyDigestSchedule.DEFAULT_REMINDER_MINUTES,
+    /**
+     * DataStore ещё не ответил — значения напоминаний выше предварительны.
+     * Тумблер до ответа отключён: мелькание «выключено → включено»
+     * выглядело бы как самостоятельное переключение.
+     */
+    val remindersLoaded: Boolean = false
 )

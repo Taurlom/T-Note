@@ -148,6 +148,21 @@
 
     <string name="event_delete_description">Eliminar evento</string>
 
+    <!-- Notificaciones: resumen de los eventos del día -->
+    <string name="settings_calendar_section">Calendario</string>
+    <string name="reminders_switch_title">Notificaciones de eventos</string>
+    <string name="reminders_switch_subtitle">Resumen de los eventos de hoy a la hora elegida</string>
+    <string name="reminders_time_value">Hora de la notificación: %1$s</string>
+    <string name="reminders_time_dialog_title">Hora de la notificación</string>
+    <string name="reminders_blocked_hint">Las notificaciones de T-Note están desactivadas en el sistema: actívalas en los ajustes de Android</string>
+    <string name="reminders_battery_hint">Si el resumen no llega, comprueba que T-Note no esté restringido en segundo plano (inicio automático, ahorro de batería)</string>
+    <string name="digest_notification_channel">Eventos del día</string>
+    <plurals name="digest_notification_title">
+        <item quantity="one">Hoy: %1$d evento</item>
+        <item quantity="many">Hoy: %1$d eventos</item>
+        <item quantity="other">Hoy: %1$d eventos</item>
+    </plurals>
+
     <!-- Idiomas de la interfaz -->
     <string name="language_label">Idioma</string>
     <string name="language_system">El del sistema</string>

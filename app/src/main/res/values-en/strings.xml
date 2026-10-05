@@ -148,6 +148,20 @@
 
     <string name="event_delete_description">Delete event</string>
 
+    <!-- Daily event digest notifications -->
+    <string name="settings_calendar_section">Calendar</string>
+    <string name="reminders_switch_title">Event notifications</string>
+    <string name="reminders_switch_subtitle">A summary of today\'s events at the chosen time</string>
+    <string name="reminders_time_value">Notification time: %1$s</string>
+    <string name="reminders_time_dialog_title">Notification time</string>
+    <string name="reminders_blocked_hint">T-Note notifications are disabled in the system — enable them in Android settings</string>
+    <string name="reminders_battery_hint">If the summary doesn\'t arrive, check that T-Note isn\'t restricted in the background (autostart, battery saver)</string>
+    <string name="digest_notification_channel">Daily events</string>
+    <plurals name="digest_notification_title">
+        <item quantity="one">Today: %1$d event</item>
+        <item quantity="other">Today: %1$d events</item>
+    </plurals>
+
     <!-- UI languages -->
     <string name="language_label">Language</string>
     <string name="language_system">System default</string>

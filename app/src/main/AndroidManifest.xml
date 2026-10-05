@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Уведомления-сводки событий дня. На Android 13+ — runtime-разрешение:
+         запрашивается в момент включения тумблера в настройках (SettingsScreen),
+         на Android 12 и ниже разрешения нет — там уведомления управляются
+         системной настройкой. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <queries>
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />

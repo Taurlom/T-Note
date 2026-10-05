@@ -10,6 +10,8 @@ import com.example.timemanager.domain.repository.BackupImportException
 import com.example.timemanager.domain.repository.BackupRepository
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.domain.usecase.ClearCalendarUseCase
+import com.example.timemanager.domain.usecase.SetReminderTimeUseCase
+import com.example.timemanager.domain.usecase.SetRemindersEnabledUseCase
 import com.example.timemanager.domain.model.AppFont
 import com.example.timemanager.domain.model.ThemeKind
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +26,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val setRemindersEnabledUseCase: SetRemindersEnabledUseCase,
+    private val setReminderTimeUseCase: SetReminderTimeUseCase,
     private val clearCalendarUseCase: ClearCalendarUseCase,
     private val backupRepository: BackupRepository
 ) : ViewModel() {
@@ -57,19 +61,35 @@ class SettingsViewModel @Inject constructor(
     )
 
     val uiState: StateFlow<SettingsUiState> =
+        // Типизированных перегрузок combine() хватает на 5 потоков, а их
+        // стало 7 — группируем тройками. Семантика прежняя: любое
+        // изменение любого потока пересобирает состояние.
         combine(
-            settingsRepository.selectedFont,
-            settingsRepository.selectedTheme,
-            settingsRepository.visibleSections,
-            backupStatus,
+            combine(
+                settingsRepository.selectedFont,
+                settingsRepository.selectedTheme,
+                settingsRepository.visibleSections
+            ) { font, theme, sections -> Triple(font, theme, sections) },
+            combine(
+                settingsRepository.remindersEnabled,
+                settingsRepository.reminderTimeMinutes,
+                backupStatus
+            ) { remindersEnabled, reminderTime, backup ->
+                Triple(remindersEnabled, reminderTime, backup)
+            },
             selectedLanguage
-        ) { font, theme, sections, backup, language ->
+        ) { appearance, reminders, language ->
+            val (font, theme, sections) = appearance
+            val (remindersEnabled, reminderTime, backup) = reminders
             SettingsUiState(
                 selectedFont = font,
                 selectedTheme = theme,
                 selectedLanguage = language,
                 visibleSections = sections,
                 sectionsLoaded = true,
+                remindersEnabled = remindersEnabled,
+                reminderTimeMinutes = reminderTime,
+                remindersLoaded = true,
                 isBackupBusy = backup.isBusy,
                 backupResult = backup.result
             )
@@ -112,6 +132,20 @@ class SettingsViewModel @Inject constructor(
     fun updateSections(sections: List<String>) {
         viewModelScope.launch {
             settingsRepository.setVisibleSections(sections)
+        }
+    }
+
+    /** Тумблер напоминаний: включение заводит цепочку, выключение гасит. */
+    fun applyRemindersEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            setRemindersEnabledUseCase(enabled)
+        }
+    }
+
+    /** Смена времени сводки: расписание перестраивается сразу. */
+    fun applyReminderTime(minutes: Int) {
+        viewModelScope.launch {
+            setReminderTimeUseCase(minutes)
         }
     }
 

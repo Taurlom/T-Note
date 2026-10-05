@@ -2,10 +2,13 @@ package com.example.timemanager.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.timemanager.domain.model.AppFont
 import com.example.timemanager.domain.model.ThemeKind
+import com.example.timemanager.domain.notifications.DailyDigestSchedule
 import com.example.timemanager.domain.repository.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +26,8 @@ class SettingsRepositoryImpl @Inject constructor(
     // порядок — список разделов живёт одной строкой через запятую (id —
     // стабильные ASCII-метки, экранирование не нужно).
     private val sectionsKey = stringPreferencesKey("visible_sections")
+    private val remindersEnabledKey = booleanPreferencesKey("reminders_enabled")
+    private val reminderTimeMinutesKey = intPreferencesKey("reminder_time_minutes")
 
     override val selectedFont: Flow<AppFont> = dataStore.data
         .map { preferences ->
@@ -56,6 +61,28 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setVisibleSections(sections: List<String>) {
         dataStore.edit { preferences ->
             preferences[sectionsKey] = sections.joinToString(SECTIONS_DELIMITER)
+        }
+    }
+
+    // Напоминания выключены, пока пользователь не включил их явно: значения
+    // по умолчанию подставляются здесь же, отдельного «первого запуска» нет.
+    override val remindersEnabled: Flow<Boolean> = dataStore.data
+        .map { preferences -> preferences[remindersEnabledKey] ?: false }
+
+    override suspend fun setRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[remindersEnabledKey] = enabled
+        }
+    }
+
+    override val reminderTimeMinutes: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[reminderTimeMinutesKey] ?: DailyDigestSchedule.DEFAULT_REMINDER_MINUTES
+        }
+
+    override suspend fun setReminderTimeMinutes(minutes: Int) {
+        dataStore.edit { preferences ->
+            preferences[reminderTimeMinutesKey] = minutes
         }
     }
 

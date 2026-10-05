@@ -10,6 +10,7 @@ import com.example.timemanager.domain.model.AppFont
 import com.example.timemanager.domain.model.Document
 import com.example.timemanager.domain.model.Note
 import com.example.timemanager.domain.model.ThemeKind
+import com.example.timemanager.domain.notifications.DailyDigestSchedule
 import com.example.timemanager.domain.repository.BackupImportException
 import com.example.timemanager.domain.repository.DocumentRepository
 import com.example.timemanager.domain.repository.NoteRepository
@@ -671,6 +672,14 @@ class BackupRepositoryImplTest {
             appliedSections.add(sections)
             this.sections.value = sections
         }
+
+        // Напоминания бэкапу не нужны: болванки, чтобы интерфейс
+        // компилировался после расширения настройками сводки.
+        override val remindersEnabled: Flow<Boolean> = MutableStateFlow(false)
+        override suspend fun setRemindersEnabled(enabled: Boolean) = Unit
+        override val reminderTimeMinutes: Flow<Int> =
+            MutableStateFlow(DailyDigestSchedule.DEFAULT_REMINDER_MINUTES)
+        override suspend fun setReminderTimeMinutes(minutes: Int) = Unit
     }
 
     private class FakeDocumentRepository : DocumentRepository {

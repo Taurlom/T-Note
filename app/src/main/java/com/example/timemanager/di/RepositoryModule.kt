@@ -1,6 +1,7 @@
 package com.example.timemanager.di
 
 import com.example.timemanager.data.backup.BackupRepositoryImpl
+import com.example.timemanager.data.notifications.WorkManagerReminderScheduler
 import com.example.timemanager.data.repository.CalendarRepositoryImpl
 import com.example.timemanager.data.share.ListShareRepositoryImpl
 import com.example.timemanager.data.repository.CategoryRepositoryImpl
@@ -9,6 +10,7 @@ import com.example.timemanager.data.repository.NoteRepositoryImpl
 import com.example.timemanager.data.repository.ScheduledEventRepositoryImpl
 import com.example.timemanager.data.repository.SettingsRepositoryImpl
 import com.example.timemanager.data.repository.TaskRepositoryImpl
+import com.example.timemanager.domain.notifications.ReminderScheduler
 import com.example.timemanager.domain.repository.BackupRepository
 import com.example.timemanager.domain.repository.CalendarRepository
 import com.example.timemanager.domain.repository.CategoryRepository
@@ -81,4 +83,12 @@ abstract class RepositoryModule {
     abstract fun bindListShareRepository(
         impl: ListShareRepositoryImpl
     ): ListShareRepository
+
+    // Не репозиторий, но живет рядом: это единственный Binds-модуль
+    // проекта, и заводить ради одной связки еще один — шум.
+    @Binds
+    @Singleton
+    abstract fun bindReminderScheduler(
+        impl: WorkManagerReminderScheduler
+    ): ReminderScheduler
 }

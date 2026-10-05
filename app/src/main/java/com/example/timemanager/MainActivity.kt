@@ -42,6 +42,19 @@ class MainActivity : AppCompatActivity() {
     // в SAF, а пара строк, целиком живущая в интенте.
     private val pendingSharedText = mutableStateOf<SharedText?>(null)
 
+    // Тап по уведомлению-сводке: открыть раздел «Календарь». Тем же
+    // маршрутом, что и шэры, — состояние вне composition.
+    private val pendingOpenCalendar = mutableStateOf(false)
+
+    companion object {
+        /**
+         * Extra из уведомления-сводки (ставит DailyDigestNotifier в слое
+         * данных): тап должен открыть календарь, а не раздел, который
+         * случился открытым.
+         */
+        const val EXTRA_OPEN_CALENDAR = "open_calendar"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setOnExitAnimationListener { splashView ->
             splashView.remove()
@@ -49,7 +62,7 @@ class MainActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        handleIncomingShare(intent)
+        handleIncomingIntent(intent)
         setContent {
             val selectedFont by settingsRepository.selectedFont
                 .collectAsState(initial = AppFont.PT_SANS)
@@ -78,7 +91,9 @@ class MainActivity : AppCompatActivity() {
                             pendingShareUri = pendingShareUri.value,
                             onPendingShareUriHandled = { pendingShareUri.value = null },
                             pendingSharedText = pendingSharedText.value,
-                            onPendingSharedTextHandled = { pendingSharedText.value = null }
+                            onPendingSharedTextHandled = { pendingSharedText.value = null },
+                            pendingOpenCalendar = pendingOpenCalendar.value,
+                            onPendingOpenCalendarHandled = { pendingOpenCalendar.value = false }
                         )
                     }
                 }
@@ -90,10 +105,14 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         // launchMode="singleTop": файл, открытый в запущенном приложении,
         // приходит сюда, а не в новую активность.
-        handleIncomingShare(intent)
+        handleIncomingIntent(intent)
     }
 
-    private fun handleIncomingShare(intent: Intent?) {
+    private fun handleIncomingIntent(intent: Intent?) {
+        // Уведомление-сводку тапают без action — только наш extra.
+        if (intent?.getBooleanExtra(EXTRA_OPEN_CALENDAR, false) == true) {
+            pendingOpenCalendar.value = true
+        }
         when (intent?.action) {
             Intent.ACTION_VIEW ->
                 intent.data?.let { pendingShareUri.value = it }

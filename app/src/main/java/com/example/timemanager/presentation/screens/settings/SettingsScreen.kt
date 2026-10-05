@@ -1,8 +1,10 @@
 package com.example.timemanager.presentation.screens.settings
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,13 +17,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,16 +35,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.timemanager.R
+import com.example.timemanager.presentation.components.AppButton
 import com.example.timemanager.presentation.components.AppDialog
 import com.example.timemanager.presentation.components.AppDropdown
 import com.example.timemanager.presentation.components.AppTextButton
@@ -70,6 +81,23 @@ fun SettingsScreen(
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
     var pendingImportUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var showRestartDialog by rememberSaveable { mutableStateOf(false) }
+    var showTimeDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Уведомления заблокированы системой (отказ в POST_NOTIFICATIONS на
+    // Android 13+ или системная настройка). Перечитываем на каждом
+    // ON_RESUME: пользователь мог включить их в настройках Android и
+    // вернуться — сноска должна исчезнуть сразу.
+    var notificationsBlocked by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        notificationsBlocked =
+            !NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    // Разрешение спрашиваем в момент включения тумблера, а не при старте:
+    // выключенное напоминание не должно требовать ничего.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> notificationsBlocked = !granted }
 
     // Экспорт: пользователь сам выбирает, куда положить zip.
     val exportLauncher = rememberLauncherForActivityResult(
@@ -220,6 +248,92 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(24.dp))
+            // Календарь: напоминания и обслуживание раздела живут вместе —
+            // это все настройки, у которых общий предмет.
+            Text(
+                text = stringResource(R.string.settings_calendar_section),
+                style = MaterialTheme.typography.titleMedium,
+                color = AppTheme.colors.sectionTitle
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            // Локальная сводка событий дня: без сети и серверов, задачу
+            // ведёт WorkManager (переживает перезагрузку и doze). Switch —
+            // стандартный Material 3, цвета подтянутся из colorScheme темы.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.reminders_switch_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = stringResource(R.string.reminders_switch_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Switch(
+                    checked = uiState.remindersEnabled,
+                    // До ответа DataStore тумблер мёртв: случайный тап по
+                    // ещё не загруженному состоянию перезаписал бы
+                    // настоящую настройку.
+                    enabled = uiState.remindersLoaded,
+                    onCheckedChange = { enabled ->
+                        viewModel.applyRemindersEnabled(enabled)
+                        // На Android 12- разрешения нет — уведомления
+                        // управляются только системной настройкой.
+                        if (enabled && Build.VERSION.SDK_INT >= 33 && notificationsBlocked) {
+                            notificationPermissionLauncher.launch(
+                                Manifest.permission.POST_NOTIFICATIONS
+                            )
+                        }
+                    }
+                )
+            }
+            // Тумблер включён, но система не даст показать сводку:
+            // предупреждаем, а не молчим — иначе «включил и не приходит».
+            if (uiState.remindersEnabled && notificationsBlocked) {
+                Text(
+                    text = stringResource(R.string.reminders_blocked_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            AppButton(
+                onClick = { showTimeDialog = true },
+                enabled = uiState.remindersEnabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    stringResource(
+                        R.string.reminders_time_value,
+                        formatReminderTime(uiState.reminderTimeMinutes)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            AppTextButton(
+                onClick = { showClearDialog = true },
+                textRes = R.string.clear_calendar,
+                modifier = Modifier.fillMaxWidth()
+            )
+            // Подсказка про фон: агрессивная экономия батареи (Xiaomi,
+            // Honor и др.) срезает фоновые задачи — частая причина
+            // «напоминания не приходят». Показываем только тем, кому
+            // напоминания реально включены.
+            if (uiState.remindersEnabled) {
+                Text(
+                    text = stringResource(R.string.reminders_battery_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.backup_section),
                 style = MaterialTheme.typography.titleMedium,
@@ -252,12 +366,6 @@ fun SettingsScreen(
                 textRes = R.string.sections_button,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            AppTextButton(
-                onClick = { showClearDialog = true },
-                textRes = R.string.clear_calendar,
-                modifier = Modifier.fillMaxWidth()
-            )
 
             // Подвал экрана: версия для сверки с релизами и changelog.
             Spacer(modifier = Modifier.height(32.dp))
@@ -284,6 +392,36 @@ fun SettingsScreen(
                     onConfirm = {
                         viewModel.clearCalendar()
                         showClearDialog = false
+                    }
+                )
+            }
+
+            // Время сводки: пикер Material 3 внутри обычного AppDialog.
+            // Состояние пикера создаётся под диалогом: при повторном
+            // открытии стартует с уже сохранённого времени, а не с
+            // вчерашнего выбора.
+            if (showTimeDialog) {
+                val timeState = rememberTimePickerState(
+                    initialHour = uiState.reminderTimeMinutes / 60,
+                    initialMinute = uiState.reminderTimeMinutes % 60,
+                    is24Hour = true
+                )
+                AppDialog(
+                    title = stringResource(R.string.reminders_time_dialog_title),
+                    onDismissRequest = { showTimeDialog = false },
+                    confirmButton = {
+                        AppTextButton(
+                            onClick = {
+                                viewModel.applyReminderTime(
+                                    timeState.hour * 60 + timeState.minute
+                                )
+                                showTimeDialog = false
+                            },
+                            textRes = R.string.done
+                        )
+                    },
+                    text = {
+                        TimePicker(state = timeState)
                     }
                 )
             }
@@ -376,4 +514,8 @@ private fun restartApp(context: Context) {
 
 private fun formatDateTime(millis: Long): String =
     SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(millis)
+
+/** «09:00» из минут от полуночи. Локаль фиксирована — разрядность и разделитель стабильны. */
+private fun formatReminderTime(minutes: Int): String =
+    String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60)
 

@@ -154,6 +154,12 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
+    // Локальные напоминания-сводки о событиях дня: WorkManager переживает
+    // перезагрузку, обновление приложения и doze без BOOT-ресиверов и
+    // точных будильников (прошлая версия напоминаний на будильниках
+    // и не прижилась).
+    implementation(libs.work.runtime.ktx)
+
     implementation(libs.coil.compose)
     implementation(libs.core.splashscreen)
     coreLibraryDesugaring(libs.desugar.jdk.libs)

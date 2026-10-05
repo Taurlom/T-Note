@@ -149,6 +149,22 @@
 
     <string name="event_delete_description">Удалить событие</string>
 
+    <!-- Напоминания-сводки о событиях дня -->
+    <string name="settings_calendar_section">Календарь</string>
+    <string name="reminders_switch_title">Уведомления о событиях дня</string>
+    <string name="reminders_switch_subtitle">Сводка событий на сегодня в заданное время</string>
+    <string name="reminders_time_value">Время уведомления: %1$s</string>
+    <string name="reminders_time_dialog_title">Время уведомления</string>
+    <string name="reminders_blocked_hint">Уведомления T-Note отключены в системе — включите их в настройках Android</string>
+    <string name="reminders_battery_hint">Если сводка не приходит — проверьте, что T-Note не ограничен в фоне (автозапуск, экономия батареи)</string>
+    <string name="digest_notification_channel">События дня</string>
+    <plurals name="digest_notification_title">
+        <item quantity="one">Сегодня %1$d событие</item>
+        <item quantity="few">Сегодня %1$d события</item>
+        <item quantity="many">Сегодня %1$d событий</item>
+        <item quantity="other">Сегодня %1$d событий</item>
+    </plurals>
+
     <!-- Языки интерфейса -->
     <string name="language_label">Язык</string>
     <string name="language_system">Как в системе</string>

@@ -22,6 +22,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,13 +103,18 @@ private val mainNoExit: ExitTransition = ExitTransition.None
  * [pendingShareUri] — `.tnote`-файл, переданный в приложение тапом
  * («Открыть в T-Note»): читаем его, показываем диалог подтверждения импорта
  * поверх текущего экрана и гасим интент после обработки.
+ *
+ * [pendingOpenCalendar] — тап по уведомлению-сводке: вернуться из
+ * drill-down к разделам и открыть «Календарь».
  */
 @Composable
 fun AppNavigation(
     pendingShareUri: Uri? = null,
     onPendingShareUriHandled: () -> Unit = {},
     pendingSharedText: SharedText? = null,
-    onPendingSharedTextHandled: () -> Unit = {}
+    onPendingSharedTextHandled: () -> Unit = {},
+    pendingOpenCalendar: Boolean = false,
+    onPendingOpenCalendarHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -151,6 +157,19 @@ fun AppNavigation(
         if (pendingSharedText != null) {
             notesViewModel.onEvent(NotesEvent.OnSharedTextReceived(pendingSharedText))
             onPendingSharedTextHandled()
+        }
+    }
+
+    // Тап по уведомлению-сводке: возвращаемся из drill-down к разделам
+    // (если ушли) и листаем пейджер на «Календарь». Запрос передаём
+    // счётчиком, а не флагом: повторный тап при уже открытом календаре
+    // должен сработать снова, а флаг бы «застрял» включённым.
+    var openCalendarRequest by remember { mutableIntStateOf(0) }
+    LaunchedEffect(pendingOpenCalendar) {
+        if (pendingOpenCalendar) {
+            openCalendarRequest++
+            navController.popBackStack(Routes.MAIN, inclusive = false)
+            onPendingOpenCalendarHandled()
         }
     }
 
@@ -217,7 +236,8 @@ fun AppNavigation(
                 },
                 onNoteClick = { noteId ->
                     navController.navigate(Routes.noteDetail(noteId))
-                }
+                },
+                openCalendarRequest = openCalendarRequest
             )
         }
 
@@ -333,7 +353,8 @@ private fun MainTabsScreen(
     settingsViewModel: SettingsViewModel,
     onCategoryClick: (Long) -> Unit,
     onDocumentClick: (Long) -> Unit,
-    onNoteClick: (Long) -> Unit
+    onNoteClick: (Long) -> Unit,
+    openCalendarRequest: Int = 0
 ) {
     // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
     // всегда отдают наш MIME при «Открыть с помощью». Ланчер живёт здесь, а
@@ -373,6 +394,18 @@ private fun MainTabsScreen(
         val target = items.indexOfFirst { it.id == currentItemId }
         if (target >= 0 && pagerState.currentPage != target) {
             pagerState.scrollToPage(target)
+        }
+    }
+
+    // Тап по уведомлению-сводке: плавно доезжаем до «Календаря», как при
+    // тапе по нижней панели. Раздел может быть скрыт пользователем — тогда
+    // тихо остаёмся на текущем: настраивать видимость из уведомления нельзя.
+    LaunchedEffect(openCalendarRequest) {
+        if (openCalendarRequest > 0) {
+            val target = items.indexOfFirst { it is BottomNavItem.Calendar }
+            if (target >= 0 && pagerState.currentPage != target) {
+                scrollScope.launch { pagerState.animateScrollToPage(target) }
+            }
         }
     }
 
