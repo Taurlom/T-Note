@@ -115,7 +115,12 @@ class BackupRepositoryImpl @Inject constructor(
                 // годной копией. Убираем недописанное, ошибку пробрасываем;
                 // удаление — лучшее усилие: если SAF откажет, файл останется,
                 // но о себе он уже не скажет ничего.
-                runCatching { context.contentResolver.delete(target, null) }
+                // Классическая перегрузка с тремя аргументами: доступна
+                // с API 1. Двухаргументная delete(Uri, Bundle) существует
+                // только с API 30 — на Android 10 и ниже вызов падал
+                // NoSuchMethodError (глотался runCatching), и обрезок
+                // архива оставался на диске, выглядя годной копией.
+                runCatching { context.contentResolver.delete(target, null, null) }
                 throw t
             }
             BackupSummary(
