@@ -28,6 +28,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # Тесты до сборки: релиз не публикуется, если логика сломана
+      # (раньше пайплайн сразу собирал APK — регрессию замечали бы
+      # только пользователи).
+      - name: Run unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest
+
       - name: Restore signing keystore from secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
