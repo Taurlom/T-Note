@@ -102,6 +102,13 @@
     <string name="shared_list_added">List \"%1$s\" added</string>
     <string name="shared_list_error">Could not read: this is not a T-Note list file</string>
 
+    <!-- Text received from the system "Share" sheet -->
+    <string name="shared_text_import_title">Save to notes</string>
+    <string name="shared_text_import_text">Create note \"%1$s\"?</string>
+    <string name="shared_text_save_action">Save</string>
+    <string name="shared_text_added">Note \"%1$s\" saved</string>
+    <string name="shared_text_error">Could not save the note</string>
+
     <!-- Calendar events -->
     <string name="events_label">Events</string>
     <string name="add_event">Add event</string>

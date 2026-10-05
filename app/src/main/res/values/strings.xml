@@ -103,6 +103,13 @@
     <string name="shared_list_added">Список «%1$s» добавлен</string>
     <string name="shared_list_error">Не удалось прочитать: это не файл списка T-Note</string>
 
+    <!-- Приём текста из системного «Поделиться» -->
+    <string name="shared_text_import_title">Сохранить в заметки</string>
+    <string name="shared_text_import_text">Создать заметку «%1$s»?</string>
+    <string name="shared_text_save_action">Сохранить</string>
+    <string name="shared_text_added">Заметка «%1$s» сохранена</string>
+    <string name="shared_text_error">Не удалось сохранить заметку</string>
+
     <!-- События календаря -->
     <string name="events_label">События</string>
     <string name="add_event">Добавить событие</string>

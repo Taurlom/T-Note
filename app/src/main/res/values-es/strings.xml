@@ -102,6 +102,13 @@
     <string name="shared_list_added">Lista «%1$s» añadida</string>
     <string name="shared_list_error">No se pudo leer: esto no es un archivo de lista de T-Note</string>
 
+    <!-- Texto recibido del "Compartir" del sistema -->
+    <string name="shared_text_import_title">Guardar en notas</string>
+    <string name="shared_text_import_text">¿Crear la nota «%1$s»?</string>
+    <string name="shared_text_save_action">Guardar</string>
+    <string name="shared_text_added">Nota «%1$s» guardada</string>
+    <string name="shared_text_error">No se pudo guardar la nota</string>
+
     <!-- Eventos del calendario -->
     <string name="events_label">Eventos</string>
     <string name="add_event">Añadir evento</string>

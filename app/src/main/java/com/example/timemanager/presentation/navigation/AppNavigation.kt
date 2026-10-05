@@ -39,10 +39,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.timemanager.R
+import com.example.timemanager.domain.model.SharedText
 import com.example.timemanager.presentation.components.BottomNavBar
 import com.example.timemanager.presentation.components.BottomNavItem
 import com.example.timemanager.presentation.components.SectionsDialog
 import com.example.timemanager.presentation.components.SharedListImportDialog
+import com.example.timemanager.presentation.components.SharedTextSaveDialog
 import com.example.timemanager.presentation.screens.calendar.CalendarScreen
 import com.example.timemanager.presentation.screens.calendar.CalendarViewModel
 import com.example.timemanager.presentation.screens.categories.CategoriesEvent
@@ -53,6 +55,8 @@ import com.example.timemanager.presentation.screens.documents.DocumentDetailScre
 import com.example.timemanager.presentation.screens.documents.DocumentsScreen
 import com.example.timemanager.presentation.screens.documents.DocumentsViewModel
 import com.example.timemanager.presentation.screens.notes.NoteDetailScreen
+import com.example.timemanager.presentation.screens.notes.NotesEvent
+import com.example.timemanager.presentation.screens.notes.NotesFeedback
 import com.example.timemanager.presentation.screens.notes.NotesScreen
 import com.example.timemanager.presentation.screens.notes.NotesViewModel
 import com.example.timemanager.presentation.screens.settings.SettingsScreen
@@ -102,7 +106,9 @@ private val mainNoExit: ExitTransition = ExitTransition.None
 @Composable
 fun AppNavigation(
     pendingShareUri: Uri? = null,
-    onPendingShareUriHandled: () -> Unit = {}
+    onPendingShareUriHandled: () -> Unit = {},
+    pendingSharedText: SharedText? = null,
+    onPendingSharedTextHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -121,6 +127,7 @@ fun AppNavigation(
     val settingsViewModel: SettingsViewModel = hiltViewModel(tabViewModelStoreOwner)
 
     val categoriesState by categoriesViewModel.uiState.collectAsStateWithLifecycle()
+    val notesState by notesViewModel.uiState.collectAsStateWithLifecycle()
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val sectionsDialogOpen by settingsViewModel.sectionsDialogOpen
         .collectAsStateWithLifecycle()
@@ -135,6 +142,15 @@ fun AppNavigation(
         if (pendingShareUri != null) {
             categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(pendingShareUri))
             onPendingShareUriHandled()
+        }
+    }
+
+    // Текст из «Поделиться» — тем же маршрутом: диалог над любым экраном,
+    // интент гасится сразу, повторная доставка не перезапустит флоу.
+    LaunchedEffect(pendingSharedText) {
+        if (pendingSharedText != null) {
+            notesViewModel.onEvent(NotesEvent.OnSharedTextReceived(pendingSharedText))
+            onPendingSharedTextHandled()
         }
     }
 
@@ -153,6 +169,24 @@ fun AppNavigation(
             null -> return@LaunchedEffect
         }
         categoriesViewModel.onEvent(CategoriesEvent.OnShareFeedbackShown)
+    }
+
+    // Тост о сохранении текстового шэра — как у импорта списка.
+    LaunchedEffect(notesState.saveFeedback) {
+        when (val feedback = notesState.saveFeedback) {
+            is NotesFeedback.Saved -> Toast.makeText(
+                context,
+                context.getString(R.string.shared_text_added, feedback.noteTitle),
+                Toast.LENGTH_SHORT
+            ).show()
+            NotesFeedback.Failed -> Toast.makeText(
+                context,
+                R.string.shared_text_error,
+                Toast.LENGTH_LONG
+            ).show()
+            null -> return@LaunchedEffect
+        }
+        notesViewModel.onEvent(NotesEvent.OnSharedTextFeedbackShown)
     }
 
     NavHost(
@@ -249,6 +283,20 @@ fun AppNavigation(
             },
             onDismiss = {
                 categoriesViewModel.onEvent(CategoriesEvent.OnDismissImportSharedList)
+            }
+        )
+    }
+
+    // Диалог сохранения текста — по той же причине: «Поделиться» приходит
+    // поверх любого экрана приложения.
+    notesState.incomingSharedText?.let { shared ->
+        SharedTextSaveDialog(
+            shared = shared,
+            onConfirm = {
+                notesViewModel.onEvent(NotesEvent.OnConfirmSaveSharedText)
+            },
+            onDismiss = {
+                notesViewModel.onEvent(NotesEvent.OnDismissSaveSharedText)
             }
         )
     }

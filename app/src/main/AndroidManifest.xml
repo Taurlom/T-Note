@@ -55,6 +55,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/x-tnote-list" />
             </intent-filter>
+            <!-- Приём текста из системного «Поделиться» (text/plain): текст
+                 из любого приложения превращается в заметку — после
+                 подтверждения в диалоге, молчаливых записей приложение не
+                 делает. Разбор EXTRA_TEXT/EXTRA_SUBJECT — MainActivity. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
             <!-- Запасной: мессенджер может отдать общий MIME, но сохранить
                  расширение в пути файла. -->
             <intent-filter>
