@@ -53,12 +53,12 @@ fun CategoriesScreen(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
             .fillMaxSize(),
-        // РќРёР¶РЅРёР№ Р±Р°СЂ Р»РµР¶РёС‚ РїРѕРґ РїРµР№РґР¶РµСЂРѕРј РІ MainTabsScreen, РµРіРѕ РѕС‚СЃС‚СѓРї СѓР¶Рµ
-        // СѓС‡С‚С‘РЅ. РЎС‚Р°С‚СѓСЃ-Р±Р°СЂРѕРј Р·Р°РЅРёРјР°РµС‚СЃСЏ С€Р°РїРєР°.
+        // Нижний бар лежит под пейджером в MainTabsScreen, его отступ уже
+        // учтён. Статус-баром занимается шапка.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            // РџРµСЂРІС‹Р№ РїРѕ РЅР°СЃС‚СЂРѕР№РєРµ СЂР°Р·РґРµР» РїРѕР»СѓС‡Р°РµС‚ Р±СЂРµРЅРґ-С€Р°РїРєСѓ СЃ Р»РѕРіРѕС‚РёРїРѕРј Рё
-            // РєРЅРѕРїРєРѕР№ РёРјРїРѕСЂС‚Р°; РѕСЃС‚Р°Р»СЊРЅС‹Рµ вЂ” С‚РѕР»СЊРєРѕ РЅР°Р·РІР°РЅРёРµ.
+            // Первый по настройке раздел получает бренд-шапку с логотипом и
+            // кнопкой импорта; остальные — только название.
             SectionTopBar(
                 title = stringResource(R.string.bottom_nav_categories),
                 showBrandHeader = showBrandHeader,
