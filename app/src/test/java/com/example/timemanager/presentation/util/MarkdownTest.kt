@@ -45,6 +45,42 @@ class MarkdownTest {
     }
 
     @Test
+    fun `link scheme case does not matter`() {
+        val rendered = Markdown.render("[тут](HTTP://example.com)")
+        assertEquals("HTTP://example.com", rendered.getLinkAnnotations(0, rendered.text.length)
+            .mapNotNull { it.item as? LinkAnnotation.Url }
+            .first().url)
+    }
+
+    @Test
+    fun `mailto and tel become links`() {
+        listOf("mailto:mail@example.com", "tel:+79990000000").forEach { url ->
+            val rendered = Markdown.render("[связь]($url)")
+            assertEquals(url, rendered.getLinkAnnotations(0, rendered.text.length)
+                .mapNotNull { it.item as? LinkAnnotation.Url }
+                .first().url)
+        }
+    }
+
+    @Test
+    fun `non-whitelisted or schemeless link stays literal`() {
+        listOf(
+            "javascript:alert(1)",
+            "content://x",
+            "file:///etc/hosts",
+            "intent://x",
+            "qwerty://x",
+            "example.com"
+        ).forEach { url ->
+            val source = "[текст]($url)"
+            val rendered = Markdown.render(source)
+            // Ни ссылки, ни подчёркивания: текст — исходный синтаксис целиком.
+            assertTrue(rendered.getLinkAnnotations(0, rendered.text.length).isEmpty())
+            assertEquals(source, rendered.text)
+        }
+    }
+
+    @Test
     fun `bullet marker becomes dot`() {
         val rendered = Markdown.render("- мука\n- молоко")
         assertEquals("• мука\n• молоко", rendered.text)
