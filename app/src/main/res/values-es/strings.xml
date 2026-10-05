@@ -79,6 +79,9 @@
     <string name="backup_imported_missing">Datos restaurados, fotos: %1$d. Otras %2$d foto(s) ya faltaban cuando se creó la copia</string>
     <string name="backup_error">Error de copia de seguridad: %1$s</string>
     <string name="backup_error_not_a_backup">el archivo seleccionado no es una copia de seguridad de T-Note</string>
+    <string name="backup_error_newer_version">la copia fue creada por una versión más reciente de T-Note — actualiza la aplicación e inténtalo de nuevo</string>
+    <string name="backup_error_unreadable">la copia está dañada o su versión no es compatible</string>
+    <string name="backup_error_too_large">la copia es demasiado grande: el tamaño descomprimido supera el límite</string>
     <string name="backup_error_unknown">error desconocido</string>
     <string name="backup_import_confirm_title">¿Restaurar desde copia?</string>
     <string name="backup_import_confirm_text">Las listas, tareas, notas, eventos y documentos actuales serán reemplazados por el contenido de la copia.</string>

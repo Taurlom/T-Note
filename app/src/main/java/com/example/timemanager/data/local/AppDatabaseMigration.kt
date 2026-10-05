@@ -6,6 +6,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 object AppDatabaseMigration {
 
     /**
+     * Минимальная версия схемы, из которой существует цепочка миграций
+     * (первая — [MIGRATION_5_6]). Восстановление резервных копий с более
+     * старой схемой невозможно: Room открыл бы такую базу только с
+     * destructive fallback, которого здесь нет намеренно.
+     */
+    const val MIN_SUPPORTED_VERSION = 5
+
+    /**
      * Фото заметок: таблица note_photos по образцу document_photos.
      * Аддитивная миграция — существующие данные не затрагиваются.
      */

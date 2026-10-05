@@ -80,6 +80,9 @@
     <string name="backup_imported_missing">Данные восстановлены, фотографий: %1$d. Ещё %2$d фото отсутствовали уже в момент создания копии</string>
     <string name="backup_error">Ошибка резервной копии: %1$s</string>
     <string name="backup_error_not_a_backup">выбранный файл — не резервная копия T-Note</string>
+    <string name="backup_error_newer_version">копия создана более новой версией T-Note — обновите приложение и повторите восстановление</string>
+    <string name="backup_error_unreadable">копия повреждена или её версия не поддерживается</string>
+    <string name="backup_error_too_large">копия слишком велика: распакованный объём превышает лимит</string>
     <string name="backup_error_unknown">неизвестная ошибка</string>
     <string name="backup_import_confirm_title">Восстановить из копии?</string>
     <string name="backup_import_confirm_text">Текущие списки, задачи, заметки, события и документы будут заменены содержимым копии.</string>

@@ -25,10 +25,51 @@ interface BackupRepository {
 
     /**
      * Заменяет данные приложения содержимым копии из [source].
-     * Бросает [IllegalStateException], если файл не является корректной
-     * копией T-Note. После импорта нужен перезапуск процесса.
+     *
+     * Отказ — [BackupImportException] (наследник [IllegalStateException]).
+     * Все проверки (формат, SQLite-заголовок, версия схемы, лимиты
+     * распаковки) выполняются ДО изменения живых данных; сама подмена
+     * происходит «транзакцией» с откатом при сбое — наполовину
+     * заменённых данных не остаётся. После импорта нужен перезапуск
+     * процесса.
      */
     suspend fun importBackup(source: Uri): BackupSummary
+}
+
+/**
+ * Причина отказа импорта. Типизирована, а не строка: экран подбирает
+ * локализуемое сообщение по виду ошибки, слой данных не знает языков
+ * интерфейса. Текст исключения — для логов (английский), пользователю
+ * он не показывается.
+ */
+sealed class BackupImportException(message: String) : IllegalStateException(message) {
+
+    /** В архиве нет manifest.json — файл не является копией T-Note. */
+    data object NotABackup :
+        BackupImportException("manifest.json is missing: not a T-Note backup")
+
+    /** Формат копии новее поддерживаемого (manifest.formatVersion). */
+    class UnsupportedFormat(actual: Int) :
+        BackupImportException("Unsupported backup format version: $actual")
+
+    /** В копии нет файла базы данных. */
+    data object NoDatabase : BackupImportException("Backup contains no database")
+
+    /** Файл базы не читается как SQLite или версия схемы в нём нулевая. */
+    data object InvalidDatabase :
+        BackupImportException("Database file is not a valid SQLite database")
+
+    /** Схема БД в копии новее текущей: копия от более новой версии приложения. */
+    class NewerSchema(found: Int, current: Int) :
+        BackupImportException("Backup schema version $found is newer than supported $current")
+
+    /** Схема БД в копии старше минимально поддерживаемой цепочкой миграций. */
+    class UnsupportedSchema(found: Int, minimum: Int) :
+        BackupImportException("Backup schema version $found is older than the minimum supported $minimum")
+
+    /** Распакованный объём превысил лимит — защита от zip-бомбы. */
+    data object TooLarge :
+        BackupImportException("Unpacked backup exceeds the size limit")
 }
 
 /** Итог экспорта/импорта: фото в копии и потери, известные ещё на экспорте. */

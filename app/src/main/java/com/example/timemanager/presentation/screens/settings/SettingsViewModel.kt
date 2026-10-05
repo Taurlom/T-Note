@@ -6,6 +6,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timemanager.domain.repository.BackupDescription
+import com.example.timemanager.domain.repository.BackupImportException
 import com.example.timemanager.domain.repository.BackupRepository
 import com.example.timemanager.domain.repository.SettingsRepository
 import com.example.timemanager.domain.usecase.ClearCalendarUseCase
@@ -147,12 +148,18 @@ class SettingsViewModel @Inject constructor(
     /** Читаем шапку копии до подтверждения: пользователь видит, что восстанавливает. */
     fun describeImport(source: Uri) {
         viewModelScope.launch {
-            val description = backupRepository.describeBackup(source)
-            if (description == null) {
-                backupStatus.value =
-                    BackupStatus(result = BackupResult.Failed.NotABackup)
-            } else {
-                _pendingImport.value = description
+            try {
+                val description = backupRepository.describeBackup(source)
+                if (description == null) {
+                    backupStatus.value =
+                        BackupStatus(result = BackupResult.Failed.NotABackup)
+                } else {
+                    _pendingImport.value = description
+                }
+            } catch (e: Exception) {
+                // Отказ чтения (SAF отозвал доступ и т.п.) — не «не копия»:
+                // показываем честную причину, как у остальных операций.
+                backupStatus.value = BackupStatus(result = failure(e))
             }
         }
     }
@@ -166,8 +173,28 @@ class SettingsViewModel @Inject constructor(
         backupStatus.value = try {
             BackupStatus(result = success())
         } catch (e: Exception) {
-            BackupStatus(result = BackupResult.Failed.Error(e.message))
+            BackupStatus(result = failure(e))
         }
+    }
+
+    /**
+     * Причина отказа — типизированный вид вместо текста исключения:
+     * экран подбирает локализованную подпись, слой данных остаётся
+     * многоязычным. Текст исключения — только для «неизвестной» ошибки.
+     */
+    private fun failure(e: Exception): BackupResult.Failed = when (e) {
+        is BackupImportException.NotABackup -> BackupResult.Failed.NotABackup
+        // Формат архива и схема БД новее — одно и то же действие для
+        // пользователя: обновить приложение и повторить.
+        is BackupImportException.UnsupportedFormat,
+        is BackupImportException.NewerSchema -> BackupResult.Failed.NewerVersion
+        // Нет базы, файл не SQLite, схема старше цепочки миграций —
+        // копия не восстановится в этой версии, чем именно — неважно.
+        is BackupImportException.NoDatabase,
+        is BackupImportException.InvalidDatabase,
+        is BackupImportException.UnsupportedSchema -> BackupResult.Failed.Unreadable
+        is BackupImportException.TooLarge -> BackupResult.Failed.TooLarge
+        else -> BackupResult.Failed.Error(e.message)
     }
 
     /** Экран показал результат (тост/диалог) — убираем его из состояния. */

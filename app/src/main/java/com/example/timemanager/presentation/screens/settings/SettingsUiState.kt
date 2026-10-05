@@ -26,6 +26,18 @@ sealed interface BackupResult {
         /** Выбранный файл — не архив резервной копии T-Note. */
         data object NotABackup : Failed
 
+        /**
+         * Копия создана более новой версией приложения (формат архива или
+         * схема БД новее): нужно обновиться, прежде чем восстанавливать.
+         */
+        data object NewerVersion : Failed
+
+        /** Копия не читается: повреждена или её версия не поддерживается. */
+        data object Unreadable : Failed
+
+        /** Распакованный объём превысил лимит — защита от zip-бомбы. */
+        data object TooLarge : Failed
+
         /** Любая другая ошибка чтения/записи; [detail] — текст исключения. */
         data class Error(val detail: String?) : Failed
     }
