@@ -20,7 +20,7 @@ val keystoreProperties = Properties().apply {
 // смене версии и не регрессирует на переходе MAJOR (2.0.0 → 20000).
 // Исторический минимум — 241: до 1.14.0 включительно действовала формула
 // MAJOR*100 + MINOR*10 + PATCH (1.14.0 = 240 ушла в RuStore на модерацию).
-val appVersionName = "1.16.0"
+val appVersionName = "1.17.0"
 val appVersionCode = appVersionName.split(".").map(String::toInt)
     .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
 
