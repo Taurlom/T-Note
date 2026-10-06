@@ -3,6 +3,8 @@ package com.example.timemanager.data.notifications
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -54,7 +56,12 @@ class DailyDigestNotifier @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_calendar_month)
+            // Фирменный глиф (ic_small_icon.xml, конвертация из
+            // design/ic_small_icon.svg): статус-бар красит малую иконку
+            // по альфа-маске, поэтому заливка в XML белая.
+            .setSmallIcon(R.drawable.ic_small_icon)
+            // Цветной логотип — «большая» иконка слева в уведомлении.
+            .setLargeIcon(decodeLargeIcon())
             .setContentTitle(
                 context.resources.getQuantityString(R.plurals.digest_notification_title, count, count)
             )
@@ -75,5 +82,37 @@ class DailyDigestNotifier @Inject constructor(
         const val CHANNEL_ID = "daily_digest"
         const val DIGEST_NOTIFICATION_ID = 1001
         const val OPEN_CALENDAR_REQUEST_CODE = 1002
+        const val LARGE_ICON_DP = 64
+    }
+
+    /**
+     * Логотип для большой иконки, декодированный под реальный размер
+     * показа (~64dp): исходник 512px, и гнать его целиком в память ради
+     * уголка уведомления незачем. inScaled=false обязателен: файл лежит
+     * в res/drawable (считается mdpi), и без этого decodeResource
+     * растянул бы картинку ещё и по плотности — на xxhdpi 512px
+     * превратились бы в 1536.
+     */
+    private fun decodeLargeIcon(): Bitmap? {
+        val targetPx = (LARGE_ICON_DP * context.resources.displayMetrics.density)
+            .toInt()
+            .coerceAtLeast(64)
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+            inScaled = false
+        }
+        BitmapFactory.decodeResource(context.resources, R.drawable.shop_icon, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sampleSize = 1
+        while (bounds.outWidth / (sampleSize * 2) >= targetPx &&
+            bounds.outHeight / (sampleSize * 2) >= targetPx
+        ) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inScaled = false
+        }
+        return BitmapFactory.decodeResource(context.resources, R.drawable.shop_icon, options)
     }
 }
