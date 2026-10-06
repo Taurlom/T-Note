@@ -36,6 +36,10 @@ internal val DarkTheme = AppThemeSpec(
         onSurface = Snow,
         onSurfaceVariant = Sand,
         surfaceContainer = Sand,
+        // Highest из наших компонентов читает только выключенный трек
+        // Switch (пикер перекрыт своими ролями через AppColors): без
+        // заполнения M3 подставляет серо-лавандовый дефолт мимо палитры.
+        surfaceContainerHighest = Slate,
         outline = Sand
     ),
     colors = AppColors(
@@ -50,6 +54,13 @@ internal val DarkTheme = AppThemeSpec(
         fieldOnDarkContent = Sand,
         fieldOnDarkBorder = Sand.copy(alpha = 0.6f),
         requiredMarker = Red,
+        pickerBackdrop = Ink,
+        pickerDial = Slate,
+        pickerDialContent = Snow,
+        pickerSelector = Navy,
+        pickerSelectorContent = Snow,
+        pickerChipSelectedContainer = Navy,
+        pickerChipSelectedContent = Snow,
         buttonContainer = Navy,
         buttonContent = Paper,
         buttonDisabledContainer = Navy.copy(alpha = 0.5f),
@@ -103,6 +114,7 @@ internal val LightTheme = AppThemeSpec(
         onSurface = Navy,
         onSurfaceVariant = Slate,
         surfaceContainer = Sand,
+        surfaceContainerHighest = Paper,
         outline = Slate
     ),
     colors = AppColors(
@@ -117,6 +129,13 @@ internal val LightTheme = AppThemeSpec(
         fieldOnDarkContent = Navy,
         fieldOnDarkBorder = Navy.copy(alpha = 0.6f),
         requiredMarker = Red,
+        pickerBackdrop = Cloud,
+        pickerDial = Sand,
+        pickerDialContent = Navy,
+        pickerSelector = Navy,
+        pickerSelectorContent = Paper,
+        pickerChipSelectedContainer = Navy,
+        pickerChipSelectedContent = Paper,
         buttonContainer = Navy,
         buttonContent = Paper,
         buttonDisabledContainer = Navy.copy(alpha = 0.5f),
@@ -137,8 +156,6 @@ internal val LightTheme = AppThemeSpec(
         calendarTodayContainer = Navy,
         calendarDayNumber = Navy,
         calendarTodayNumber = Paper,
-        // Соседние месяцы: те же числа, но заметно тише — видны, не спорят
-        // с днями текущего месяца.
         calendarAdjacentDayNumber = Navy.copy(alpha = 0.4f),
         calendarHeader = Navy,
         calendarWeekdayLabel = Red,
@@ -173,6 +190,7 @@ internal val OceanTheme = AppThemeSpec(
         onSurface = Foam,
         onSurfaceVariant = Aqua,
         surfaceContainer = Reef,
+        surfaceContainerHighest = Reef,
         outline = Aqua
     ),
     colors = AppColors(
@@ -187,6 +205,13 @@ internal val OceanTheme = AppThemeSpec(
         fieldOnDarkContent = Aqua,
         fieldOnDarkBorder = Aqua.copy(alpha = 0.6f),
         requiredMarker = Coral,
+        pickerBackdrop = Abyss,
+        pickerDial = Reef,
+        pickerDialContent = Aqua,
+        pickerSelector = Coral,
+        pickerSelectorContent = Abyss,
+        pickerChipSelectedContainer = Teal,
+        pickerChipSelectedContent = Foam,
         buttonContainer = Teal,
         buttonContent = Foam,
         buttonDisabledContainer = Teal.copy(alpha = 0.5f),
@@ -240,6 +265,7 @@ internal val ForestTheme = AppThemeSpec(
         onSurface = Cream,
         onSurfaceVariant = Moss,
         surfaceContainer = Lichen,
+        surfaceContainerHighest = Bark,
         outline = Moss
     ),
     colors = AppColors(
@@ -254,6 +280,13 @@ internal val ForestTheme = AppThemeSpec(
         fieldOnDarkContent = Moss,
         fieldOnDarkBorder = Moss.copy(alpha = 0.6f),
         requiredMarker = Clay,
+        pickerBackdrop = Loam,
+        pickerDial = Bark,
+        pickerDialContent = Moss,
+        pickerSelector = Clay,
+        pickerSelectorContent = Cream,
+        pickerChipSelectedContainer = Pine,
+        pickerChipSelectedContent = Cream,
         buttonContainer = Pine,
         buttonContent = Cream,
         buttonDisabledContainer = Pine.copy(alpha = 0.5f),
@@ -307,6 +340,7 @@ internal val AutumnTheme = AppThemeSpec(
         onSurface = Cream,
         onSurfaceVariant = Wheat,
         surfaceContainer = Umber,
+        surfaceContainerHighest = Umber,
         outline = Wheat
     ),
     colors = AppColors(
@@ -321,6 +355,13 @@ internal val AutumnTheme = AppThemeSpec(
         fieldOnDarkContent = Wheat,
         fieldOnDarkBorder = Wheat.copy(alpha = 0.6f),
         requiredMarker = Rust,
+        pickerBackdrop = Espresso,
+        pickerDial = Umber,
+        pickerDialContent = Wheat,
+        pickerSelector = Rust,
+        pickerSelectorContent = Cream,
+        pickerChipSelectedContainer = Rust,
+        pickerChipSelectedContent = Cream,
         buttonContainer = Rust,
         buttonContent = Cream,
         buttonDisabledContainer = Rust.copy(alpha = 0.5f),

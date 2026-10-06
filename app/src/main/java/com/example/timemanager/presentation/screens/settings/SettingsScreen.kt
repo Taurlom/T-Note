@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -53,6 +52,7 @@ import com.example.timemanager.presentation.components.AppButton
 import com.example.timemanager.presentation.components.AppDialog
 import com.example.timemanager.presentation.components.AppDropdown
 import com.example.timemanager.presentation.components.AppTextButton
+import com.example.timemanager.presentation.components.AppTimePicker
 import com.example.timemanager.presentation.components.AppTopBar
 import com.example.timemanager.presentation.components.ConfirmDeleteDialog
 import com.example.timemanager.domain.model.AppFont
@@ -316,12 +316,6 @@ fun SettingsScreen(
                     )
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            AppTextButton(
-                onClick = { showClearDialog = true },
-                textRes = R.string.clear_calendar,
-                modifier = Modifier.fillMaxWidth()
-            )
             // Подсказка про фон: агрессивная экономия батареи (Xiaomi,
             // Honor и др.) срезает фоновые задачи — частая причина
             // «напоминания не приходят». Показываем только тем, кому
@@ -333,6 +327,12 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            AppTextButton(
+                onClick = { showClearDialog = true },
+                textRes = R.string.clear_calendar,
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.backup_section),
@@ -421,7 +421,7 @@ fun SettingsScreen(
                         )
                     },
                     text = {
-                        TimePicker(state = timeState)
+                        AppTimePicker(state = timeState)
                     }
                 )
             }

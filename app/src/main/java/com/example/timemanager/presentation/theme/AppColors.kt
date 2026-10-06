@@ -37,6 +37,22 @@ data class AppColors(
     val fieldOnDarkBorder: Color,
     /** Маркер обязательного поля («*») в лейбле. */
     val requiredMarker: Color,
+    // TimePicker в диалоге установки времени напоминания
+    // (перевод ролей в M3 — theme/TimePickerColors.kt)
+    /** Тёмная подложка-«мини-экран» под пикером; рисует её AppTimePicker. */
+    val pickerBackdrop: Color,
+    /** Циферблат и фон невыбранных чипов «ЧЧ ММ» — в M3 это один цвет. */
+    val pickerDial: Color,
+    /** Невыбранные цифры: на циферблате и в чипах «ЧЧ ММ». */
+    val pickerDialContent: Color,
+    /** Кружок-селектор на циферблате. */
+    val pickerSelector: Color,
+    /** Цифра под селектором — контрастна к [pickerSelector]. */
+    val pickerSelectorContent: Color,
+    /** Контейнер выбранного чипа «ЧЧ»/«ММ». */
+    val pickerChipSelectedContainer: Color,
+    /** Цифры выбранного чипа «ЧЧ»/«ММ». */
+    val pickerChipSelectedContent: Color,
     // Кнопки, чипы, плавающая кнопка
     val buttonContainer: Color,
     val buttonContent: Color,
