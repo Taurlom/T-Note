@@ -72,7 +72,9 @@ class MainActivity : AppCompatActivity() {
             var showSplash by remember { mutableStateOf(true) }
 
             LaunchedEffect(Unit) {
-                delay(2000)
+                // Короткая пауза: сплэш должен мигнуть брендом, а не
+                // задерживать вход в приложение.
+                delay(500)
                 showSplash = false
             }
 

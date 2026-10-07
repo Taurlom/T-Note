@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -112,7 +113,14 @@ fun CategoriesScreen(
                     actionContentColor = AppTheme.colors.snackbarAction,
                     action = {
                         data.visuals.actionLabel?.let { label ->
-                            TextButton(onClick = { data.performAction() }) {
+                            // TextButton красит текст своим primary мимо
+                            // палитры снекбара — цвет действия задаём явно.
+                            TextButton(
+                                onClick = { data.performAction() },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = AppTheme.colors.snackbarAction,
+                                ),
+                            ) {
                                 Text(label)
                             }
                         }
