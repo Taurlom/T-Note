@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Category
@@ -42,6 +46,7 @@ import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.SectionTopBar
 import ru.taurlom.tnote.presentation.components.rememberSearchState
 import ru.taurlom.tnote.presentation.components.searchMatch
+import ru.taurlom.tnote.presentation.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,7 +97,31 @@ fun CategoriesScreen(
         // Нижний бар лежит под пейджером в MainTabsScreen, его отступ уже
         // учтён. Статус-баром занимается шапка.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                // M3 держит снекбар с действием ~10 секунд — для «Отменить»
+                // это вечность. Гасим сами через 2,5 с: dismiss() даёт
+                // showSnackbar результат Dismissed, undo не срабатывает.
+                LaunchedEffect(data) {
+                    delay(2_500)
+                    data.dismiss()
+                }
+                Snackbar(
+                    containerColor = AppTheme.colors.snackbarContainer,
+                    contentColor = AppTheme.colors.snackbarContent,
+                    actionContentColor = AppTheme.colors.snackbarAction,
+                    action = {
+                        data.visuals.actionLabel?.let { label ->
+                            TextButton(onClick = { data.performAction() }) {
+                                Text(label)
+                            }
+                        }
+                    },
+                ) {
+                    Text(data.visuals.message)
+                }
+            }
+        },
         topBar = {
             if (search.active) {
                 SearchTopBar(

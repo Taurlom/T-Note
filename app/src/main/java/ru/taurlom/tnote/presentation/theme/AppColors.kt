@@ -64,6 +64,10 @@ data class AppColors(
     val chipContent: Color,
     val fabContainer: Color,
     val fabContent: Color,
+    // Снекбар (например, «Отменить» после архивации списка)
+    val snackbarContainer: Color,
+    val snackbarContent: Color,
+    val snackbarAction: Color,
     // Иконки действий на карточках (редактировать/удалить)
     val actionIcon: Color,
     // Нижняя навигация

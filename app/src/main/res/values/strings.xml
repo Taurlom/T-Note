@@ -108,7 +108,7 @@
     <string name="share_list_text">Текстом (в любой чат)</string>
     <string name="share_list_file">Файлом для T-Note (.tnote)</string>
     <string name="share_list_file_error">Не удалось создать файл списка</string>
-    <string name="import_list">Импортировать список из файла</string>
+    <string name="load_list">Загрузить список</string>
     <string name="shared_list_import_title">Список из файла</string>
     <string name="shared_list_import_text">Добавить список «%1$s» с пунктами (%2$d)? Текущие данные не изменятся.</string>
     <string name="shared_list_import_summary">Осталось выполнить: %1$d, готово: %2$d</string>

@@ -94,7 +94,7 @@
     <string name="share_list_text">As text (any chat)</string>
     <string name="share_list_file">As a T-Note file (.tnote)</string>
     <string name="share_list_file_error">Could not create the list file</string>
-    <string name="import_list">Import list from file</string>
+    <string name="load_list">Load list</string>
     <string name="shared_list_import_title">List from file</string>
     <string name="shared_list_import_text">Add list \"%1$s\" with %2$d item(s)? Your current data will not change.</string>
     <string name="shared_list_import_summary">To do: %1$d, done: %2$d</string>
