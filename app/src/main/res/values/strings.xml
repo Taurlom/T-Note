@@ -21,6 +21,7 @@
     <string name="search_notes_hint">Поиск заметок</string>
     <string name="search_documents_hint">Поиск документов</string>
     <string name="search_tasks_hint">Поиск записей</string>
+    <string name="search_categories_hint">Поиск списков</string>
     <string name="no_search_results">Ничего не найдено</string>
     <string name="no_categories">Пока нет списков</string>
     <string name="no_tasks">В этом списке пока нет записей</string>

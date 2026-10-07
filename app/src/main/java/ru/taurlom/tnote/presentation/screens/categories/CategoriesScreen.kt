@@ -33,7 +33,10 @@ import ru.taurlom.tnote.presentation.components.CategoryCard
 import ru.taurlom.tnote.presentation.components.CategoryInputDialog
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
+import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.SectionTopBar
+import ru.taurlom.tnote.presentation.components.rememberSearchState
+import ru.taurlom.tnote.presentation.components.searchMatch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +53,15 @@ fun CategoriesScreen(
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
+    val search = rememberSearchState()
+    val query = search.query
+    // Поиск по названию списка: задачи внутри категорий не матчим —
+    // результат показывается карточкой списка, искать внутри него
+    // удобнее своим поиском на экране списка.
+    val visibleCategories = remember(uiState.categories, query) {
+        uiState.categories.filter { searchMatch(query, it.name) }
+    }
+
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -58,20 +70,33 @@ fun CategoriesScreen(
         // учтён. Статус-баром занимается шапка.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            // Первый по настройке раздел получает бренд-шапку с логотипом и
-            // кнопкой импорта; остальные — только название.
-            SectionTopBar(
-                title = stringResource(R.string.bottom_nav_categories),
-                showBrandHeader = showBrandHeader,
-                scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists,
-            )
+            if (search.active) {
+                SearchTopBar(
+                    query = query,
+                    onQueryChange = search::onQueryChange,
+                    onClose = search::close,
+                    placeholder = stringResource(R.string.search_categories_hint),
+                )
+            } else {
+                // Первый по настройке раздел получает бренд-шапку с логотипом и
+                // кнопкой импорта; остальные — только название.
+                SectionTopBar(
+                    title = stringResource(R.string.bottom_nav_categories),
+                    showBrandHeader = showBrandHeader,
+                    scrollBehavior = scrollBehavior,
+                    onImportLists = onImportLists,
+                    onSearchClick = search::open,
+                )
+            }
         },
         floatingActionButton = {
-            AppFab(
-                onClick = { showAddDialog = true },
-                contentDescriptionRes = R.string.add_category,
-            )
+            // В режиме поиска новый список не нужен — FAB мешает результатам.
+            if (!search.active) {
+                AppFab(
+                    onClick = { showAddDialog = true },
+                    contentDescriptionRes = R.string.add_category,
+                )
+            }
         },
     ) { padding ->
         Box(
@@ -79,20 +104,25 @@ fun CategoriesScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            if (uiState.categories.isEmpty()) {
+            if (visibleCategories.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.no_categories),
+                    text = stringResource(
+                        if (query.isNotBlank()) R.string.no_search_results else R.string.no_categories,
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
-                    items = uiState.categories,
+                    items = visibleCategories,
                     key = { it.id },
                     onReorder = { viewModel.onEvent(CategoriesEvent.OnReorderCategories(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    // Drag-and-drop только в полном списке: перетаскивание
+                    // отфильтрованного сломало бы позиции остальных списков.
+                    reorderEnabled = !search.active,
                     modifier = Modifier.fillMaxSize(),
                 ) { category, _ ->
                     CategoryCard(
