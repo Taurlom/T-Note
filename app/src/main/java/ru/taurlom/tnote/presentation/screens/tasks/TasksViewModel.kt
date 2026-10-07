@@ -4,6 +4,14 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.SharedList
 import ru.taurlom.tnote.domain.model.SharedTask
 import ru.taurlom.tnote.domain.model.Task
@@ -16,14 +24,6 @@ import ru.taurlom.tnote.domain.usecase.GetCategoryByIdUseCase
 import ru.taurlom.tnote.domain.usecase.GetTasksByCategoryUseCase
 import ru.taurlom.tnote.domain.usecase.ReorderTasksUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateTaskUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,7 +37,7 @@ class TasksViewModel @Inject constructor(
     private val deleteTaskUseCase: DeleteTaskUseCase,
     private val reorderTasksUseCase: ReorderTasksUseCase,
     private val copyTaskToCategoryUseCase: CopyTaskToCategoryUseCase,
-    private val listShareRepository: ListShareRepository
+    private val listShareRepository: ListShareRepository,
 ) : ViewModel() {
 
     private val categoryId: Long = checkNotNull(savedStateHandle["categoryId"])
@@ -92,9 +92,9 @@ class TasksViewModel @Inject constructor(
                 SharedTask(
                     title = it.title,
                     description = it.description,
-                    completed = it.isCompleted
+                    completed = it.isCompleted,
                 )
-            }
+            },
         )
         return runCatching { listShareRepository.exportToFile(shared) }.getOrNull()
     }
@@ -110,8 +110,8 @@ class TasksViewModel @Inject constructor(
                             description = event.description.trim(),
                             categoryId = categoryId,
                             createdAt = 0L,
-                            position = nextPosition
-                        )
+                            position = nextPosition,
+                        ),
                     )
                 }
             }

@@ -2,14 +2,6 @@ package ru.taurlom.tnote.presentation.screens.categories
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ru.taurlom.tnote.domain.model.Category
-import ru.taurlom.tnote.domain.repository.ListShareRepository
-import ru.taurlom.tnote.domain.usecase.AddCategoryUseCase
-import ru.taurlom.tnote.domain.usecase.DeleteCategoryUseCase
-import ru.taurlom.tnote.domain.usecase.GetCategoriesUseCase
-import ru.taurlom.tnote.domain.usecase.ImportSharedListUseCase
-import ru.taurlom.tnote.domain.usecase.ReorderCategoriesUseCase
-import ru.taurlom.tnote.domain.usecase.UpdateCategoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +10,14 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.model.Category
+import ru.taurlom.tnote.domain.repository.ListShareRepository
+import ru.taurlom.tnote.domain.usecase.AddCategoryUseCase
+import ru.taurlom.tnote.domain.usecase.DeleteCategoryUseCase
+import ru.taurlom.tnote.domain.usecase.GetCategoriesUseCase
+import ru.taurlom.tnote.domain.usecase.ImportSharedListUseCase
+import ru.taurlom.tnote.domain.usecase.ReorderCategoriesUseCase
+import ru.taurlom.tnote.domain.usecase.UpdateCategoryUseCase
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,7 +28,7 @@ class CategoriesViewModel @Inject constructor(
     private val deleteCategoryUseCase: DeleteCategoryUseCase,
     private val reorderCategoriesUseCase: ReorderCategoriesUseCase,
     private val listShareRepository: ListShareRepository,
-    private val importSharedListUseCase: ImportSharedListUseCase
+    private val importSharedListUseCase: ImportSharedListUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CategoriesUiState())
@@ -58,8 +58,8 @@ class CategoriesViewModel @Inject constructor(
                         Category(
                             name = event.name.trim(),
                             color = event.color,
-                            position = nextPosition
-                        )
+                            position = nextPosition,
+                        ),
                     )
                 }
             }
@@ -90,7 +90,7 @@ class CategoriesViewModel @Inject constructor(
                         it.copy(
                             incomingShare = shared,
                             shareFeedback =
-                                if (shared == null) ShareFeedback.Failed else null
+                            if (shared == null) ShareFeedback.Failed else null,
                         )
                     }
                 }
@@ -104,14 +104,14 @@ class CategoriesViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 incomingShare = null,
-                                shareFeedback = ShareFeedback.Imported(shared.name)
+                                shareFeedback = ShareFeedback.Imported(shared.name),
                             )
                         }
                     }.onFailure {
                         _uiState.update {
                             it.copy(
                                 incomingShare = null,
-                                shareFeedback = ShareFeedback.Failed
+                                shareFeedback = ShareFeedback.Failed,
                             )
                         }
                     }

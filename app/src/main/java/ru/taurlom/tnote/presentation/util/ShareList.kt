@@ -19,7 +19,7 @@ fun shareList(context: Context, categoryName: String, tasks: List<Task>) {
         putExtra(Intent.EXTRA_TEXT, body)
     }
     context.startActivity(
-        Intent.createChooser(send, context.getString(R.string.share_list))
+        Intent.createChooser(send, context.getString(R.string.share_list)),
     )
 }
 
@@ -34,7 +34,7 @@ fun shareListFile(context: Context, uri: Uri) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(
-        Intent.createChooser(send, context.getString(R.string.share_list))
+        Intent.createChooser(send, context.getString(R.string.share_list)),
     )
 }
 
@@ -48,21 +48,20 @@ fun shareListFile(context: Context, uri: Uri) {
  * ⬜ Хлеб — цельнозерновой
  * ```
  */
-fun buildListShareText(categoryName: String, tasks: List<Task>): String =
-    buildString {
-        append(categoryName.trim())
-        if (tasks.isNotEmpty()) {
-            append("\n\n")
-            tasks.forEach { task ->
-                append(if (task.isCompleted) "✅ " else "⬜ ")
-                append(task.title.trim())
-                if (task.description.isNotBlank()) {
-                    append(" — ")
-                    append(task.description.trim())
-                }
-                append('\n')
+fun buildListShareText(categoryName: String, tasks: List<Task>): String = buildString {
+    append(categoryName.trim())
+    if (tasks.isNotEmpty()) {
+        append("\n\n")
+        tasks.forEach { task ->
+            append(if (task.isCompleted) "✅ " else "⬜ ")
+            append(task.title.trim())
+            if (task.description.isNotBlank()) {
+                append(" — ")
+                append(task.description.trim())
             }
-            // Финальный перевод строки от buildString не нужен.
-            setLength(length - 1)
+            append('\n')
         }
-    }.trim()
+        // Финальный перевод строки от buildString не нужен.
+        setLength(length - 1)
+    }
+}.trim()

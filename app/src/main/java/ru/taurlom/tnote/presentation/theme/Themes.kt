@@ -14,7 +14,7 @@ internal data class AppThemeSpec(
     val colorScheme: ColorScheme,
     val colors: AppColors,
     /** Тёмные иконки системного стейтбара (для светлых фонов). */
-    val lightStatusBar: Boolean = false
+    val lightStatusBar: Boolean = false,
 )
 
 /** Текущая основная тема приложения. */
@@ -40,7 +40,7 @@ internal val DarkTheme = AppThemeSpec(
         // Switch (пикер перекрыт своими ролями через AppColors): без
         // заполнения M3 подставляет серо-лавандовый дефолт мимо палитры.
         surfaceContainerHighest = Slate,
-        outline = Sand
+        outline = Sand,
     ),
     colors = AppColors(
         appBarContainer = Ink,
@@ -91,8 +91,8 @@ internal val DarkTheme = AppThemeSpec(
         brandLogo = Gold,
         brandTitle = Gold,
         launchBackground = Ink,
-        appBarScrolledContainer = Ink
-    )
+        appBarScrolledContainer = Ink,
+    ),
 )
 
 /** Светлая: тёплый бумажный фон, тёмно-синий акцент, янтарь вместо золота. */
@@ -115,7 +115,7 @@ internal val LightTheme = AppThemeSpec(
         onSurfaceVariant = Slate,
         surfaceContainer = Sand,
         surfaceContainerHighest = Paper,
-        outline = Slate
+        outline = Slate,
     ),
     colors = AppColors(
         appBarContainer = Sand,
@@ -168,7 +168,7 @@ internal val LightTheme = AppThemeSpec(
         launchBackground = Ink,
         appBarScrolledContainer = Cloud,
     ),
-    lightStatusBar = true
+    lightStatusBar = true,
 )
 
 /** Океан: глубокий сине-зелёный, акценты — коралл и бирюза. */
@@ -191,7 +191,7 @@ internal val OceanTheme = AppThemeSpec(
         onSurfaceVariant = Aqua,
         surfaceContainer = Reef,
         surfaceContainerHighest = Reef,
-        outline = Aqua
+        outline = Aqua,
     ),
     colors = AppColors(
         appBarContainer = Teal,
@@ -242,8 +242,8 @@ internal val OceanTheme = AppThemeSpec(
         brandLogo = Foam,
         brandTitle = Foam,
         launchBackground = Ink,
-        appBarScrolledContainer = Reef
-    )
+        appBarScrolledContainer = Reef,
+    ),
 )
 
 /** Лес: тёмная зелёно-коричневая, хвойный акцент и охра. */
@@ -266,7 +266,7 @@ internal val ForestTheme = AppThemeSpec(
         onSurfaceVariant = Moss,
         surfaceContainer = Lichen,
         surfaceContainerHighest = Bark,
-        outline = Moss
+        outline = Moss,
     ),
     colors = AppColors(
         appBarContainer = Walnut,
@@ -318,7 +318,7 @@ internal val ForestTheme = AppThemeSpec(
         brandTitle = Clay,
         launchBackground = Ink,
         appBarScrolledContainer = Bark,
-    )
+    ),
 )
 
 /** Осень: тёплая кофейно-рыжая, охра и «выжженный» оранжевый. */
@@ -341,7 +341,7 @@ internal val AutumnTheme = AppThemeSpec(
         onSurfaceVariant = Wheat,
         surfaceContainer = Umber,
         surfaceContainerHighest = Umber,
-        outline = Wheat
+        outline = Wheat,
     ),
     colors = AppColors(
         appBarContainer = Rust,
@@ -393,7 +393,7 @@ internal val AutumnTheme = AppThemeSpec(
         brandTitle = Ochre,
         launchBackground = Ink,
         appBarScrolledContainer = Umber,
-    )
+    ),
 )
 
 internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = when (kind) {

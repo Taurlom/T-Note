@@ -1,0 +1,32 @@
+# ktlint — линтер и форматтер Kotlin. Правила забирает отсюда.
+# Документация: https://pinterest.github.io/ktlint/latest/rules/configuration-ktlint/
+
+root = true
+
+[*]
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+max_line_length = 140
+charset = utf-8
+end_of_line = lf
+
+# Kotlin-специфичные правила
+[*.{kt,kts}]
+# ktlint_code_style = intellij_idea — IntelliJ-стиль (посадка аргументов, отступы
+# цепочек), а не официальный Kotlin-стиль. Проект изначально писался в Android
+# Studio, поэтому этот вариант ближе к уже написанному коду.
+ktlint_code_style = intellij_idea
+
+# Разрешаем trailing comma: добавляет запятую после последнего параметра в
+# многострочных вызовах — диффы чище, git blame не размазывается.
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+# Имена файлов: разрешаем PascalCase с подчёркиваниями (AppNavigation.kt,
+# BackupRepositoryImpl.kt).
+ktlint_standard_filename = disabled
+
+# @Composable функции принято называть с заглавной (PascalCase).
+# ktlint по умолчанию требует lowercase — отключаем для аннотированных @Composable.
+ktlint_function_naming_ignore_when_annotated_with = Composable

@@ -29,16 +29,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.SharedText
 import ru.taurlom.tnote.presentation.components.BottomNavBar
@@ -63,7 +63,6 @@ import ru.taurlom.tnote.presentation.screens.notes.NotesViewModel
 import ru.taurlom.tnote.presentation.screens.settings.SettingsScreen
 import ru.taurlom.tnote.presentation.screens.settings.SettingsViewModel
 import ru.taurlom.tnote.presentation.screens.tasks.TasksScreen
-import kotlinx.coroutines.launch
 
 object Routes {
     const val MAIN = "main"
@@ -114,7 +113,7 @@ fun AppNavigation(
     pendingSharedText: SharedText? = null,
     onPendingSharedTextHandled: () -> Unit = {},
     pendingOpenCalendar: Boolean = false,
-    onPendingOpenCalendarHandled: () -> Unit = {}
+    onPendingOpenCalendarHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -178,12 +177,12 @@ fun AppNavigation(
             is ShareFeedback.Imported -> Toast.makeText(
                 context,
                 context.getString(R.string.shared_list_added, feedback.listName),
-                Toast.LENGTH_SHORT
+                Toast.LENGTH_SHORT,
             ).show()
             ShareFeedback.Failed -> Toast.makeText(
                 context,
                 R.string.shared_list_error,
-                Toast.LENGTH_LONG
+                Toast.LENGTH_LONG,
             ).show()
             null -> return@LaunchedEffect
         }
@@ -196,12 +195,12 @@ fun AppNavigation(
             is NotesFeedback.Saved -> Toast.makeText(
                 context,
                 context.getString(R.string.shared_text_added, feedback.noteTitle),
-                Toast.LENGTH_SHORT
+                Toast.LENGTH_SHORT,
             ).show()
             NotesFeedback.Failed -> Toast.makeText(
                 context,
                 R.string.shared_text_error,
-                Toast.LENGTH_LONG
+                Toast.LENGTH_LONG,
             ).show()
             null -> return@LaunchedEffect
         }
@@ -211,14 +210,14 @@ fun AppNavigation(
     NavHost(
         navController = navController,
         startDestination = Routes.MAIN,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         composable(
             route = Routes.MAIN,
             enterTransition = { mainNoEnter },
             exitTransition = { mainNoExit },
             popEnterTransition = { mainNoEnter },
-            popExitTransition = { mainNoExit }
+            popExitTransition = { mainNoExit },
         ) {
             MainTabsScreen(
                 items = sectionItems,
@@ -237,7 +236,7 @@ fun AppNavigation(
                 onNoteClick = { noteId ->
                     navController.navigate(Routes.noteDetail(noteId))
                 },
-                openCalendarRequest = openCalendarRequest
+                openCalendarRequest = openCalendarRequest,
             )
         }
 
@@ -247,13 +246,13 @@ fun AppNavigation(
             enterTransition = { detailEnter },
             exitTransition = { detailExit },
             popEnterTransition = { detailPopEnter },
-            popExitTransition = { detailPopExit }
+            popExitTransition = { detailPopExit },
         ) { backStackEntry ->
             val categoryId = backStackEntry.arguments?.getLong("categoryId")
             if (categoryId != null) {
                 TasksScreen(
                     categoryId = categoryId,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
                 )
             } else {
                 // Аргумент обязателен в маршруте: вместо пустого экрана откатываемся назад.
@@ -266,11 +265,11 @@ fun AppNavigation(
             enterTransition = { detailEnter },
             exitTransition = { detailExit },
             popEnterTransition = { detailPopEnter },
-            popExitTransition = { detailPopExit }
+            popExitTransition = { detailPopExit },
         ) { backStackEntry ->
             if (backStackEntry.arguments?.getLong("documentId") != null) {
                 DocumentDetailScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
                 )
             } else {
                 LaunchedEffect(Unit) { navController.popBackStack() }
@@ -282,11 +281,11 @@ fun AppNavigation(
             enterTransition = { detailEnter },
             exitTransition = { detailExit },
             popEnterTransition = { detailPopEnter },
-            popExitTransition = { detailPopExit }
+            popExitTransition = { detailPopExit },
         ) { backStackEntry ->
             if (backStackEntry.arguments?.getLong("noteId") != null) {
                 NoteDetailScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
                 )
             } else {
                 LaunchedEffect(Unit) { navController.popBackStack() }
@@ -303,7 +302,7 @@ fun AppNavigation(
             },
             onDismiss = {
                 categoriesViewModel.onEvent(CategoriesEvent.OnDismissImportSharedList)
-            }
+            },
         )
     }
 
@@ -317,7 +316,7 @@ fun AppNavigation(
             },
             onDismiss = {
                 notesViewModel.onEvent(NotesEvent.OnDismissSaveSharedText)
-            }
+            },
         )
     }
 
@@ -328,7 +327,7 @@ fun AppNavigation(
         SectionsDialog(
             visibleSections = settingsState.visibleSections,
             onDismiss = settingsViewModel::closeSectionsDialog,
-            onApply = settingsViewModel::updateSections
+            onApply = settingsViewModel::updateSections,
         )
     }
 }
@@ -354,7 +353,7 @@ private fun MainTabsScreen(
     onCategoryClick: (Long) -> Unit,
     onDocumentClick: (Long) -> Unit,
     onNoteClick: (Long) -> Unit,
-    openCalendarRequest: Int = 0
+    openCalendarRequest: Int = 0,
 ) {
     // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
     // всегда отдают наш MIME при «Открыть с помощью». Ланчер живёт здесь, а
@@ -362,7 +361,7 @@ private fun MainTabsScreen(
     // настройке разделу, каким бы он ни оказался. Диалог подтверждения
     // показывает AppNavigation.
     val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        ActivityResultContracts.OpenDocument(),
     ) { uri ->
         uri?.let { categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(it)) }
     }
@@ -417,31 +416,31 @@ private fun MainTabsScreen(
             // зато скролл и локальное состояние списков не сбрасываются.
             beyondViewportPageCount = items.size - 1,
             // Жёсткие границы страницы без «щелей» между разделами.
-            pageSpacing = 0.dp
+            pageSpacing = 0.dp,
         ) { page ->
             when (items[page]) {
                 BottomNavItem.Categories -> CategoriesScreen(
                     onCategoryClick = onCategoryClick,
                     showBrandHeader = page == 0,
                     onImportLists = onImportLists,
-                    viewModel = categoriesViewModel
+                    viewModel = categoriesViewModel,
                 )
                 BottomNavItem.Calendar -> CalendarScreen(
                     showBrandHeader = page == 0,
                     onImportLists = onImportLists,
-                    viewModel = calendarViewModel
+                    viewModel = calendarViewModel,
                 )
                 BottomNavItem.Documents -> DocumentsScreen(
                     onDocumentClick = onDocumentClick,
                     showBrandHeader = page == 0,
                     onImportLists = onImportLists,
-                    viewModel = documentsViewModel
+                    viewModel = documentsViewModel,
                 )
                 BottomNavItem.Notes -> NotesScreen(
                     onNoteClick = onNoteClick,
                     showBrandHeader = page == 0,
                     onImportLists = onImportLists,
-                    viewModel = notesViewModel
+                    viewModel = notesViewModel,
                 )
                 BottomNavItem.Settings -> SettingsScreen(viewModel = settingsViewModel)
             }
@@ -452,7 +451,7 @@ private fun MainTabsScreen(
             selectedItem = items.getOrNull(pagerState.currentPage),
             onItemSelected = { item ->
                 scrollScope.launch { pagerState.animateScrollToPage(items.indexOf(item)) }
-            }
+            },
         )
     }
 }

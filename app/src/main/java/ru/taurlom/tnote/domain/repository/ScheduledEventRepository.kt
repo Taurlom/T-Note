@@ -1,8 +1,8 @@
 package ru.taurlom.tnote.domain.repository
 
+import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
-import kotlinx.coroutines.flow.Flow
 
 interface ScheduledEventRepository {
 

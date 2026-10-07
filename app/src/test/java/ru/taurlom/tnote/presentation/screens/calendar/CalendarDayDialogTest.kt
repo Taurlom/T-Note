@@ -1,24 +1,23 @@
 package ru.taurlom.tnote.presentation.screens.calendar
 
-import ru.taurlom.tnote.domain.model.ScheduledEvent
-import ru.taurlom.tnote.domain.model.ScheduledEventType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.ScheduledEvent
+import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.LocalDate
 
 class CalendarDayDialogTest {
 
     private val today = LocalDate.parse("2026-10-02")
 
-    private fun event(type: ScheduledEventType, date: String) =
-        ScheduledEvent(date = date, title = "Тест", type = type)
+    private fun event(type: ScheduledEventType, date: String) = ScheduledEvent(date = date, title = "Тест", type = type)
 
     private fun repeating(anchor: String) = ScheduledEvent(
         date = anchor,
         title = "Тест",
         type = ScheduledEventType.REPEATING,
-        repeatIntervalDays = 1
+        repeatIntervalDays = 1,
     )
 
     // Обычные события: день показа совпадает с датой события.

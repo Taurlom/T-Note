@@ -2,7 +2,16 @@ package ru.taurlom.tnote.presentation.screens.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
@@ -16,16 +25,6 @@ import ru.taurlom.tnote.domain.usecase.GetScheduledEventsByMonthUseCase
 import ru.taurlom.tnote.domain.usecase.GetWeekendDatesUseCase
 import ru.taurlom.tnote.domain.usecase.SaveCalendarNoteUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateScheduledEventUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -40,7 +39,7 @@ class CalendarViewModel @Inject constructor(
     private val deleteDayUseCase: DeleteCalendarDayUseCase,
     private val addEventUseCase: AddScheduledEventUseCase,
     private val updateEventUseCase: UpdateScheduledEventUseCase,
-    private val deleteEventUseCase: DeleteScheduledEventUseCase
+    private val deleteEventUseCase: DeleteScheduledEventUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -61,13 +60,13 @@ class CalendarViewModel @Inject constructor(
             getEventsByMonthUseCase(prefix),
             getBirthdayEventsUseCase(),
             getRepeatingEventsUseCase(),
-            getWeekendDatesUseCase()
+            getWeekendDatesUseCase(),
         ) { notes, monthEvents, birthdays, repeating, weekendDates ->
             CalendarUiState(
                 yearMonth = yearMonth,
                 notes = notes.associateBy { it.date },
                 events = expandEventsForMonth(monthEvents, birthdays, repeating, yearMonth),
-                weekendDates = weekendDates
+                weekendDates = weekendDates,
             )
         }
             .onEach { state -> _uiState.value = state }
@@ -83,7 +82,7 @@ class CalendarViewModel @Inject constructor(
         monthEvents: List<ScheduledEvent>,
         birthdays: List<ScheduledEvent>,
         repeating: List<ScheduledEvent>,
-        yearMonth: CalendarYearMonth
+        yearMonth: CalendarYearMonth,
     ): Map<String, List<ScheduledEvent>> {
         val displayYear = yearMonth.year
         // Вхождения повторяющихся событий генерируются ниже целиком,
@@ -159,7 +158,7 @@ class CalendarViewModel @Inject constructor(
             val dateEvents = _uiState.value.events[date].orEmpty()
             val nextPosition = (dateEvents.maxOfOrNull { it.position } ?: -1) + 1
             addEventUseCase(
-                draft.copy(date = date, title = trimmed, position = nextPosition)
+                draft.copy(date = date, title = trimmed, position = nextPosition),
             )
         }
     }

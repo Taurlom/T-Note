@@ -1,7 +1,7 @@
 package ru.taurlom.tnote.domain.repository
 
-import ru.taurlom.tnote.domain.model.CalendarNote
 import kotlinx.coroutines.flow.Flow
+import ru.taurlom.tnote.domain.model.CalendarNote
 
 interface CalendarRepository {
 

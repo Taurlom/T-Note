@@ -29,13 +29,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.presentation.components.AppFab
-import ru.taurlom.tnote.presentation.components.AppTopBar
-import ru.taurlom.tnote.presentation.components.SectionTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.DocumentInputDialog
 import ru.taurlom.tnote.presentation.components.DocumentItem
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
-
+import ru.taurlom.tnote.presentation.components.SectionTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +41,7 @@ fun DocumentsScreen(
     onDocumentClick: (Long) -> Unit,
     showBrandHeader: Boolean,
     onImportLists: () -> Unit,
-    viewModel: DocumentsViewModel = hiltViewModel()
+    viewModel: DocumentsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -63,27 +61,27 @@ fun DocumentsScreen(
                 title = stringResource(R.string.documents_title),
                 showBrandHeader = showBrandHeader,
                 scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists
+                onImportLists = onImportLists,
             )
         },
         floatingActionButton = {
             AppFab(
                 onClick = { showAddDialog = true },
-                contentDescriptionRes = R.string.add_document
+                contentDescriptionRes = R.string.add_document,
             )
-        }
+        },
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             if (uiState.documents.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_documents),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
@@ -92,14 +90,14 @@ fun DocumentsScreen(
                     onReorder = { viewModel.onEvent(DocumentsEvent.OnReorderDocuments(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 ) { document, _ ->
                     DocumentItem(
                         document = document,
                         onClick = { onDocumentClick(document.id) },
                         onEdit = { documentToEdit = document },
                         onDelete = { documentToDelete = document },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -111,10 +109,10 @@ fun DocumentsScreen(
             onDismiss = { showAddDialog = false },
             onConfirm = { document, photoUris, _ ->
                 viewModel.onEvent(
-                    DocumentsEvent.OnAddDocument(document, photoUris)
+                    DocumentsEvent.OnAddDocument(document, photoUris),
                 )
                 showAddDialog = false
-            }
+            },
         )
     }
 
@@ -127,11 +125,11 @@ fun DocumentsScreen(
                     DocumentsEvent.OnEditDocument(
                         document = updatedDocument,
                         newPhotoUris = newPhotoUris,
-                        removedPhotoPaths = removedPhotoPaths
-                    )
+                        removedPhotoPaths = removedPhotoPaths,
+                    ),
                 )
                 documentToEdit = null
-            }
+            },
         )
     }
 
@@ -143,7 +141,7 @@ fun DocumentsScreen(
             onConfirm = {
                 viewModel.onEvent(DocumentsEvent.OnDeleteDocument(document))
                 documentToDelete = null
-            }
+            },
         )
     }
 }

@@ -4,10 +4,10 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import ru.taurlom.tnote.R
-import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
-import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.ThemeKind
+import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
+import ru.taurlom.tnote.domain.repository.BackupDescription
 
 /**
  * Результат операции с резервной копией; читается экраном один раз и
@@ -54,7 +54,8 @@ enum class AppLanguage(val tag: String?, @StringRes val labelRes: Int) {
     SYSTEM(null, R.string.language_system),
     RU("ru", R.string.language_ru),
     EN("en", R.string.language_en),
-    ES("es", R.string.language_es);
+    ES("es", R.string.language_es),
+    ;
 
     companion object {
         /** Язык, применённый сейчас (per-app locales AppCompat). */
@@ -93,5 +94,5 @@ data class SettingsUiState(
      * Тумблер до ответа отключён: мелькание «выключено → включено»
      * выглядело бы как самостоятельное переключение.
      */
-    val remindersLoaded: Boolean = false
+    val remindersLoaded: Boolean = false,
 )

@@ -91,7 +91,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
             signingConfig = signingConfigs.findByName("release")
         }
@@ -106,6 +106,15 @@ android {
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ktlint — линтер/форматтер Kotlin. Запуск:
+//   ./gradlew :app:ktlintCheck   — проверка
+//   ./gradlew :app:ktlintFormat  — автоформатирование
+// Правила читаются из .editorconfig в корне проекта.
+// ═══════════════════════════════════════════════════════════════════════════
+
+val ktlint by configurations.creating
 
 dependencies {
     val composeBom = platform(libs.compose.bom)
@@ -165,6 +174,41 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+
+    // ktlint CLI — линтер и форматтер Kotlin (используется кастомными
+    // тасками ktlintCheck и ktlintFormat, см. ниже).
+    ktlint(libs.ktlint.cli)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ktlint-задачи: используют CLI-зависимость, объявленную выше.
+// ═══════════════════════════════════════════════════════════════════════════
+
+tasks.register<JavaExec>("ktlintCheck") {
+    description = "Проверяет код на соответствие ktlint-правилам"
+    group = "ktlint"
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    args(
+        "**/src/**/*.kt",
+        "**/src/**/*.kts",
+        "!**/build/**",
+    )
+    workingDir = rootProject.projectDir
+}
+
+tasks.register<JavaExec>("ktlintFormat") {
+    description = "Форматирует код по ktlint-правилам"
+    group = "ktlint"
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    args(
+        "--format",
+        "**/src/**/*.kt",
+        "**/src/**/*.kts",
+        "!**/build/**",
+    )
+    workingDir = rootProject.projectDir
 }
 
 ksp {

@@ -30,7 +30,7 @@ interface ReminderScheduler {
          * завтра, не отменяя себя (REPLACE изнутри пометил бы его
          * «cancelled», хоть публикация уже случилась).
          */
-        AFTER_CURRENT
+        AFTER_CURRENT,
     }
 
     /** Запланировать срабатывание сводки на [atEpochMillis]. */

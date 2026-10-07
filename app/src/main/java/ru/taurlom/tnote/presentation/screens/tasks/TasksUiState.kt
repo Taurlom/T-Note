@@ -7,5 +7,5 @@ data class TasksUiState(
     val category: Category? = null,
     val tasks: List<Task> = emptyList(),
     /** Другие списки — цели копирования. */
-    val categories: List<Category> = emptyList()
+    val categories: List<Category> = emptyList(),
 )

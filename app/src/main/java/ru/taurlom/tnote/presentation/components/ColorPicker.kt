@@ -32,22 +32,17 @@ private val presetColors = listOf(
     0xFF1E88E5, 0xFF039BE5, 0xFF00ACC1, 0xFF00897B,
     0xFF43A047, 0xFF7CB342, 0xFFC0CA33, 0xFFFDD835,
     0xFFFFB300, 0xFFFB8C00, 0xFFF4511E, 0xFF6D4C41,
-    0xFF757575, 0xFF546E7A
+    0xFF757575, 0xFF546E7A,
 )
 
 /** Палитра категорий в формате общего [AppColorPicker]. */
-fun categoryColorOptions(): List<ColorSwatchOption> =
-    presetColors.map { ColorSwatchOption(it, Color(it)) }
+fun categoryColorOptions(): List<ColorSwatchOption> = presetColors.map { ColorSwatchOption(it, Color(it)) }
 
 /**
  * Один кружок палитры: значение (то, что хранится в базе), отображаемый
  * цвет и необязательная label для доступности/подписи.
  */
-data class ColorSwatchOption(
-    val value: Long,
-    val swatch: Color,
-    val label: String? = null
-)
+data class ColorSwatchOption(val value: Long, val swatch: Color, val label: String? = null)
 
 /**
  * Палитра выбора цвета: круглые плашки переносом строк — все цвета видны
@@ -63,12 +58,12 @@ fun AppColorPicker(
     selected: Long,
     onSelect: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 28.dp
+    size: Dp = 28.dp,
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier
+        modifier = modifier,
     ) {
         options.forEach { option ->
             ColorSwatch(
@@ -76,7 +71,7 @@ fun AppColorPicker(
                 selected = option.value == selected,
                 label = option.label,
                 size = size,
-                onClick = { onSelect(option.value) }
+                onClick = { onSelect(option.value) },
             )
         }
     }
@@ -84,14 +79,7 @@ fun AppColorPicker(
 
 /** Кружок-переключатель цвета: рамка и галочка при выборе. */
 @Composable
-private fun ColorSwatch(
-    swatch: Color,
-    selected: Boolean,
-    label: String?,
-    size: Dp,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun ColorSwatch(swatch: Color, selected: Boolean, label: String?, size: Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -101,16 +89,16 @@ private fun ColorSwatch(
             .border(
                 width = if (selected) 2.dp else 1.dp,
                 color = if (selected) AppTheme.colors.dialogContent else Color.Transparent,
-                shape = CircleShape
+                shape = CircleShape,
             )
-            .clickable(onClickLabel = label) { onClick() }
+            .clickable(onClickLabel = label) { onClick() },
     ) {
         if (selected) {
             Icon(
                 painter = painterResource(R.drawable.ic_check),
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(size / 2)
+                modifier = Modifier.size(size / 2),
             )
         }
     }

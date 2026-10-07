@@ -16,7 +16,8 @@ enum class AppFont(val displayName: String) {
     LOBSTER("Lobster"),
     JONOVA("Jonova"),
     MAZZARD("Mazzard"),
-    RUBIK("Rubik");
+    RUBIK("Rubik"),
+    ;
 
     companion object {
         fun fromName(name: String): AppFont = entries.find { it.name == name } ?: PT_SANS

@@ -12,7 +12,7 @@ import javax.inject.Inject
  */
 class SetRemindersEnabledUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val scheduleNextDailyDigest: ScheduleNextDailyDigestUseCase
+    private val scheduleNextDailyDigest: ScheduleNextDailyDigestUseCase,
 ) {
     suspend operator fun invoke(enabled: Boolean) {
         settingsRepository.setRemindersEnabled(enabled)

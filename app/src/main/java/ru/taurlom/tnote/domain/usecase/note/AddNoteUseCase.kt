@@ -10,7 +10,7 @@ import javax.inject.Inject
 class AddNoteUseCase @Inject constructor(
     private val repository: NoteRepository,
     private val photoSaver: NotePhotoSaver,
-    private val clock: Clock
+    private val clock: Clock,
 ) {
     /**
      * Позиция — из базы (max + 1), а не из снапшота UI; файлы фото ложатся
@@ -22,8 +22,8 @@ class AddNoteUseCase @Inject constructor(
             note.copy(
                 createdAt = clock.millis(),
                 position = repository.getMaxPosition() + 1,
-                photoPaths = note.photoPaths + savedPaths
-            )
+                photoPaths = note.photoPaths + savedPaths,
+            ),
         )
     }
 }

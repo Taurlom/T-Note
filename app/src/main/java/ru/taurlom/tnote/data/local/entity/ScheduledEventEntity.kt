@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "scheduled_events",
-    indices = [Index("eventDate")]
+    indices = [Index("eventDate")],
 )
 data class ScheduledEventEntity(
     @PrimaryKey(autoGenerate = true)
@@ -24,5 +24,5 @@ data class ScheduledEventEntity(
     val repeatDays: Int,
     @ColumnInfo(defaultValue = "0")
     val hidePast: Boolean,
-    val position: Int = 0
+    val position: Int = 0,
 )

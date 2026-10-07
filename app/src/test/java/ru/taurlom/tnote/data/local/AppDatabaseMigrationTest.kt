@@ -28,7 +28,7 @@ class AppDatabaseMigrationTest {
 
     private val dbFile = File(
         ApplicationProvider.getApplicationContext<Context>().cacheDir,
-        "migration-test.db"
+        "migration-test.db",
     )
 
     @get:Rule
@@ -40,7 +40,7 @@ class AppDatabaseMigrationTest {
         // Windows-путях с '\'. AndroidSQLiteDriver открывает файл напрямую.
         driver = AndroidSQLiteDriver(),
         databaseClass = AppDatabase::class,
-        autoMigrationSpecs = emptyList<AutoMigrationSpec>()
+        autoMigrationSpecs = emptyList<AutoMigrationSpec>(),
     )
 
     /**

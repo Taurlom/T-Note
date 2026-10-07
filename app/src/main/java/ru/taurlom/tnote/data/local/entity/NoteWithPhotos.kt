@@ -9,7 +9,7 @@ data class NoteWithPhotos(
 
     @Relation(
         parentColumn = "id",
-        entityColumn = "noteId"
+        entityColumn = "noteId",
     )
-    val photos: List<NotePhotoEntity>
+    val photos: List<NotePhotoEntity>,
 )

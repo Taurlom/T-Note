@@ -6,15 +6,15 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 import kotlinx.coroutines.flow.Flow
+import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 
 @Dao
 interface ScheduledEventDao {
 
     @Query(
         "SELECT * FROM scheduled_events WHERE eventDate LIKE :monthPrefix " +
-            "ORDER BY position ASC, id ASC"
+            "ORDER BY position ASC, id ASC",
     )
     fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEventEntity>>
 

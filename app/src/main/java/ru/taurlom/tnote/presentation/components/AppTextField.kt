@@ -15,8 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -51,7 +51,7 @@ fun AppTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     trailingIcon: (@Composable () -> Unit)? = null,
     required: Boolean = false,
-    onDarkBackground: Boolean = false
+    onDarkBackground: Boolean = false,
 ) {
     OutlinedTextField(
         value = value,
@@ -67,7 +67,7 @@ fun AppTextField(
         keyboardOptions = keyboardOptions,
         trailingIcon = trailingIcon,
         modifier = modifier,
-        colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors()
+        colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors(),
     )
 }
 
@@ -89,7 +89,7 @@ fun AppTextField(
     textStyle: TextStyle = LocalTextStyle.current,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     required: Boolean = false,
-    onDarkBackground: Boolean = false
+    onDarkBackground: Boolean = false,
 ) {
     OutlinedTextField(
         value = value,
@@ -102,7 +102,7 @@ fun AppTextField(
         textStyle = textStyle,
         keyboardOptions = keyboardOptions,
         modifier = modifier,
-        colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors()
+        colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors(),
     )
 }
 
@@ -119,7 +119,7 @@ private fun AppFieldLabel(label: String, required: Boolean) {
             }
         } else {
             AnnotatedString(label)
-        }
+        },
     )
 }
 
@@ -137,7 +137,7 @@ fun appTextFieldColorsOnDark(): TextFieldColors {
         focusedLabelColor = colors.fieldOnDarkContent,
         unfocusedLabelColor = colors.fieldOnDarkBorder,
         focusedTrailingIconColor = colors.fieldOnDarkContent,
-        unfocusedTrailingIconColor = colors.fieldOnDarkContent
+        unfocusedTrailingIconColor = colors.fieldOnDarkContent,
     )
 }
 
@@ -159,7 +159,7 @@ fun appTextFieldColors(): TextFieldColors {
         disabledTrailingIconColor = colors.dialogContentMuted,
         disabledPlaceholderColor = colors.dialogContentMuted,
         focusedTrailingIconColor = colors.fieldContent,
-        unfocusedTrailingIconColor = colors.fieldContent
+        unfocusedTrailingIconColor = colors.fieldContent,
     )
 }
 
@@ -173,7 +173,7 @@ private fun AppTextFieldLightEmptyPreview() {
     TNoteTheme {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             AppTextField(
                 value = "",
@@ -181,7 +181,7 @@ private fun AppTextFieldLightEmptyPreview() {
                 label = "Название",
                 placeholder = "Введите название",
                 required = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -193,7 +193,7 @@ private fun AppTextFieldDarkFilledPreview() {
     TNoteTheme {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             AppTextField(
                 value = "Пример текста заметки",
@@ -201,7 +201,7 @@ private fun AppTextFieldDarkFilledPreview() {
                 label = "Содержание",
                 minLines = 3,
                 onDarkBackground = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

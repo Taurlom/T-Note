@@ -15,5 +15,5 @@ data class Note(
     /** Порядок в списке (перетаскивание), как у документов. */
     val position: Int = 0,
     /** Прикреплённые фото (относительные пути в filesDir/note_photos). */
-    val photoPaths: List<String> = emptyList()
+    val photoPaths: List<String> = emptyList(),
 )

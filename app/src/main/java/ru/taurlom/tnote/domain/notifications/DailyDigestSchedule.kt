@@ -31,8 +31,11 @@ object DailyDigestSchedule {
      */
     fun nextDigestTime(now: ZonedDateTime, minutesFromMidnight: Int): ZonedDateTime {
         val today = wallClockTime(now.toLocalDate(), minutesFromMidnight, now.zone)
-        return if (today.isAfter(now)) today
-        else wallClockTime(now.toLocalDate().plusDays(1), minutesFromMidnight, now.zone)
+        return if (today.isAfter(now)) {
+            today
+        } else {
+            wallClockTime(now.toLocalDate().plusDays(1), minutesFromMidnight, now.zone)
+        }
     }
 
     /**
@@ -44,10 +47,6 @@ object DailyDigestSchedule {
         !wallClockTime(now.toLocalDate(), minutesFromMidnight, now.zone).isAfter(now)
 
     /** Дата + минуты от полуночи → момент в зоне (настенное время). */
-    private fun wallClockTime(
-        date: java.time.LocalDate,
-        minutesFromMidnight: Int,
-        zone: java.time.ZoneId
-    ): ZonedDateTime =
+    private fun wallClockTime(date: java.time.LocalDate, minutesFromMidnight: Int, zone: java.time.ZoneId): ZonedDateTime =
         date.atTime(minutesFromMidnight / 60, minutesFromMidnight % 60).atZone(zone)
 }

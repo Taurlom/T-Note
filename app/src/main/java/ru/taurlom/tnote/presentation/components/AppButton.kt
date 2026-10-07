@@ -1,9 +1,9 @@
 package ru.taurlom.tnote.presentation.components
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,10 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
@@ -35,12 +31,7 @@ import ru.taurlom.tnote.presentation.theme.TNoteTheme
  * ролей дизайн-системы.
  */
 @Composable
-fun AppButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    content: @Composable RowScope.() -> Unit
-) {
+fun AppButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
     Button(
         onClick = onClick,
         modifier = modifier,
@@ -50,19 +41,15 @@ fun AppButton(
             containerColor = AppTheme.colors.buttonContainer,
             contentColor = AppTheme.colors.buttonContent,
             disabledContainerColor = AppTheme.colors.buttonDisabledContainer,
-            disabledContentColor = AppTheme.colors.buttonDisabledContent
+            disabledContentColor = AppTheme.colors.buttonDisabledContent,
         ),
-        content = content
+        content = content,
     )
 }
 
 /** Кнопка «Сохранить» — самая частая в диалогах. */
 @Composable
-fun AppSaveButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
-) {
+fun AppSaveButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     AppButton(onClick = onClick, modifier = modifier, enabled = enabled) {
         Text(stringResource(R.string.save))
     }
@@ -70,12 +57,7 @@ fun AppSaveButton(
 
 /** Кнопка с текстовым id ресурса (например «Удалить», «Применить»). */
 @Composable
-fun AppTextButton(
-    onClick: () -> Unit,
-    @StringRes textRes: Int,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
-) {
+fun AppTextButton(onClick: () -> Unit, @StringRes textRes: Int, modifier: Modifier = Modifier, enabled: Boolean = true) {
     AppButton(onClick = onClick, modifier = modifier, enabled = enabled) {
         Text(stringResource(textRes))
     }
@@ -83,38 +65,30 @@ fun AppTextButton(
 
 /** Контурная кнопка на светлом фоне диалога. */
 @Composable
-fun AppOutlinedButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit
-) {
+fun AppOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.dialogContent),
-        content = content
+        content = content,
     )
 }
 
 /** Плавающая кнопка «Добавить» — единый стиль для всех разделов. */
 @Composable
-fun AppFab(
-    onClick: () -> Unit,
-    @StringRes contentDescriptionRes: Int,
-    modifier: Modifier = Modifier
-) {
+fun AppFab(onClick: () -> Unit, @StringRes contentDescriptionRes: Int, modifier: Modifier = Modifier) {
     FloatingActionButton(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
         containerColor = AppTheme.colors.fabContainer,
-        contentColor = AppTheme.colors.fabContent
+        contentColor = AppTheme.colors.fabContent,
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_add),
             contentDescription = stringResource(contentDescriptionRes),
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
     }
 }
@@ -129,7 +103,7 @@ private fun AppButtonPreview() {
     TNoteTheme {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             AppButton(onClick = {}) { Text("Обычная") }
             AppButton(onClick = {}, enabled = false) { Text("Заблокирована") }
@@ -145,7 +119,7 @@ private fun AppTextAndOutlinedButtonPreview() {
     TNoteTheme {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             AppTextButton(onClick = {}, textRes = R.string.save, modifier = Modifier.fillMaxWidth())
             AppTextButton(onClick = {}, textRes = R.string.delete, enabled = false, modifier = Modifier.fillMaxWidth())

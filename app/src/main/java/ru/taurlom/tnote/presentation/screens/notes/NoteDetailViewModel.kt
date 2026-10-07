@@ -4,13 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ru.taurlom.tnote.domain.model.Note
-import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
-import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
-import ru.taurlom.tnote.domain.usecase.note.GetNoteByIdUseCase
-import ru.taurlom.tnote.domain.usecase.note.UpdateNoteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,12 +12,14 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.model.Note
+import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
+import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
+import ru.taurlom.tnote.domain.usecase.note.GetNoteByIdUseCase
+import ru.taurlom.tnote.domain.usecase.note.UpdateNoteUseCase
+import javax.inject.Inject
 
-data class NoteDetailUiState(
-    val note: Note? = null,
-    val isLoading: Boolean = true,
-    val isEditing: Boolean = false
-)
+data class NoteDetailUiState(val note: Note? = null, val isLoading: Boolean = true, val isEditing: Boolean = false)
 
 @HiltViewModel
 class NoteDetailViewModel @Inject constructor(
@@ -31,7 +27,7 @@ class NoteDetailViewModel @Inject constructor(
     private val getNoteByIdUseCase: GetNoteByIdUseCase,
     private val addNoteUseCase: AddNoteUseCase,
     private val updateNoteUseCase: UpdateNoteUseCase,
-    private val deleteNoteUseCase: DeleteNoteUseCase
+    private val deleteNoteUseCase: DeleteNoteUseCase,
 ) : ViewModel() {
 
     private val noteId: Long = checkNotNull(savedStateHandle["noteId"])
@@ -40,8 +36,8 @@ class NoteDetailViewModel @Inject constructor(
         NoteDetailUiState(
             // Новая заметка сразу в редакторе; существующая — в просмотре.
             isLoading = noteId != NEW_NOTE_ID,
-            isEditing = noteId == NEW_NOTE_ID
-        )
+            isEditing = noteId == NEW_NOTE_ID,
+        ),
     )
     val uiState: StateFlow<NoteDetailUiState> = _uiState.asStateFlow()
 
@@ -71,7 +67,7 @@ class NoteDetailViewModel @Inject constructor(
         content: String,
         newPhotoUris: List<Uri> = emptyList(),
         removedPhotoPaths: List<String> = emptyList(),
-        onSaved: () -> Unit = {}
+        onSaved: () -> Unit = {},
     ) {
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
@@ -83,7 +79,7 @@ class NoteDetailViewModel @Inject constructor(
                 updateNoteUseCase(
                     current.copy(title = trimmed, content = content),
                     newPhotoUris = newPhotoUris,
-                    removedPhotoPaths = removedPhotoPaths
+                    removedPhotoPaths = removedPhotoPaths,
                 )
             }
             _uiState.update { it.copy(isEditing = false) }

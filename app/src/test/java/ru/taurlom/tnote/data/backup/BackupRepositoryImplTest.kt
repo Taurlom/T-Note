@@ -4,22 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import ru.taurlom.tnote.data.local.AppDatabase
-import ru.taurlom.tnote.data.local.AppDatabaseMigration
-import ru.taurlom.tnote.domain.model.AppFont
-import ru.taurlom.tnote.domain.model.Document
-import ru.taurlom.tnote.domain.model.Note
-import ru.taurlom.tnote.domain.model.ThemeKind
-import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
-import ru.taurlom.tnote.domain.repository.BackupImportException
-import ru.taurlom.tnote.domain.repository.DocumentRepository
-import ru.taurlom.tnote.domain.repository.NoteRepository
-import ru.taurlom.tnote.domain.repository.SettingsRepository
-import java.io.File
-import java.util.Base64
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -38,6 +22,22 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import ru.taurlom.tnote.data.local.AppDatabase
+import ru.taurlom.tnote.data.local.AppDatabaseMigration
+import ru.taurlom.tnote.domain.model.AppFont
+import ru.taurlom.tnote.domain.model.Document
+import ru.taurlom.tnote.domain.model.Note
+import ru.taurlom.tnote.domain.model.ThemeKind
+import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
+import ru.taurlom.tnote.domain.repository.BackupImportException
+import ru.taurlom.tnote.domain.repository.DocumentRepository
+import ru.taurlom.tnote.domain.repository.NoteRepository
+import ru.taurlom.tnote.domain.repository.SettingsRepository
+import java.io.File
+import java.util.Base64
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 /**
  * Интеграционные тесты резервных копий на JVM (Robolectric): реальный
@@ -75,7 +75,11 @@ class BackupRepositoryImplTest {
     private val notes = FakeNoteRepository()
 
     private val repository = BackupRepositoryImpl(
-        context, database, settings, documents, notes
+        context,
+        database,
+        settings,
+        documents,
+        notes,
     )
 
     /** Схема, о которой отчитывается открытое подключение (сейчас 16). */
@@ -96,12 +100,12 @@ class BackupRepositoryImplTest {
         seedLiveState(
             dbBytes,
             docPhotos = mapOf("a.jpg" to "doc-a", "orphan.jpg" to "orphan"),
-            notePhotos = mapOf("n.jpg" to "note-n")
+            notePhotos = mapOf("n.jpg" to "note-n"),
         )
         // База ссылается на a.jpg и несуществующий lost.jpg; orphan.jpg
         // на диске есть, но ссылок на него нет.
         documents.items = listOf(
-            Document(photoPaths = listOf("$DOC_PHOTOS/a.jpg", "$DOC_PHOTOS/lost.jpg"), createdAt = 0L)
+            Document(photoPaths = listOf("$DOC_PHOTOS/a.jpg", "$DOC_PHOTOS/lost.jpg"), createdAt = 0L),
         )
         notes.items = listOf(Note(title = "n", createdAt = 0L, photoPaths = listOf("$NOTE_PHOTOS/n.jpg")))
 
@@ -162,14 +166,14 @@ class BackupRepositoryImplTest {
     fun `import replaces live files and applies settings from the manifest`() {
         seedLiveState(
             docPhotos = mapOf("old.jpg" to "old-doc"),
-            notePhotos = mapOf("old-note.jpg" to "old-note")
+            notePhotos = mapOf("old-note.jpg" to "old-note"),
         )
         val backupDb = sqliteBytes(currentSchema, "backup-db")
         val source = backupZip(
             MANIFEST to manifest(),
             DB_ENTRY to backupDb,
             "$DOC_PHOTOS/new.jpg" to "new-doc".toByteArray(),
-            "$NOTE_PHOTOS/n.jpg" to "new-note".toByteArray()
+            "$NOTE_PHOTOS/n.jpg" to "new-note".toByteArray(),
         )
 
         val summary = runBlocking { repository.importBackup(source) }
@@ -197,7 +201,7 @@ class BackupRepositoryImplTest {
     fun `archive without manifest is not a backup and changes nothing`() {
         seedLiveState(
             docPhotos = mapOf("old.jpg" to "old"),
-            notePhotos = mapOf("n.jpg" to "note")
+            notePhotos = mapOf("n.jpg" to "note"),
         )
         val before = liveSnapshot()
         val source = backupZip(DB_ENTRY to sqliteBytes(currentSchema, "db"))
@@ -216,7 +220,7 @@ class BackupRepositoryImplTest {
         val before = liveSnapshot()
         val source = backupZip(
             MANIFEST to manifest(formatVersion = 2),
-            DB_ENTRY to sqliteBytes(currentSchema, "db")
+            DB_ENTRY to sqliteBytes(currentSchema, "db"),
         )
 
         failsWith<BackupImportException.UnsupportedFormat> {
@@ -231,7 +235,7 @@ class BackupRepositoryImplTest {
         val before = liveSnapshot()
         val source = backupZip(
             MANIFEST to manifest(),
-            "$DOC_PHOTOS/a.jpg" to "a".toByteArray()
+            "$DOC_PHOTOS/a.jpg" to "a".toByteArray(),
         )
 
         failsWith<BackupImportException.NoDatabase> {
@@ -246,7 +250,7 @@ class BackupRepositoryImplTest {
         val before = liveSnapshot()
         val source = backupZip(
             MANIFEST to manifest(),
-            DB_ENTRY to "definitely not sqlite".toByteArray()
+            DB_ENTRY to "definitely not sqlite".toByteArray(),
         )
 
         failsWith<BackupImportException.InvalidDatabase> {
@@ -261,7 +265,7 @@ class BackupRepositoryImplTest {
         val before = liveSnapshot()
         val source = backupZip(
             MANIFEST to manifest(),
-            DB_ENTRY to sqliteBytes(currentSchema + 1, "from-the-future")
+            DB_ENTRY to sqliteBytes(currentSchema + 1, "from-the-future"),
         )
 
         val error = failsWith<BackupImportException.NewerSchema> {
@@ -280,7 +284,7 @@ class BackupRepositoryImplTest {
         val before = liveSnapshot()
         val source = backupZip(
             MANIFEST to manifest(),
-            DB_ENTRY to sqliteBytes(AppDatabaseMigration.MIN_SUPPORTED_VERSION - 1, "ancient")
+            DB_ENTRY to sqliteBytes(AppDatabaseMigration.MIN_SUPPORTED_VERSION - 1, "ancient"),
         )
 
         failsWith<BackupImportException.UnsupportedSchema> {
@@ -334,7 +338,7 @@ class BackupRepositoryImplTest {
             MANIFEST to manifest(),
             DB_ENTRY to sqliteBytes(currentSchema, "db"),
             "$DOC_PHOTOS/../../escaped-doc.jpg" to "evil".toByteArray(),
-            "$NOTE_PHOTOS/../../../escaped-note.jpg" to "evil".toByteArray()
+            "$NOTE_PHOTOS/../../../escaped-note.jpg" to "evil".toByteArray(),
         )
 
         // Импорт не падает: злонамеренные имена не ломают распаковку…
@@ -359,7 +363,7 @@ class BackupRepositoryImplTest {
     fun `failure after the swap rolls live data back byte for byte`() {
         seedLiveState(
             docPhotos = mapOf("old.jpg" to "old-doc"),
-            notePhotos = mapOf("old-note.jpg" to "old-note")
+            notePhotos = mapOf("old-note.jpg" to "old-note"),
         )
         val before = liveSnapshot()
         // Подмена файлов уже прошла, а применение настроек падает —
@@ -369,7 +373,7 @@ class BackupRepositoryImplTest {
             MANIFEST to manifest(),
             DB_ENTRY to sqliteBytes(currentSchema, "backup-db"),
             "$DOC_PHOTOS/new.jpg" to "new".toByteArray(),
-            "$NOTE_PHOTOS/n.jpg" to "n".toByteArray()
+            "$NOTE_PHOTOS/n.jpg" to "n".toByteArray(),
         )
 
         failsWith<IllegalStateException> {
@@ -411,13 +415,13 @@ class BackupRepositoryImplTest {
         assertNull(
             runBlocking {
                 repository.describeBackup(backupZip(DB_ENTRY to sqliteBytes(currentSchema, "db")))
-            }
+            },
         )
         // Битый JSON в манифесте — тоже «не копия».
         assertNull(
             runBlocking {
                 repository.describeBackup(backupZip(MANIFEST to "not json{{".toByteArray()))
-            }
+            },
         )
         // Недоступный файл — честная ошибка: сказать «не копия» про
         // файл, который не удалось открыть, значило бы соврать.
@@ -447,7 +451,7 @@ class BackupRepositoryImplTest {
             .optJSONArray("visibleSections")!!
         assertEquals(
             listOf("notes", "tasks", "calendar"),
-            (0 until packed.length()).map { packed.optString(it) }
+            (0 until packed.length()).map { packed.optString(it) },
         )
 
         runBlocking { repository.importBackup(Uri.fromFile(target)) }
@@ -455,7 +459,7 @@ class BackupRepositoryImplTest {
         // И восстановлен через репозиторий, а не файлом DataStore.
         assertEquals(
             listOf(listOf("notes", "tasks", "calendar")),
-            settings.appliedSections
+            settings.appliedSections,
         )
         assertEquals(listOf("notes", "tasks", "calendar"), settings.sections.value)
     }
@@ -467,7 +471,7 @@ class BackupRepositoryImplTest {
         // manifest() не пишет visibleSections — формат копий 1.15.0.
         val source = backupZip(
             MANIFEST to manifest(),
-            DB_ENTRY to sqliteBytes(currentSchema, "db")
+            DB_ENTRY to sqliteBytes(currentSchema, "db"),
         )
 
         runBlocking { repository.importBackup(source) }
@@ -497,11 +501,11 @@ class BackupRepositoryImplTest {
         }
         assertNotNull(
             "Ожидалась ошибка ${T::class.simpleName}, но блок завершился успешно",
-            thrown
+            thrown,
         )
         assertTrue(
             "Ожидалась ${T::class.simpleName}, пришла ${thrown!!.javaClass.simpleName}",
-            thrown is T
+            thrown is T,
         )
         return thrown as T
     }
@@ -517,23 +521,19 @@ class BackupRepositoryImplTest {
      * Байты кодируются (Base64/UTF-8): массивы в data class-е и Map
      * сравнивались бы по ссылкам, а не по содержимому.
      */
-    private data class LiveState(
-        val db: String,
-        val docPhotos: Map<String, String>,
-        val notePhotos: Map<String, String>
-    )
+    private data class LiveState(val db: String, val docPhotos: Map<String, String>, val notePhotos: Map<String, String>)
 
     private fun liveSnapshot(): LiveState = LiveState(
         db = Base64.getEncoder().encodeToString(liveDbFile().readBytes()),
         docPhotos = docPhotosDir().listFiles()!!.associate { it.name to it.readBytes().decodeToString() },
-        notePhotos = notePhotosDir().listFiles()!!.associate { it.name to it.readBytes().decodeToString() }
+        notePhotos = notePhotosDir().listFiles()!!.associate { it.name to it.readBytes().decodeToString() },
     )
 
     /** Живые файлы на месте: база побайтово, состав фото не изменился. */
     private fun seedLiveState(
         dbBytes: ByteArray = sqliteBytes(currentSchema, "live-db"),
         docPhotos: Map<String, String> = emptyMap(),
-        notePhotos: Map<String, String> = emptyMap()
+        notePhotos: Map<String, String> = emptyMap(),
     ) {
         liveDbFile().parentFile!!.mkdirs()
         liveDbFile().writeBytes(dbBytes)
@@ -557,22 +557,19 @@ class BackupRepositoryImplTest {
     }
 
     /** Копия с валидным манифестом; тема и шрифт отличимы от дефолтных. */
-    private fun manifest(
-        formatVersion: Int = 1,
-        theme: String = ThemeKind.OCEAN.name,
-        font: String = AppFont.RUBIK.name
-    ): ByteArray = JSONObject()
-        .put("formatVersion", formatVersion)
-        .put("appVersionName", "1.15.0-test")
-        .put("createdAt", 123_456L)
-        .put("photos", 2)
-        .put("notePhotos", 1)
-        .put("missingPhotos", JSONArray())
-        .put("orphanPhotos", 0)
-        .put("theme", theme)
-        .put("font", font)
-        .toString(2)
-        .toByteArray()
+    private fun manifest(formatVersion: Int = 1, theme: String = ThemeKind.OCEAN.name, font: String = AppFont.RUBIK.name): ByteArray =
+        JSONObject()
+            .put("formatVersion", formatVersion)
+            .put("appVersionName", "1.15.0-test")
+            .put("createdAt", 123_456L)
+            .put("photos", 2)
+            .put("notePhotos", 1)
+            .put("missingPhotos", JSONArray())
+            .put("orphanPhotos", 0)
+            .put("theme", theme)
+            .put("font", font)
+            .toString(2)
+            .toByteArray()
 
     /** Архив-копия из записей «имя → байты». */
     private fun backupZip(vararg entries: Pair<String, ByteArray>): Uri {
@@ -621,7 +618,7 @@ class BackupRepositoryImplTest {
     private fun assertNoSwapLeftovers() {
         val roots = listOfNotNull(
             context.filesDir,
-            liveDbFile().parentFile?.takeIf { it.exists() }
+            liveDbFile().parentFile?.takeIf { it.exists() },
         )
         roots.flatMap { it.walkTopDown().toList() }
             .filter { it.name.endsWith(".import-old") || it.name.endsWith(".import-new") }
@@ -687,26 +684,19 @@ class BackupRepositoryImplTest {
 
         override fun getAll(): Flow<List<Document>> = flowOf(items)
 
-        override fun getById(id: Long): Flow<Document?> =
-            error("не используется тестами копий")
+        override fun getById(id: Long): Flow<Document?> = error("не используется тестами копий")
 
-        override suspend fun getMaxPosition(): Int =
-            error("не используется тестами копий")
+        override suspend fun getMaxPosition(): Int = error("не используется тестами копий")
 
-        override suspend fun insert(document: Document): Long =
-            error("не используется тестами копий")
+        override suspend fun insert(document: Document): Long = error("не используется тестами копий")
 
-        override suspend fun update(document: Document) =
-            error("не используется тестами копий")
+        override suspend fun update(document: Document) = error("не используется тестами копий")
 
-        override suspend fun updatePositions(documents: List<Document>) =
-            error("не используется тестами копий")
+        override suspend fun updatePositions(documents: List<Document>) = error("не используется тестами копий")
 
-        override suspend fun delete(document: Document) =
-            error("не используется тестами копий")
+        override suspend fun delete(document: Document) = error("не используется тестами копий")
 
-        override suspend fun deleteAll() =
-            error("не используется тестами копий")
+        override suspend fun deleteAll() = error("не используется тестами копий")
     }
 
     private class FakeNoteRepository : NoteRepository {
@@ -714,29 +704,21 @@ class BackupRepositoryImplTest {
 
         override fun getAll(): Flow<List<Note>> = flowOf(items)
 
-        override fun getById(id: Long): Flow<Note?> =
-            error("не используется тестами копий")
+        override fun getById(id: Long): Flow<Note?> = error("не используется тестами копий")
 
-        override suspend fun getByIdOnce(id: Long): Note? =
-            error("не используется тестами копий")
+        override suspend fun getByIdOnce(id: Long): Note? = error("не используется тестами копий")
 
-        override suspend fun getMaxPosition(): Int =
-            error("не используется тестами копий")
+        override suspend fun getMaxPosition(): Int = error("не используется тестами копий")
 
-        override suspend fun insert(note: Note): Long =
-            error("не используется тестами копий")
+        override suspend fun insert(note: Note): Long = error("не используется тестами копий")
 
-        override suspend fun update(note: Note) =
-            error("не используется тестами копий")
+        override suspend fun update(note: Note) = error("не используется тестами копий")
 
-        override suspend fun updatePositions(notes: List<Note>) =
-            error("не используется тестами копий")
+        override suspend fun updatePositions(notes: List<Note>) = error("не используется тестами копий")
 
-        override suspend fun delete(note: Note) =
-            error("не используется тестами копий")
+        override suspend fun delete(note: Note) = error("не используется тестами копий")
 
-        override suspend fun deleteAll() =
-            error("не используется тестами копий")
+        override suspend fun deleteAll() = error("не используется тестами копий")
     }
 
     private companion object {

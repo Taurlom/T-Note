@@ -1,13 +1,13 @@
 package ru.taurlom.tnote
 
 import android.app.Application
-import ru.taurlom.tnote.domain.notifications.ReminderScheduler
-import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.notifications.ReminderScheduler
+import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
 import javax.inject.Inject
 
 @HiltAndroidApp

@@ -10,15 +10,15 @@ import javax.inject.Inject
 class AddDocumentUseCase @Inject constructor(
     private val repository: DocumentRepository,
     private val photoSaver: DocumentPhotoSaver,
-    private val clock: Clock
+    private val clock: Clock,
 ) {
     suspend operator fun invoke(document: Document, photoUris: List<Uri> = emptyList()): Long {
         val savedPaths = photoSaver.savePhotos(photoUris)
         return repository.insert(
             document.copy(
                 createdAt = clock.millis(),
-                photoPaths = document.photoPaths + savedPaths
-            )
+                photoPaths = document.photoPaths + savedPaths,
+            ),
         )
     }
 }

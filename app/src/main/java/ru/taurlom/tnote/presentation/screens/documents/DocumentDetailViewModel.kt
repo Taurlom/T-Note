@@ -3,10 +3,6 @@ package ru.taurlom.tnote.presentation.screens.documents
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ru.taurlom.tnote.domain.model.Document
-import ru.taurlom.tnote.domain.usecase.document.DeleteDocumentUseCase
-import ru.taurlom.tnote.domain.usecase.document.GetDocumentByIdUseCase
-import ru.taurlom.tnote.domain.usecase.document.UpdateDocumentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,19 +11,20 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.model.Document
+import ru.taurlom.tnote.domain.usecase.document.DeleteDocumentUseCase
+import ru.taurlom.tnote.domain.usecase.document.GetDocumentByIdUseCase
+import ru.taurlom.tnote.domain.usecase.document.UpdateDocumentUseCase
 import javax.inject.Inject
 
-data class DocumentDetailUiState(
-    val document: Document? = null,
-    val isLoading: Boolean = true
-)
+data class DocumentDetailUiState(val document: Document? = null, val isLoading: Boolean = true)
 
 @HiltViewModel
 class DocumentDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getDocumentByIdUseCase: GetDocumentByIdUseCase,
     private val deleteDocumentUseCase: DeleteDocumentUseCase,
-    private val updateDocumentUseCase: UpdateDocumentUseCase
+    private val updateDocumentUseCase: UpdateDocumentUseCase,
 ) : ViewModel() {
 
     private val documentId: Long = checkNotNull(savedStateHandle["documentId"])
@@ -54,7 +51,7 @@ class DocumentDetailViewModel @Inject constructor(
             onDeleted()
         }
     }
-    
+
     fun updatePhotoPath(oldPath: String, newPath: String) {
         viewModelScope.launch {
             // Свежее чтение из базы внутри use-case: снапшот uiState мог

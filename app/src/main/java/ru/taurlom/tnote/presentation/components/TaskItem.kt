@@ -21,21 +21,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Task
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
 
 @Composable
-fun TaskItem(
-    task: Task,
-    onToggleCompletion: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun TaskItem(task: Task, onToggleCompletion: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val haptics = LocalHapticFeedback.current
 
     // Отметка — главное микродействие списка: короткая вибрация
@@ -56,24 +50,24 @@ fun TaskItem(
             .clickable(onClick = ::toggleWithHaptic)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AppCheckbox(
             checked = task.isCompleted,
             onCheckedChange = { toggleWithHaptic() },
-            onDarkBackground = true
+            onDarkBackground = true,
         )
 
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = task.title,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
+                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
             )
             if (task.description.isNotBlank()) {
                 Text(
@@ -81,7 +75,7 @@ fun TaskItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -91,14 +85,14 @@ fun TaskItem(
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
                     contentDescription = stringResource(R.string.edit),
-                    tint = AppTheme.colors.actionIcon
+                    tint = AppTheme.colors.actionIcon,
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(R.drawable.ic_delete),
                     contentDescription = stringResource(R.string.delete),
-                    tint = AppTheme.colors.actionIcon
+                    tint = AppTheme.colors.actionIcon,
                 )
             }
         }
@@ -108,9 +102,11 @@ fun TaskItem(
 // ── Previews ──
 
 private val previewTask = Task(
-    id = 1, title = "Купить молоко и хлеб",
+    id = 1,
+    title = "Купить молоко и хлеб",
     description = "В магазине у дома, до 20:00",
-    categoryId = 1, createdAt = 0L
+    categoryId = 1,
+    createdAt = 0L,
 )
 
 @Preview(showBackground = true, name = "Активная")
@@ -121,7 +117,7 @@ private fun TaskItemActivePreview() {
             task = previewTask,
             onToggleCompletion = {},
             onEdit = {},
-            onDelete = {}
+            onDelete = {},
         )
     }
 }
@@ -134,7 +130,7 @@ private fun TaskItemCompletedPreview() {
             task = previewTask.copy(isCompleted = true, description = ""),
             onToggleCompletion = {},
             onEdit = {},
-            onDelete = {}
+            onDelete = {},
         )
     }
 }

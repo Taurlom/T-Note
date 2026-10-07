@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.pm.PackageInfoCompat
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.AppFont
@@ -70,13 +69,13 @@ internal fun SettingsContent(
     onShowTimeDialogChange: (Boolean) -> Unit,
     showRestartDialog: Boolean,
     onPendingImportUriChange: (Uri?) -> Unit,
-    restartApp: () -> Unit
+    restartApp: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
     ) {
         // ── Внешний вид ──
         SectionTitle(stringResource(R.string.font_label))
@@ -89,12 +88,12 @@ internal fun SettingsContent(
                     text = font.displayName,
                     fontFamily = font.fontFamily,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.dialogContent
+                    color = AppTheme.colors.dialogContent,
                 )
             },
             onSelect = { viewModel.applyFont(it) },
             onDarkBackground = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -107,12 +106,12 @@ internal fun SettingsContent(
                 Text(
                     text = stringResource(theme.labelRes),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.dialogContent
+                    color = AppTheme.colors.dialogContent,
                 )
             },
             onSelect = { viewModel.applyTheme(it) },
             onDarkBackground = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -125,12 +124,12 @@ internal fun SettingsContent(
                 Text(
                     text = stringResource(language.labelRes),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.dialogContent
+                    color = AppTheme.colors.dialogContent,
                 )
             },
             onSelect = { viewModel.applyLanguage(it) },
             onDarkBackground = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         // ── Календарь ──
@@ -139,18 +138,18 @@ internal fun SettingsContent(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.reminders_switch_title),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
                     text = stringResource(R.string.reminders_switch_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -161,17 +160,17 @@ internal fun SettingsContent(
                     viewModel.applyRemindersEnabled(enabled)
                     if (enabled && Build.VERSION.SDK_INT >= 33 && notificationsBlocked) {
                         notificationPermissionLauncher.launch(
-                            Manifest.permission.POST_NOTIFICATIONS
+                            Manifest.permission.POST_NOTIFICATIONS,
                         )
                     }
-                }
+                },
             )
         }
         if (uiState.remindersEnabled && notificationsBlocked) {
             Text(
                 text = stringResource(R.string.reminders_blocked_hint),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -179,20 +178,20 @@ internal fun SettingsContent(
         AppButton(
             onClick = { onShowTimeDialogChange(true) },
             enabled = uiState.remindersEnabled,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
                 stringResource(
                     R.string.reminders_time_value,
-                    formatReminderTime(uiState.reminderTimeMinutes)
-                )
+                    formatReminderTime(uiState.reminderTimeMinutes),
+                ),
             )
         }
         if (uiState.remindersEnabled) {
             Text(
                 text = stringResource(R.string.reminders_battery_hint),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -200,7 +199,7 @@ internal fun SettingsContent(
         AppTextButton(
             onClick = { onShowClearDialogChange(true) },
             textRes = R.string.clear_calendar,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         // ── Резервная копия ──
@@ -213,17 +212,17 @@ internal fun SettingsContent(
                 },
                 textRes = R.string.backup_export,
                 enabled = !uiState.isBackupBusy,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             AppTextButton(
                 onClick = {
                     importLauncher.launch(
-                        arrayOf("application/zip", "application/octet-stream")
+                        arrayOf("application/zip", "application/octet-stream"),
                     )
                 },
                 textRes = R.string.backup_import,
                 enabled = !uiState.isBackupBusy,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
         }
 
@@ -232,7 +231,7 @@ internal fun SettingsContent(
         AppTextButton(
             onClick = { viewModel.openSectionsDialog() },
             textRes = R.string.sections_button,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         // ── Версия ──
@@ -244,13 +243,13 @@ internal fun SettingsContent(
                 context.getString(
                     R.string.app_version,
                     info.versionName ?: "?",
-                    PackageInfoCompat.getLongVersionCode(info)
+                    PackageInfoCompat.getLongVersionCode(info),
                 )
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
         // ── Диалоги внутри Column ──
@@ -263,7 +262,7 @@ internal fun SettingsContent(
                 onConfirm = {
                     viewModel.clearCalendar()
                     onShowClearDialogChange(false)
-                }
+                },
             )
         }
 
@@ -271,7 +270,7 @@ internal fun SettingsContent(
             val timeState = rememberTimePickerState(
                 initialHour = uiState.reminderTimeMinutes / 60,
                 initialMinute = uiState.reminderTimeMinutes % 60,
-                is24Hour = true
+                is24Hour = true,
             )
             AppDialog(
                 title = stringResource(R.string.reminders_time_dialog_title),
@@ -280,16 +279,16 @@ internal fun SettingsContent(
                     AppTextButton(
                         onClick = {
                             viewModel.applyReminderTime(
-                                timeState.hour * 60 + timeState.minute
+                                timeState.hour * 60 + timeState.minute,
                             )
                             onShowTimeDialogChange(false)
                         },
-                        textRes = R.string.done
+                        textRes = R.string.done,
                     )
                 },
                 text = {
                     AppTimePicker(state = timeState)
-                }
+                },
             )
         }
 
@@ -304,7 +303,7 @@ internal fun SettingsContent(
                     Text(
                         text = stringResource(R.string.backup_import_confirm_text),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = AppTheme.colors.dialogContent
+                        color = AppTheme.colors.dialogContent,
                     )
                     pendingImport?.let { meta ->
                         Text(
@@ -313,17 +312,17 @@ internal fun SettingsContent(
                                     R.string.backup_import_meta_missing,
                                     formatDateTime(meta.createdAt),
                                     meta.photos,
-                                    meta.missingPhotos
+                                    meta.missingPhotos,
                                 )
                             } else {
                                 stringResource(
                                     R.string.backup_import_meta,
                                     formatDateTime(meta.createdAt),
-                                    meta.photos
+                                    meta.photos,
                                 )
                             },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = AppTheme.colors.dialogContentMuted
+                            color = AppTheme.colors.dialogContentMuted,
                         )
                     }
                 },
@@ -334,9 +333,9 @@ internal fun SettingsContent(
                             viewModel.dismissPendingImport()
                             viewModel.importBackup(uri)
                         },
-                        textRes = R.string.backup_restore
+                        textRes = R.string.backup_restore,
                     )
-                }
+                },
             )
         }
 
@@ -348,15 +347,15 @@ internal fun SettingsContent(
                     Text(
                         text = stringResource(R.string.backup_restart_text),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = AppTheme.colors.dialogContent
+                        color = AppTheme.colors.dialogContent,
                     )
                 },
                 confirmButton = {
                     AppTextButton(
                         onClick = restartApp,
-                        textRes = R.string.backup_restart_action
+                        textRes = R.string.backup_restart_action,
                     )
-                }
+                },
             )
         }
     }
@@ -368,14 +367,12 @@ private fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
-        color = AppTheme.colors.sectionTitle
+        color = AppTheme.colors.sectionTitle,
     )
     Spacer(modifier = Modifier.height(8.dp))
 }
 
-private fun formatDateTime(millis: Long): String =
-    SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(millis)
+private fun formatDateTime(millis: Long): String = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(millis)
 
 /** «09:00» из минут от полуночи. Локаль фиксирована — разрядность и разделитель стабильны. */
-private fun formatReminderTime(minutes: Int): String =
-    String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60)
+private fun formatReminderTime(minutes: Int): String = String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60)

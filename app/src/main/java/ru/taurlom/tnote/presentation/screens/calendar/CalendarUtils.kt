@@ -43,7 +43,7 @@ fun CalendarYearMonth.plusMonths(delta: Int): CalendarYearMonth {
     }
     return CalendarYearMonth(
         year = calendar.get(Calendar.YEAR),
-        month = calendar.get(Calendar.MONTH) + 1
+        month = calendar.get(Calendar.MONTH) + 1,
     )
 }
 
@@ -67,5 +67,4 @@ fun CalendarYearMonth.firstDayOfWeekOffset(): Int {
     return if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
 }
 
-fun CalendarYearMonth.monthPrefix(): String =
-    String.format(Locale.US, "%04d-%02d%%", year, month)
+fun CalendarYearMonth.monthPrefix(): String = String.format(Locale.US, "%04d-%02d%%", year, month)

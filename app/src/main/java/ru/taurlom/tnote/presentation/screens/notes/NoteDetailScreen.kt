@@ -41,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -72,10 +71,7 @@ private const val MAX_NOTE_PHOTOS = 10
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NoteDetailScreen(
-    onBackClick: () -> Unit,
-    viewModel: NoteDetailViewModel = hiltViewModel()
-) {
+fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val note = uiState.note
     val context = LocalContext.current
@@ -109,7 +105,7 @@ fun NoteDetailScreen(
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_NOTE_PHOTOS)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_NOTE_PHOTOS),
     ) { uris ->
         val slots = MAX_NOTE_PHOTOS -
             (editPhotoPaths.size + pendingPhotoUris.size - removedPhotoPaths.size)
@@ -122,7 +118,7 @@ fun NoteDetailScreen(
             AppTopBar(
                 title = when {
                     uiState.isEditing -> stringResource(
-                        if (viewModel.isNew) R.string.add_note else R.string.edit_note
+                        if (viewModel.isNew) R.string.add_note else R.string.edit_note,
                     )
                     else -> note?.title ?: stringResource(R.string.note_detail)
                 },
@@ -135,11 +131,11 @@ fun NoteDetailScreen(
                             } else {
                                 onBackClick()
                             }
-                        }
+                        },
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.back)
+                            contentDescription = stringResource(R.string.back),
                         )
                     }
                 },
@@ -152,41 +148,41 @@ fun NoteDetailScreen(
                                     title = editTitle,
                                     content = editContent.text,
                                     newPhotoUris = pendingPhotoUris.toList(),
-                                    removedPhotoPaths = removedPhotoPaths.toList()
+                                    removedPhotoPaths = removedPhotoPaths.toList(),
                                 ) {
                                     if (viewModel.isNew) onBackClick()
                                 }
-                            }
+                            },
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_check),
                                 contentDescription = stringResource(R.string.save),
-                                tint = AppTheme.colors.actionIcon
+                                tint = AppTheme.colors.actionIcon,
                             )
                         }
                     } else if (note != null) {
                         IconButton(onClick = { viewModel.startEditing() }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_edit),
-                                contentDescription = stringResource(R.string.edit_note)
+                                contentDescription = stringResource(R.string.edit_note),
                             )
                         }
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_delete),
-                                contentDescription = stringResource(R.string.delete)
+                                contentDescription = stringResource(R.string.delete),
                             )
                         }
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
         when {
             uiState.isEditing -> Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(padding),
             ) {
                 // Поля скроллятся, панель форматирования — прижата вниз над
                 // клавиатурой: системный тулбар выделения всплывает НАД
@@ -197,7 +193,7 @@ fun NoteDetailScreen(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp)
+                        .padding(16.dp),
                 ) {
                     AppTextField(
                         value = editTitle,
@@ -206,7 +202,7 @@ fun NoteDetailScreen(
                         singleLine = true,
                         required = true,
                         onDarkBackground = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     AppTextField(
                         value = editContent,
@@ -214,13 +210,13 @@ fun NoteDetailScreen(
                         label = stringResource(R.string.note_content_label),
                         minLines = 10,
                         onDarkBackground = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState()),
                     ) {
                         editPhotoPaths.forEach { path ->
                             NotePhotoThumb(
@@ -229,13 +225,13 @@ fun NoteDetailScreen(
                                 onRemove = {
                                     editPhotoPaths -= path
                                     removedPhotoPaths += path
-                                }
+                                },
                             )
                         }
                         pendingPhotoUris.forEach { uri ->
                             NotePhotoThumb(
                                 model = uri,
-                                onRemove = { pendingPhotoUris -= uri }
+                                onRemove = { pendingPhotoUris -= uri },
                             )
                         }
                         if (editPhotoPaths.size + pendingPhotoUris.size < MAX_NOTE_PHOTOS) {
@@ -247,16 +243,16 @@ fun NoteDetailScreen(
                                     .clickable {
                                         photoPickerLauncher.launch(
                                             PickVisualMediaRequest(
-                                                ActivityResultContracts.PickVisualMedia.ImageOnly
-                                            )
+                                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                            ),
                                         )
                                     },
-                                contentAlignment = Alignment.Center
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_add),
                                     contentDescription = stringResource(R.string.add_photo),
-                                    tint = AppTheme.colors.fieldOnDarkContent
+                                    tint = AppTheme.colors.fieldOnDarkContent,
                                 )
                             }
                         }
@@ -268,7 +264,7 @@ fun NoteDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .imePadding()
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                 )
             }
 
@@ -278,7 +274,7 @@ fun NoteDetailScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(16.dp),
             ) {
                 if (note.content.isNotBlank()) {
                     Box(
@@ -286,13 +282,13 @@ fun NoteDetailScreen(
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.medium)
                             .background(AppTheme.colors.dialogContainer)
-                            .padding(16.dp)
+                            .padding(16.dp),
                     ) {
                         Text(
                             text = Markdown.render(note.content),
                             style = MaterialTheme.typography.bodyLarge,
                             color = AppTheme.colors.dialogContent,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -301,7 +297,7 @@ fun NoteDetailScreen(
                     note.photoPaths.chunked(2).forEachIndexed { rowIndex, rowPaths ->
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             rowPaths.forEachIndexed { colIndex, path ->
                                 val index = rowIndex * 2 + colIndex
@@ -311,7 +307,7 @@ fun NoteDetailScreen(
                                     onClick = { galleryIndex = index },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .aspectRatio(1f)
+                                        .aspectRatio(1f),
                                 )
                             }
                             if (rowPaths.size == 1) {
@@ -324,7 +320,7 @@ fun NoteDetailScreen(
                 Text(
                     text = stringResource(R.string.created_at, note.createdAt.formatDate()),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -335,7 +331,7 @@ fun NoteDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(16.dp),
             )
         }
     }
@@ -347,7 +343,7 @@ fun NoteDetailScreen(
             onDismiss = {
                 galleryIndex = null
                 photoVersion++
-            }
+            },
         )
     }
 
@@ -358,11 +354,9 @@ fun NoteDetailScreen(
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
                 viewModel.deleteNote(onDeleted = onBackClick)
-            }
+            },
         )
     }
 }
 
-private fun Long.formatDate(): String {
-    return SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(this)
-}
+private fun Long.formatDate(): String = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(this)

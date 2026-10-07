@@ -10,45 +10,45 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.theme.AppTheme
-import androidx.compose.ui.tooling.preview.Preview
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
 
 sealed class BottomNavItem(
     /** Стабильный идентификатор для настроек видимости/порядка. */
     val id: String,
     @DrawableRes val iconRes: Int,
-    @StringRes val contentDescriptionRes: Int
+    @StringRes val contentDescriptionRes: Int,
 ) {
     data object Calendar : BottomNavItem(
         "calendar",
         R.drawable.ic_calendar_month,
-        R.string.bottom_nav_calendar
+        R.string.bottom_nav_calendar,
     )
 
     data object Documents : BottomNavItem(
         "documents",
         R.drawable.ic_article_person,
-        R.string.bottom_nav_documents
+        R.string.bottom_nav_documents,
     )
 
     data object Notes : BottomNavItem(
         "notes",
         R.drawable.ic_contract_edit,
-        R.string.bottom_nav_notes
+        R.string.bottom_nav_notes,
     )
 
     data object Settings : BottomNavItem(
         "settings",
         R.drawable.ic_settings,
-        R.string.bottom_nav_settings
+        R.string.bottom_nav_settings,
     )
 
     data object Categories : BottomNavItem(
         "categories",
         R.drawable.ic_list_alt,
-        R.string.bottom_nav_categories
+        R.string.bottom_nav_categories,
     )
 
     companion object {
@@ -92,18 +92,18 @@ fun BottomNavBar(
     items: List<BottomNavItem>,
     selectedItem: BottomNavItem?,
     onItemSelected: (BottomNavItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     NavigationBar(
         containerColor = AppTheme.colors.bottomNavContainer,
-        modifier = modifier
+        modifier = modifier,
     ) {
         items.forEach { item ->
             NavigationBarItem(
                 icon = {
                     Icon(
                         painter = painterResource(item.iconRes),
-                        contentDescription = stringResource(item.contentDescriptionRes)
+                        contentDescription = stringResource(item.contentDescriptionRes),
                     )
                 },
                 selected = selectedItem == item,
@@ -111,8 +111,8 @@ fun BottomNavBar(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = AppTheme.colors.bottomNavActiveIcon,
                     unselectedIconColor = AppTheme.colors.bottomNavInactiveIcon,
-                    indicatorColor = AppTheme.colors.bottomNavIndicator
-                )
+                    indicatorColor = AppTheme.colors.bottomNavIndicator,
+                ),
             )
         }
     }
@@ -127,7 +127,7 @@ private fun BottomNavBarPreview() {
         BottomNavBar(
             items = BottomNavItem.toggleable + BottomNavItem.Settings,
             selectedItem = BottomNavItem.Categories,
-            onItemSelected = {}
+            onItemSelected = {},
         )
     }
 }

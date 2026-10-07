@@ -18,21 +18,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
-import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
-fun DocumentItem(
-    document: Document,
-    onClick: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun DocumentItem(document: Document, onClick: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -41,17 +35,17 @@ fun DocumentItem(
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = document.title,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             if (document.description.isNotBlank()) {
                 Text(
@@ -59,14 +53,14 @@ fun DocumentItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             if (document.photoPaths.isNotEmpty()) {
                 Text(
                     text = "${document.photoPaths.size}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -76,14 +70,14 @@ fun DocumentItem(
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
                     contentDescription = stringResource(R.string.edit_document),
-                    tint = AppTheme.colors.actionIcon
+                    tint = AppTheme.colors.actionIcon,
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(R.drawable.ic_delete),
                     contentDescription = stringResource(R.string.delete),
-                    tint = AppTheme.colors.actionIcon
+                    tint = AppTheme.colors.actionIcon,
                 )
             }
         }
@@ -93,9 +87,11 @@ fun DocumentItem(
 // ── Previews ──
 
 private val previewDocument = Document(
-    id = 1, title = "Паспорт",
+    id = 1,
+    title = "Паспорт",
     description = "Основной разворот, прописка",
-    createdAt = 0L, position = 0
+    createdAt = 0L,
+    position = 0,
 )
 
 @Preview(showBackground = true, name = "Без фото")
@@ -112,7 +108,9 @@ private fun DocumentItemWithPhotoPreview() {
     TNoteTheme {
         DocumentItem(
             document = previewDocument.copy(photoPaths = listOf("doc/a.jpg", "doc/b.jpg")),
-            onClick = {}, onEdit = {}, onDelete = {}
+            onClick = {},
+            onEdit = {},
+            onDelete = {},
         )
     }
 }

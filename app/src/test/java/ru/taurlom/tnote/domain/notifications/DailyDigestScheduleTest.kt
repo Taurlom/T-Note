@@ -12,8 +12,7 @@ class DailyDigestScheduleTest {
 
     private val zone: ZoneId = ZoneId.of("Europe/Moscow")
 
-    private fun at(isoDate: String, hour: Int, minute: Int = 0): ZonedDateTime =
-        LocalDate.parse(isoDate).atTime(hour, minute).atZone(zone)
+    private fun at(isoDate: String, hour: Int, minute: Int = 0): ZonedDateTime = LocalDate.parse(isoDate).atTime(hour, minute).atZone(zone)
 
     // nextDigestTime
 

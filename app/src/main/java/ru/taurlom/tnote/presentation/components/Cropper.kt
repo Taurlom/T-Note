@@ -56,7 +56,7 @@ internal fun Cropper(
     refreshKey: Int,
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
-    onCropComplete: (Bitmap) -> Unit
+    onCropComplete: (Bitmap) -> Unit,
 ) {
     var photo by remember { mutableStateOf<SampledPhoto?>(null) }
     var decoding by remember { mutableStateOf(false) }
@@ -85,15 +85,15 @@ internal fun Cropper(
                 left = bmp.width * 0.1f,
                 top = bmp.height * 0.1f,
                 right = bmp.width * 0.9f,
-                bottom = bmp.height * 0.9f
-            )
+                bottom = bmp.height * 0.9f,
+            ),
         )
     }
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.Black),
     ) {
         val containerWidth = constraints.maxWidth.toFloat()
         val containerHeight = constraints.maxHeight.toFloat()
@@ -105,18 +105,18 @@ internal fun Cropper(
             bitmap = bmp.asImageBitmap(),
             contentDescription = stringResource(R.string.crop),
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         )
 
         // Затемнение вне рамки, сама рамка, сетка третей и ручки
         Canvas(modifier = Modifier.fillMaxSize()) {
             val tl = Offset(
                 contentLeft + selection.left * scale,
-                contentTop + selection.top * scale
+                contentTop + selection.top * scale,
             )
             val br = Offset(
                 contentLeft + selection.right * scale,
-                contentTop + selection.bottom * scale
+                contentTop + selection.bottom * scale,
             )
             val w = br.x - tl.x
             val h = br.y - tl.y
@@ -153,7 +153,7 @@ internal fun Cropper(
                         left = contentLeft + selection.left * scale,
                         top = contentTop + selection.top * scale,
                         right = contentLeft + selection.right * scale,
-                        bottom = contentTop + selection.bottom * scale
+                        bottom = contentTop + selection.bottom * scale,
                     )
 
                     detectDragGestures(
@@ -164,15 +164,17 @@ internal fun Cropper(
                                 CropDragMode.TopLeft to Offset(view.left, view.top),
                                 CropDragMode.TopRight to Offset(view.right, view.top),
                                 CropDragMode.BottomLeft to Offset(view.left, view.bottom),
-                                CropDragMode.BottomRight to Offset(view.right, view.bottom)
+                                CropDragMode.BottomRight to Offset(view.right, view.bottom),
                             )
                             val corner = corners.minByOrNull { (_, pos) ->
                                 (pos - start).getDistance()
                             }
                             mode = when {
                                 corner != null && (corner.second - start).getDistance() <= slop -> corner.first
-                                start.x >= view.left && start.x <= view.right &&
-                                    start.y >= view.top && start.y <= view.bottom -> CropDragMode.Move
+                                start.x >= view.left &&
+                                    start.x <= view.right &&
+                                    start.y >= view.top &&
+                                    start.y <= view.bottom -> CropDragMode.Move
                                 else -> CropDragMode.None
                             }
                         },
@@ -192,30 +194,33 @@ internal fun Cropper(
                                 CropDragMode.TopLeft -> CropRect(
                                     (sel.left + dx).coerceIn(0f, sel.right - CROP_MIN_SELECTION_PX),
                                     (sel.top + dy).coerceIn(0f, sel.bottom - CROP_MIN_SELECTION_PX),
-                                    sel.right, sel.bottom
+                                    sel.right,
+                                    sel.bottom,
                                 )
                                 CropDragMode.TopRight -> CropRect(
                                     sel.left,
                                     (sel.top + dy).coerceIn(0f, sel.bottom - CROP_MIN_SELECTION_PX),
                                     (sel.right + dx).coerceIn(sel.left + CROP_MIN_SELECTION_PX, imgW),
-                                    sel.bottom
+                                    sel.bottom,
                                 )
                                 CropDragMode.BottomLeft -> CropRect(
                                     (sel.left + dx).coerceIn(0f, sel.right - CROP_MIN_SELECTION_PX),
-                                    sel.top, sel.right,
-                                    (sel.bottom + dy).coerceIn(sel.top + CROP_MIN_SELECTION_PX, imgH)
+                                    sel.top,
+                                    sel.right,
+                                    (sel.bottom + dy).coerceIn(sel.top + CROP_MIN_SELECTION_PX, imgH),
                                 )
                                 CropDragMode.BottomRight -> CropRect(
-                                    sel.left, sel.top,
+                                    sel.left,
+                                    sel.top,
                                     (sel.right + dx).coerceIn(sel.left + CROP_MIN_SELECTION_PX, imgW),
-                                    (sel.bottom + dy).coerceIn(sel.top + CROP_MIN_SELECTION_PX, imgH)
+                                    (sel.bottom + dy).coerceIn(sel.top + CROP_MIN_SELECTION_PX, imgH),
                                 )
                             }
                         },
                         onDragEnd = { mode = CropDragMode.None },
-                        onDragCancel = { mode = CropDragMode.None }
+                        onDragCancel = { mode = CropDragMode.None },
                     )
-                }
+                },
         )
 
         // Кнопки подтверждения/отмены
@@ -224,7 +229,7 @@ internal fun Cropper(
                 .align(Alignment.BottomCenter)
                 .padding(16.dp)
                 .fillMaxWidth(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 IconButton(onClick = onDismiss) {
@@ -232,7 +237,7 @@ internal fun Cropper(
                         painter = painterResource(R.drawable.ic_close),
                         contentDescription = stringResource(R.string.cancel),
                         tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(48.dp),
                     )
                 }
 
@@ -251,13 +256,13 @@ internal fun Cropper(
                             }
                             if (cropped != null) onCropComplete(cropped)
                         }
-                    }
+                    },
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_check),
                         contentDescription = "Confirm",
                         tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(48.dp),
                     )
                 }
             }

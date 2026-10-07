@@ -8,10 +8,10 @@ import android.graphics.BitmapFactory
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
 import ru.taurlom.tnote.MainActivity
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.ScheduledEvent
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,9 +26,7 @@ import javax.inject.Singleton
  * приложения, а не нарушение слоёв.
  */
 @Singleton
-class DailyDigestNotifier @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
+class DailyDigestNotifier @Inject constructor(@ApplicationContext private val context: Context) {
 
     fun postDailyDigest(events: List<ScheduledEvent>) {
         if (events.isEmpty()) return
@@ -42,7 +40,7 @@ class DailyDigestNotifier @Inject constructor(
         manager.createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
                 .setName(context.getString(R.string.digest_notification_channel))
-                .build()
+                .build(),
         )
 
         val titles = events.map { it.title }
@@ -53,7 +51,7 @@ class DailyDigestNotifier @Inject constructor(
             Intent(context, MainActivity::class.java)
                 .putExtra(MainActivity.EXTRA_OPEN_CALENDAR, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             // Фирменный глиф (ic_small_icon.xml, конвертация из
@@ -63,12 +61,12 @@ class DailyDigestNotifier @Inject constructor(
             // Цветной логотип — «большая» иконка слева в уведомлении.
             .setLargeIcon(decodeLargeIcon())
             .setContentTitle(
-                context.resources.getQuantityString(R.plurals.digest_notification_title, count, count)
+                context.resources.getQuantityString(R.plurals.digest_notification_title, count, count),
             )
             // Свёрнутое — одна строка с перечислением; развёрнутое — список.
             .setContentText(titles.joinToString(", "))
             .setStyle(
-                NotificationCompat.BigTextStyle().bigText(titles.joinToString("\n"))
+                NotificationCompat.BigTextStyle().bigText(titles.joinToString("\n")),
             )
             .setContentIntent(openCalendar)
             .setAutoCancel(true)

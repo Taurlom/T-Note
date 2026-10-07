@@ -1,11 +1,11 @@
 package ru.taurlom.tnote.data.notifications
 
-import ru.taurlom.tnote.domain.repository.SettingsRepository
-import ru.taurlom.tnote.domain.usecase.GetEventsForDateUseCase
-import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import ru.taurlom.tnote.domain.repository.SettingsRepository
+import ru.taurlom.tnote.domain.usecase.GetEventsForDateUseCase
+import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
 
 /**
  * Доступ к графу Hilt из воркера. WorkManager создаёт воркеров своей

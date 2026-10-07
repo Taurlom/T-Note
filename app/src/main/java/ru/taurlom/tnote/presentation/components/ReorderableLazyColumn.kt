@@ -41,7 +41,7 @@ fun <T> ReorderableLazyColumn(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
-    itemContent: @Composable LazyItemScope.(T, Boolean) -> Unit
+    itemContent: @Composable LazyItemScope.(T, Boolean) -> Unit,
 ) {
     val lazyListState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
@@ -63,11 +63,11 @@ fun <T> ReorderableLazyColumn(
         state = lazyListState,
         modifier = modifier,
         contentPadding = contentPadding,
-        verticalArrangement = verticalArrangement
+        verticalArrangement = verticalArrangement,
     ) {
         itemsIndexed(
             items = currentItems,
-            key = { _, item -> key(item) }
+            key = { _, item -> key(item) },
         ) { index, item ->
             val currentIndex by rememberUpdatedState(index)
             val currentItem by rememberUpdatedState(item)
@@ -120,7 +120,7 @@ fun <T> ReorderableLazyColumn(
                                 // «звенеть» на отпускание.
                                 if (currentItems != latestItems) {
                                     haptics.performHapticFeedback(
-                                        HapticFeedbackType.LongPress
+                                        HapticFeedbackType.LongPress,
                                     )
                                 }
                                 onReorder(currentItems)
@@ -131,7 +131,7 @@ fun <T> ReorderableLazyColumn(
                                 currentItems = latestItems
                                 draggingItemIndex = -1
                                 draggingOffset = 0f
-                            }
+                            },
                         )
                     }
                     .then(
@@ -142,8 +142,8 @@ fun <T> ReorderableLazyColumn(
                                 .shadow(5.dp, MaterialTheme.shapes.small)
                         } else {
                             Modifier.animateItem()
-                        }
-                    )
+                        },
+                    ),
             ) {
                 itemContent(currentItem, isDragging)
             }

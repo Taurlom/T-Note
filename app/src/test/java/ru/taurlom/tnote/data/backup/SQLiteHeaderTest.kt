@@ -1,9 +1,9 @@
 package ru.taurlom.tnote.data.backup
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.io.File
 
 /**
  * Разбор заголовка SQLite (см. https://www.sqlite.org/fileformat2.html):
@@ -24,8 +24,7 @@ class SQLiteHeaderTest {
         return bytes
     }
 
-    private fun tempFile(): File =
-        File.createTempFile("sqlite_header", ".db").apply { deleteOnExit() }
+    private fun tempFile(): File = File.createTempFile("sqlite_header", ".db").apply { deleteOnExit() }
 
     @Test
     fun `user_version reads from header`() {

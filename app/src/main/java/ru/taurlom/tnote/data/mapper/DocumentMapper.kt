@@ -10,7 +10,7 @@ fun DocumentEntity.toDomain(photos: List<DocumentPhotoEntity>): Document = Docum
     description = description,
     photoPaths = photos.sortedBy { it.orderIndex }.map { it.photoPath },
     createdAt = createdAt,
-    position = position
+    position = position,
 )
 
 fun Document.toEntity(): DocumentEntity = DocumentEntity(
@@ -18,14 +18,13 @@ fun Document.toEntity(): DocumentEntity = DocumentEntity(
     title = title,
     description = description,
     createdAt = createdAt,
-    position = position
+    position = position,
 )
 
-fun Document.toPhotoEntities(startOrderIndex: Int = 0): List<DocumentPhotoEntity> =
-    photoPaths.mapIndexed { index, path ->
-        DocumentPhotoEntity(
-            documentId = id,
-            photoPath = path,
-            orderIndex = startOrderIndex + index
-        )
-    }
+fun Document.toPhotoEntities(startOrderIndex: Int = 0): List<DocumentPhotoEntity> = photoPaths.mapIndexed { index, path ->
+    DocumentPhotoEntity(
+        documentId = id,
+        photoPath = path,
+        orderIndex = startOrderIndex + index,
+    )
+}

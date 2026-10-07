@@ -14,11 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
-import ru.taurlom.tnote.presentation.theme.AppTheme
 import androidx.compose.ui.tooling.preview.Preview
-import ru.taurlom.tnote.presentation.theme.TNoteTheme
+import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
+import ru.taurlom.tnote.presentation.theme.AppTheme
+import ru.taurlom.tnote.presentation.theme.TNoteTheme
 
 /**
  * Флажок. Правило дизайн-системы: на тёмном фоне — золотой (secondary),
@@ -31,7 +31,7 @@ fun AppCheckbox(
     onCheckedChange: ((Boolean) -> Unit)?,
     onDarkBackground: Boolean,
     modifier: Modifier = Modifier,
-    uncheckedColor: Color = AppTheme.colors.dialogContentMuted
+    uncheckedColor: Color = AppTheme.colors.dialogContentMuted,
 ) {
     val scheme = MaterialTheme.colorScheme
     Checkbox(
@@ -42,26 +42,20 @@ fun AppCheckbox(
             CheckboxDefaults.colors(
                 checkedColor = scheme.secondary,
                 checkmarkColor = scheme.primary,
-                uncheckedColor = scheme.secondary
+                uncheckedColor = scheme.secondary,
             )
         } else {
             CheckboxDefaults.colors(
                 checkedColor = scheme.primary,
-                uncheckedColor = uncheckedColor
+                uncheckedColor = uncheckedColor,
             )
-        }
+        },
     )
 }
 
 /** Выборочный чип с иконкой — единый стиль для групп переключателей. */
 @Composable
-fun AppFilterChip(
-    selected: Boolean,
-    onClick: () -> Unit,
-    label: String,
-    @DrawableRes iconRes: Int,
-    modifier: Modifier = Modifier
-) {
+fun AppFilterChip(selected: Boolean, onClick: () -> Unit, label: String, @DrawableRes iconRes: Int, modifier: Modifier = Modifier) {
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -71,10 +65,10 @@ fun AppFilterChip(
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = null,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(16.dp),
             )
         },
-        colors = appChipColors()
+        colors = appChipColors(),
     )
 }
 
@@ -88,7 +82,7 @@ fun appChipColors(): SelectableChipColors {
         selectedLeadingIconColor = colors.chipSelectedContent,
         containerColor = colors.chipContainer,
         labelColor = colors.chipContent,
-        iconColor = colors.chipContent
+        iconColor = colors.chipContent,
     )
 }
 
@@ -118,7 +112,7 @@ private fun AppFilterChipSelectedPreview() {
             selected = true,
             onClick = {},
             label = "Все",
-            iconRes = R.drawable.ic_list_alt
+            iconRes = R.drawable.ic_list_alt,
         )
     }
 }
@@ -131,7 +125,7 @@ private fun AppFilterChipUnselectedPreview() {
             selected = false,
             onClick = {},
             label = "Активные",
-            iconRes = R.drawable.ic_check
+            iconRes = R.drawable.ic_check,
         )
     }
 }

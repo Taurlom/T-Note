@@ -1,10 +1,10 @@
 package ru.taurlom.tnote.domain.usecase
 
-import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -21,7 +21,7 @@ class SetRemindersEnabledUseCaseTest {
         val scheduler = RecordingReminderScheduler()
         val useCase = SetRemindersEnabledUseCase(
             settings,
-            ScheduleNextDailyDigestUseCase(settings, scheduler, clock)
+            ScheduleNextDailyDigestUseCase(settings, scheduler, clock),
         )
         useCase(true)
         assertEquals(true, settings.remindersEnabled.first())
@@ -35,7 +35,7 @@ class SetRemindersEnabledUseCaseTest {
         val scheduler = RecordingReminderScheduler()
         val useCase = SetRemindersEnabledUseCase(
             settings,
-            ScheduleNextDailyDigestUseCase(settings, scheduler, clock)
+            ScheduleNextDailyDigestUseCase(settings, scheduler, clock),
         )
         useCase(false)
         assertEquals(false, settings.remindersEnabled.first())
@@ -54,12 +54,12 @@ class SetReminderTimeUseCaseTest {
     fun `time change reschedules to the new time`() = runBlocking {
         val settings = FakeSettingsRepository(
             remindersEnabled = true,
-            reminderTimeMinutes = 9 * 60
+            reminderTimeMinutes = 9 * 60,
         )
         val scheduler = RecordingReminderScheduler()
         val useCase = SetReminderTimeUseCase(
             settings,
-            ScheduleNextDailyDigestUseCase(settings, scheduler, clock)
+            ScheduleNextDailyDigestUseCase(settings, scheduler, clock),
         )
         useCase(11 * 60 + 15)
         assertEquals(11 * 60 + 15, settings.reminderTimeMinutes.first())
@@ -76,7 +76,7 @@ class SetReminderTimeUseCaseTest {
         val scheduler = RecordingReminderScheduler()
         val useCase = SetReminderTimeUseCase(
             settings,
-            ScheduleNextDailyDigestUseCase(settings, scheduler, clock)
+            ScheduleNextDailyDigestUseCase(settings, scheduler, clock),
         )
         useCase(12 * 60)
         assertEquals(0, scheduler.scheduled.size)

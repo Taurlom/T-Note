@@ -40,7 +40,7 @@ fun AppDialog(
     modifier: Modifier = Modifier,
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)? = null,
-    text: (@Composable ColumnScope.() -> Unit)? = null
+    text: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -55,7 +55,7 @@ fun AppDialog(
                     // Отступ справа, чтобы заголовок не залезал под крестик.
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(end = 40.dp)
+                        .padding(end = 40.dp),
                 )
                 IconButton(
                     onClick = onDismissRequest,
@@ -64,13 +64,13 @@ fun AppDialog(
                     // точно на линии контента (линии паддинга диалога).
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 13.dp, y = (-13).dp)
+                        .offset(x = 13.dp, y = (-13).dp),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
                         contentDescription = stringResource(R.string.close),
                         tint = AppTheme.colors.dialogContent,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }
@@ -82,11 +82,11 @@ fun AppDialog(
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    content = it
+                    content = it,
                 )
             }
         },
         confirmButton = confirmButton,
-        dismissButton = dismissButton
+        dismissButton = dismissButton,
     )
 }

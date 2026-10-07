@@ -14,11 +14,7 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * создаются. Зеркало [SharedListImportDialog] для текстового шэра.
  */
 @Composable
-fun SharedTextSaveDialog(
-    shared: SharedText,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
+fun SharedTextSaveDialog(shared: SharedText, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AppDialog(
         title = stringResource(R.string.shared_text_import_title),
         onDismissRequest = onDismiss,
@@ -26,18 +22,18 @@ fun SharedTextSaveDialog(
             Text(
                 text = stringResource(R.string.shared_text_import_text, shared.draftTitle()),
                 style = MaterialTheme.typography.bodyLarge,
-                color = AppTheme.colors.dialogContent
+                color = AppTheme.colors.dialogContent,
             )
             // Многострочный шэр: первые строки одной строкой, чтобы диалог
             // не распухал на весь экран.
             Text(
                 text = shared.preview(),
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.dialogContentMuted
+                color = AppTheme.colors.dialogContentMuted,
             )
         },
         confirmButton = {
             AppTextButton(onClick = onConfirm, textRes = R.string.shared_text_save_action)
-        }
+        },
     )
 }

@@ -2,13 +2,7 @@ package ru.taurlom.tnote.presentation.screens.notes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ru.taurlom.tnote.domain.model.Note
-import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
-import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
-import ru.taurlom.tnote.domain.usecase.note.GetNotesUseCase
-import ru.taurlom.tnote.domain.usecase.note.ReorderNotesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,13 +10,19 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.model.Note
+import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
+import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
+import ru.taurlom.tnote.domain.usecase.note.GetNotesUseCase
+import ru.taurlom.tnote.domain.usecase.note.ReorderNotesUseCase
+import javax.inject.Inject
 
 @HiltViewModel
 class NotesViewModel @Inject constructor(
     private val getNotesUseCase: GetNotesUseCase,
     private val addNoteUseCase: AddNoteUseCase,
     private val deleteNoteUseCase: DeleteNoteUseCase,
-    private val reorderNotesUseCase: ReorderNotesUseCase
+    private val reorderNotesUseCase: ReorderNotesUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotesUiState())
@@ -41,7 +41,7 @@ class NotesViewModel @Inject constructor(
             }
             is NotesEvent.OnReorderNotes -> viewModelScope.launch {
                 reorderNotesUseCase(
-                    event.notes.mapIndexed { index, note -> note.copy(position = index) }
+                    event.notes.mapIndexed { index, note -> note.copy(position = index) },
                 )
             }
             is NotesEvent.OnSharedTextReceived -> _uiState.update {
@@ -58,14 +58,14 @@ class NotesViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             incomingSharedText = null,
-                            saveFeedback = NotesFeedback.Saved(title)
+                            saveFeedback = NotesFeedback.Saved(title),
                         )
                     }
                 }.onFailure {
                     _uiState.update {
                         it.copy(
                             incomingSharedText = null,
-                            saveFeedback = NotesFeedback.Failed
+                            saveFeedback = NotesFeedback.Failed,
                         )
                     }
                 }

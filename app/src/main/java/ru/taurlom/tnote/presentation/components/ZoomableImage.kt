@@ -22,13 +22,7 @@ import coil.request.ImageRequest
  * [refreshKey] меняется извне при повороте фото — Coil перезагружает кэш.
  */
 @Composable
-internal fun ZoomableImage(
-    model: Any,
-    contentDescription: String?,
-    refreshKey: Int,
-    modifier: Modifier = Modifier,
-    maxScale: Float = 5f
-) {
+internal fun ZoomableImage(model: Any, contentDescription: String?, refreshKey: Int, modifier: Modifier = Modifier, maxScale: Float = 5f) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
@@ -48,7 +42,7 @@ internal fun ZoomableImage(
                     }
                 }
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -64,8 +58,8 @@ internal fun ZoomableImage(
                     scaleX = scale,
                     scaleY = scale,
                     translationX = offsetX,
-                    translationY = offsetY
-                )
+                    translationY = offsetY,
+                ),
         )
     }
 }

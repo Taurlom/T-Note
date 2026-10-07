@@ -12,10 +12,10 @@ import androidx.room.PrimaryKey
             entity = CategoryEntity::class,
             parentColumns = ["id"],
             childColumns = ["categoryId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("categoryId")]
+    indices = [Index("categoryId")],
 )
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true)
@@ -25,5 +25,5 @@ data class TaskEntity(
     val isCompleted: Boolean,
     val categoryId: Long,
     val createdAt: Long,
-    val position: Int = 0
+    val position: Int = 0,
 )

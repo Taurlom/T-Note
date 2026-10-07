@@ -8,10 +8,7 @@ package ru.taurlom.tnote.domain.model
  * браузеры, например, кладут туда название страницы. [text] — сам текст
  * (EXTRA_TEXT). Аналог [SharedList] для файлового приёма списков.
  */
-data class SharedText(
-    val subject: String?,
-    val text: String
-) {
+data class SharedText(val subject: String?, val text: String) {
 
     /**
      * Заголовок черновика заметки: subject, если источник его дал, иначе

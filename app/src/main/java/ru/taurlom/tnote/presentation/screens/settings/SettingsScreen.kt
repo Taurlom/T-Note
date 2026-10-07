@@ -1,6 +1,5 @@
 package ru.taurlom.tnote.presentation.screens.settings
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -9,7 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
@@ -41,9 +39,7 @@ import kotlin.system.exitProcess
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel()
-) {
+fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -61,15 +57,15 @@ fun SettingsScreen(
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
+        ActivityResultContracts.RequestPermission(),
     ) { granted -> notificationsBlocked = !granted }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/zip")
+        ActivityResultContracts.CreateDocument("application/zip"),
     ) { uri -> uri?.let(viewModel::exportBackup) }
 
     val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        ActivityResultContracts.OpenDocument(),
     ) { uri ->
         uri?.let {
             pendingImportUri = it
@@ -86,7 +82,7 @@ fun SettingsScreen(
                 } else {
                     context.getString(R.string.backup_exported)
                 },
-                Toast.LENGTH_LONG
+                Toast.LENGTH_LONG,
             ).show()
             is BackupResult.Imported -> {
                 showRestartDialog = true
@@ -97,7 +93,7 @@ fun SettingsScreen(
                     } else {
                         context.getString(R.string.backup_imported, result.photos)
                     },
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_LONG,
                 ).show()
             }
             is BackupResult.Failed -> {
@@ -116,7 +112,7 @@ fun SettingsScreen(
                 Toast.makeText(
                     context,
                     context.getString(R.string.backup_error, message),
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_LONG,
                 ).show()
             }
             null -> return@LaunchedEffect
@@ -132,9 +128,9 @@ fun SettingsScreen(
         topBar = {
             AppTopBar(
                 title = stringResource(R.string.settings_title),
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
             )
-        }
+        },
     ) { padding ->
         SettingsContent(
             uiState = uiState,
@@ -151,7 +147,7 @@ fun SettingsScreen(
             onShowTimeDialogChange = { showTimeDialog = it },
             showRestartDialog = showRestartDialog,
             onPendingImportUriChange = { pendingImportUri = it },
-            restartApp = { restartApp(context) }
+            restartApp = { restartApp(context) },
         )
     }
 }

@@ -50,8 +50,7 @@ sealed class BackupImportException(message: String) : IllegalStateException(mess
         BackupImportException("manifest.json is missing: not a T-Note backup")
 
     /** Формат копии новее поддерживаемого (manifest.formatVersion). */
-    class UnsupportedFormat(actual: Int) :
-        BackupImportException("Unsupported backup format version: $actual")
+    class UnsupportedFormat(actual: Int) : BackupImportException("Unsupported backup format version: $actual")
 
     /** В копии нет файла базы данных. */
     data object NoDatabase : BackupImportException("Backup contains no database")
@@ -74,15 +73,7 @@ sealed class BackupImportException(message: String) : IllegalStateException(mess
 }
 
 /** Итог экспорта/импорта: фото в копии и потери, известные ещё на экспорте. */
-data class BackupSummary(
-    val photos: Int,
-    val missingPhotos: List<String> = emptyList()
-)
+data class BackupSummary(val photos: Int, val missingPhotos: List<String> = emptyList())
 
 /** Шапка копии: чтобы пользователь подтверждал восстановление осознанно. */
-data class BackupDescription(
-    val createdAt: Long,
-    val appVersion: String,
-    val photos: Int,
-    val missingPhotos: Int
-)
+data class BackupDescription(val createdAt: Long, val appVersion: String, val photos: Int, val missingPhotos: Int)

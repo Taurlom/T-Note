@@ -5,6 +5,15 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.model.AppFont
+import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
@@ -12,16 +21,7 @@ import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.domain.usecase.ClearCalendarUseCase
 import ru.taurlom.tnote.domain.usecase.SetReminderTimeUseCase
 import ru.taurlom.tnote.domain.usecase.SetRemindersEnabledUseCase
-import ru.taurlom.tnote.domain.model.AppFont
-import ru.taurlom.tnote.domain.model.ThemeKind
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -29,7 +29,7 @@ class SettingsViewModel @Inject constructor(
     private val setRemindersEnabledUseCase: SetRemindersEnabledUseCase,
     private val setReminderTimeUseCase: SetReminderTimeUseCase,
     private val clearCalendarUseCase: ClearCalendarUseCase,
-    private val backupRepository: BackupRepository
+    private val backupRepository: BackupRepository,
 ) : ViewModel() {
 
     private val backupStatus = MutableStateFlow(BackupStatus())
@@ -43,8 +43,12 @@ class SettingsViewModel @Inject constructor(
     private val _sectionsDialogOpen = MutableStateFlow(false)
     val sectionsDialogOpen: StateFlow<Boolean> = _sectionsDialogOpen
 
-    fun openSectionsDialog() { _sectionsDialogOpen.value = true }
-    fun closeSectionsDialog() { _sectionsDialogOpen.value = false }
+    fun openSectionsDialog() {
+        _sectionsDialogOpen.value = true
+    }
+    fun closeSectionsDialog() {
+        _sectionsDialogOpen.value = false
+    }
 
     /** Метаданные выбранного файла копии — для диалога подтверждения. */
     private val _pendingImport = MutableStateFlow<BackupDescription?>(null)
@@ -55,10 +59,7 @@ class SettingsViewModel @Inject constructor(
     // обновления дропдаун показывал бы старое значение из кэша stateIn.
     private val selectedLanguage = MutableStateFlow(AppLanguage.current())
 
-    private data class BackupStatus(
-        val isBusy: Boolean = false,
-        val result: BackupResult? = null
-    )
+    private data class BackupStatus(val isBusy: Boolean = false, val result: BackupResult? = null)
 
     val uiState: StateFlow<SettingsUiState> =
         // Типизированных перегрузок combine() хватает на 5 потоков, а их
@@ -68,16 +69,16 @@ class SettingsViewModel @Inject constructor(
             combine(
                 settingsRepository.selectedFont,
                 settingsRepository.selectedTheme,
-                settingsRepository.visibleSections
+                settingsRepository.visibleSections,
             ) { font, theme, sections -> Triple(font, theme, sections) },
             combine(
                 settingsRepository.remindersEnabled,
                 settingsRepository.reminderTimeMinutes,
-                backupStatus
+                backupStatus,
             ) { remindersEnabled, reminderTime, backup ->
                 Triple(remindersEnabled, reminderTime, backup)
             },
-            selectedLanguage
+            selectedLanguage,
         ) { appearance, reminders, language ->
             val (font, theme, sections) = appearance
             val (remindersEnabled, reminderTime, backup) = reminders
@@ -91,12 +92,12 @@ class SettingsViewModel @Inject constructor(
                 reminderTimeMinutes = reminderTime,
                 remindersLoaded = true,
                 isBackupBusy = backup.isBusy,
-                backupResult = backup.result
+                backupResult = backup.result,
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = SettingsUiState()
+            initialValue = SettingsUiState(),
         )
 
     /** Тема применяется сразу, без кнопки «Применить»: она видна мгновенно. */
@@ -118,7 +119,7 @@ class SettingsViewModel @Inject constructor(
                 LocaleListCompat.getEmptyLocaleList()
             } else {
                 LocaleListCompat.forLanguageTags(language.tag)
-            }
+            },
         )
     }
 
@@ -161,7 +162,7 @@ class SettingsViewModel @Inject constructor(
                 val summary = backupRepository.exportBackup(target)
                 BackupResult.Exported(
                     photos = summary.photos,
-                    missing = summary.missingPhotos.size
+                    missing = summary.missingPhotos.size,
                 )
             }
         }
@@ -173,7 +174,7 @@ class SettingsViewModel @Inject constructor(
                 val summary = backupRepository.importBackup(source)
                 BackupResult.Imported(
                     photos = summary.photos,
-                    missing = summary.missingPhotos.size
+                    missing = summary.missingPhotos.size,
                 )
             }
         }
@@ -221,12 +222,14 @@ class SettingsViewModel @Inject constructor(
         // Формат архива и схема БД новее — одно и то же действие для
         // пользователя: обновить приложение и повторить.
         is BackupImportException.UnsupportedFormat,
-        is BackupImportException.NewerSchema -> BackupResult.Failed.NewerVersion
+        is BackupImportException.NewerSchema,
+        -> BackupResult.Failed.NewerVersion
         // Нет базы, файл не SQLite, схема старше цепочки миграций —
         // копия не восстановится в этой версии, чем именно — неважно.
         is BackupImportException.NoDatabase,
         is BackupImportException.InvalidDatabase,
-        is BackupImportException.UnsupportedSchema -> BackupResult.Failed.Unreadable
+        is BackupImportException.UnsupportedSchema,
+        -> BackupResult.Failed.Unreadable
         is BackupImportException.TooLarge -> BackupResult.Failed.TooLarge
         else -> BackupResult.Failed.Error(e.message)
     }

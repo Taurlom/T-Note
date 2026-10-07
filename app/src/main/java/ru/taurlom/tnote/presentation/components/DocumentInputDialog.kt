@@ -16,14 +16,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,7 +50,7 @@ private const val FILE_PROVIDER_AUTHORITY_SUFFIX = ".fileprovider"
 fun DocumentInputDialog(
     document: Document? = null,
     onDismiss: () -> Unit,
-    onConfirm: (document: Document, photoUris: List<Uri>, removedPhotoPaths: List<String>) -> Unit
+    onConfirm: (document: Document, photoUris: List<Uri>, removedPhotoPaths: List<String>) -> Unit,
 ) {
     val isEdit = document != null
 
@@ -75,14 +74,14 @@ fun DocumentInputDialog(
     var pendingCaptureUriString by rememberSaveable { mutableStateOf<String?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_PHOTOS)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = MAX_PHOTOS),
     ) { uris ->
         val availableSlots = MAX_PHOTOS - existingPhotoPaths.size + removedExistingPaths.size - newPhotoUris.size
         newPhotoUris.addAll(uris.take(availableSlots.coerceAtLeast(0)))
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
+        contract = ActivityResultContracts.TakePicture(),
     ) { success ->
         val capturedUri = pendingCaptureUriString?.toUri()
         pendingCaptureUriString = null
@@ -100,7 +99,7 @@ fun DocumentInputDialog(
         val uri = FileProvider.getUriForFile(
             context,
             context.packageName + FILE_PROVIDER_AUTHORITY_SUFFIX,
-            photoFile
+            photoFile,
         )
         pendingCaptureUriString = uri.toString()
         cameraLauncher.launch(uri)
@@ -116,7 +115,7 @@ fun DocumentInputDialog(
                 label = stringResource(R.string.document_name),
                 singleLine = true,
                 required = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             AppTextField(
@@ -125,7 +124,7 @@ fun DocumentInputDialog(
                 label = stringResource(R.string.document_description),
                 minLines = 3,
                 maxLines = 5,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             PhotoSection(
@@ -135,12 +134,12 @@ fun DocumentInputDialog(
                 isCameraAvailable = isCameraAvailable,
                 onAddClick = {
                     photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
                 },
                 onCameraClick = { launchCameraCapture() },
                 onRemoveExisting = { removedExistingPaths.add(it) },
-                onRemoveNew = { newPhotoUris.remove(it) }
+                onRemoveNew = { newPhotoUris.remove(it) },
             )
         },
         confirmButton = {
@@ -149,19 +148,19 @@ fun DocumentInputDialog(
                     val resultDocument = (document ?: Document(createdAt = 0L)).copy(
                         title = title.trim(),
                         description = description.trim(),
-                        photoPaths = existingPhotoPaths.filter { it !in removedExistingPaths }
+                        photoPaths = existingPhotoPaths.filter { it !in removedExistingPaths },
                     )
                     onConfirm(
                         resultDocument,
                         newPhotoUris.toList(),
-                        removedExistingPaths.toList()
+                        removedExistingPaths.toList(),
                     )
                 },
-                enabled = title.isNotBlank()
+                enabled = title.isNotBlank(),
             ) {
                 Text(stringResource(if (isEdit) R.string.save else R.string.create))
             }
-        }
+        },
     )
 }
 
@@ -176,7 +175,7 @@ private fun PhotoSection(
     onCameraClick: () -> Unit,
     onRemoveExisting: (String) -> Unit,
     onRemoveNew: (Uri) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val visibleExisting = existingPhotoPaths.filter { it !in removedExistingPaths }
@@ -185,23 +184,23 @@ private fun PhotoSection(
 
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             visibleExisting.forEach { path ->
                 RemovablePhotoTile(
                     model = File(context.filesDir, path).toUri(),
-                    onRemove = { onRemoveExisting(path) }
+                    onRemove = { onRemoveExisting(path) },
                 )
             }
             newPhotoUris.forEach { uri ->
                 RemovablePhotoTile(
                     model = uri,
-                    onRemove = { onRemoveNew(uri) }
+                    onRemove = { onRemoveNew(uri) },
                 )
             }
             if (hasPhotos && canAddMore) {
@@ -216,11 +215,11 @@ private fun PhotoSection(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 AppButton(
                     onClick = onAddClick,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.add_photo))
                 }
@@ -233,28 +232,22 @@ private fun PhotoSection(
 }
 
 @Composable
-private fun AddPhotoButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun AddPhotoButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     PhotoActionButton(
         iconRes = R.drawable.ic_add,
         contentDescription = stringResource(R.string.add_photo),
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
 @Composable
-private fun CameraPhotoButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun CameraPhotoButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     PhotoActionButton(
         iconRes = R.drawable.ic_photo_camera,
         contentDescription = stringResource(R.string.take_photo),
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
@@ -262,24 +255,19 @@ private fun CameraPhotoButton(
 // � ������� clip, ������� ������ � ����� ���������� �� ����, ��� �������.
 // ������� Box ��� ����� 40x40 � ������ �����������.
 @Composable
-private fun PhotoActionButton(
-    @DrawableRes iconRes: Int,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun PhotoActionButton(@DrawableRes iconRes: Int, contentDescription: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(40.dp)
             .clip(MaterialTheme.shapes.small)
             .background(AppTheme.colors.buttonContainer)
             .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
-            tint = AppTheme.colors.buttonContent
+            tint = AppTheme.colors.buttonContent,
         )
     }
 }

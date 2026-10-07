@@ -12,15 +12,15 @@ import androidx.room.PrimaryKey
             entity = NoteEntity::class,
             parentColumns = ["id"],
             childColumns = ["noteId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("noteId")]
+    indices = [Index("noteId")],
 )
 data class NotePhotoEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val noteId: Long,
     val photoPath: String,
-    val orderIndex: Int
+    val orderIndex: Int,
 )

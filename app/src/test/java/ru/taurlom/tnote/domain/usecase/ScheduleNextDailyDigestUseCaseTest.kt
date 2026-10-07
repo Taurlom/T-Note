@@ -1,10 +1,5 @@
 package ru.taurlom.tnote.domain.usecase
 
-import ru.taurlom.tnote.domain.model.AppFont
-import ru.taurlom.tnote.domain.model.ThemeKind
-import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
-import ru.taurlom.tnote.domain.notifications.ReminderScheduler
-import ru.taurlom.tnote.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -12,6 +7,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.AppFont
+import ru.taurlom.tnote.domain.model.ThemeKind
+import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
+import ru.taurlom.tnote.domain.notifications.ReminderScheduler
+import ru.taurlom.tnote.domain.repository.SettingsRepository
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,7 +28,7 @@ class ScheduleNextDailyDigestUseCaseTest {
         val useCase = ScheduleNextDailyDigestUseCase(
             FakeSettingsRepository(remindersEnabled = false),
             scheduler,
-            clock
+            clock,
         )
         useCase(ReminderScheduler.Mode.IF_IDLE)
         assertEquals(0, scheduler.scheduled.size)
@@ -41,7 +41,7 @@ class ScheduleNextDailyDigestUseCaseTest {
         val useCase = ScheduleNextDailyDigestUseCase(
             FakeSettingsRepository(remindersEnabled = true, reminderTimeMinutes = 9 * 60),
             scheduler,
-            clock
+            clock,
         )
         useCase(ReminderScheduler.Mode.AFTER_CURRENT)
         // 08:00 → сегодня в 09:00.
@@ -56,7 +56,7 @@ class ScheduleNextDailyDigestUseCaseTest {
         val useCase = ScheduleNextDailyDigestUseCase(
             FakeSettingsRepository(remindersEnabled = true, reminderTimeMinutes = 7 * 60),
             scheduler,
-            clock
+            clock,
         )
         useCase(ReminderScheduler.Mode.RESCHEDULE)
         val expected = LocalDate.parse("2026-07-11").atTime(7, 0).atZone(zone)
@@ -81,7 +81,7 @@ class ScheduleNextDailyDigestUseCaseTest {
 /** Настройки в памяти: то, что записали, то и прочитается. */
 internal class FakeSettingsRepository(
     remindersEnabled: Boolean = false,
-    reminderTimeMinutes: Int = DailyDigestSchedule.DEFAULT_REMINDER_MINUTES
+    reminderTimeMinutes: Int = DailyDigestSchedule.DEFAULT_REMINDER_MINUTES,
 ) : SettingsRepository {
     private val enabled = MutableStateFlow(remindersEnabled)
     private val timeMinutes = MutableStateFlow(reminderTimeMinutes)

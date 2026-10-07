@@ -1,16 +1,13 @@
 package ru.taurlom.tnote.presentation.util
 
-import ru.taurlom.tnote.domain.model.Task
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.Task
 
 class ShareListTest {
 
-    private fun task(
-        title: String,
-        description: String = "",
-        completed: Boolean = false
-    ) = Task(id = 0, title = title, description = description, isCompleted = completed, categoryId = 1, createdAt = 0L)
+    private fun task(title: String, description: String = "", completed: Boolean = false) =
+        Task(id = 0, title = title, description = description, isCompleted = completed, categoryId = 1, createdAt = 0L)
 
     @Test
     fun `форматирует пункты с чекбоксами и описаниями`() {
@@ -19,8 +16,8 @@ class ShareListTest {
             tasks = listOf(
                 task("Молоко", completed = true),
                 task("Хлеб", description = "цельнозерновой"),
-                task("Яблоки")
-            )
+                task("Яблоки"),
+            ),
         )
         assertEquals(
             """
@@ -30,7 +27,7 @@ class ShareListTest {
             ⬜ Хлеб — цельнозерновой
             ⬜ Яблоки
             """.trimIndent(),
-            text
+            text,
         )
     }
 
@@ -43,7 +40,7 @@ class ShareListTest {
     fun `обрезает пробелы по краям`() {
         val text = buildListShareText(
             categoryName = "  Дела  ",
-            tasks = listOf(task("  Позвонить  ", description = "  в клинику  "))
+            tasks = listOf(task("  Позвонить  ", description = "  в клинику  ")),
         )
         assertEquals("Дела\n\n⬜ Позвонить — в клинику", text)
     }

@@ -20,21 +20,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Category
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
-import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
-fun CategoryCard(
-    category: Category,
-    onClick: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun CategoryCard(category: Category, onClick: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -43,24 +37,24 @@ fun CategoryCard(
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box(
                 modifier = Modifier
                     .size(20.dp)
                     .clip(MaterialTheme.shapes.small)
-                    .background(Color(category.color))
+                    .background(Color(category.color)),
             )
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -69,14 +63,14 @@ fun CategoryCard(
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
                     contentDescription = stringResource(R.string.edit),
-                    tint = AppTheme.colors.actionIcon
+                    tint = AppTheme.colors.actionIcon,
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(R.drawable.ic_delete),
                     contentDescription = stringResource(R.string.delete),
-                    tint = AppTheme.colors.actionIcon
+                    tint = AppTheme.colors.actionIcon,
                 )
             }
         }
@@ -86,8 +80,10 @@ fun CategoryCard(
 // ── Previews ──
 
 private val previewCategory = Category(
-    id = 1, name = "Продукты",
-    color = Category.DEFAULT_COLOR, position = 0
+    id = 1,
+    name = "Продукты",
+    color = Category.DEFAULT_COLOR,
+    position = 0,
 )
 
 @Preview(showBackground = true, name = "Категория")
@@ -96,7 +92,9 @@ private fun CategoryCardPreview() {
     TNoteTheme {
         CategoryCard(
             category = previewCategory,
-            onClick = {}, onEdit = {}, onDelete = {}
+            onClick = {},
+            onEdit = {},
+            onDelete = {},
         )
     }
 }
@@ -107,7 +105,9 @@ private fun CategoryCardBluePreview() {
     TNoteTheme {
         CategoryCard(
             category = previewCategory.copy(name = "Работа", color = 0xFF42A5F5),
-            onClick = {}, onEdit = {}, onDelete = {}
+            onClick = {},
+            onEdit = {},
+            onDelete = {},
         )
     }
 }

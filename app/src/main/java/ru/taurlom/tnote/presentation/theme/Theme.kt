@@ -18,7 +18,7 @@ import ru.taurlom.tnote.domain.model.ThemeKind
 private val AppShapes = Shapes(
     small = RoundedCornerShape(3.dp),
     medium = RoundedCornerShape(3.dp),
-    large = RoundedCornerShape(3.dp)
+    large = RoundedCornerShape(3.dp),
 )
 
 /**
@@ -26,11 +26,7 @@ private val AppShapes = Shapes(
  * и кладёт его в MaterialTheme и LocalAppColors.
  */
 @Composable
-fun TNoteTheme(
-    fontFamily: FontFamily = PtSansFontFamily,
-    theme: ThemeKind = ThemeKind.DARK,
-    content: @Composable () -> Unit
-) {
+fun TNoteTheme(fontFamily: FontFamily = PtSansFontFamily, theme: ThemeKind = ThemeKind.DARK, content: @Composable () -> Unit) {
     val spec = themeSpecOf(theme)
 
     val view = LocalView.current
@@ -52,7 +48,7 @@ fun TNoteTheme(
             colorScheme = spec.colorScheme,
             typography = typography,
             shapes = AppShapes,
-            content = content
+            content = content,
         )
     }
 }

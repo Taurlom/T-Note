@@ -44,18 +44,13 @@ import ru.taurlom.tnote.domain.model.EventIcon
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.presentation.components.SectionTopBar
-import ru.taurlom.tnote.presentation.components.AppTopBar
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarScreen(
-    showBrandHeader: Boolean,
-    onImportLists: () -> Unit,
-    viewModel: CalendarViewModel = hiltViewModel()
-) {
+fun CalendarScreen(showBrandHeader: Boolean, onImportLists: () -> Unit, viewModel: CalendarViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDate by remember { mutableStateOf<CalendarDate?>(null) }
@@ -72,9 +67,9 @@ fun CalendarScreen(
                 title = stringResource(R.string.calendar_title),
                 showBrandHeader = showBrandHeader,
                 scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists
+                onImportLists = onImportLists,
             )
-        }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -96,18 +91,18 @@ fun CalendarScreen(
                                 draggedPx > monthSwipeDistancePx ->
                                     viewModel.onEvent(CalendarEvent.PreviousMonth)
                             }
-                        }
+                        },
                     ) { change, dragAmount ->
                         change.consume()
                         draggedPx += dragAmount
                     }
                 },
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             CalendarHeader(
                 yearMonth = uiState.yearMonth,
                 onPrevious = { viewModel.onEvent(CalendarEvent.PreviousMonth) },
-                onNext = { viewModel.onEvent(CalendarEvent.NextMonth) }
+                onNext = { viewModel.onEvent(CalendarEvent.NextMonth) },
             )
             WeekDayLabels()
             CalendarGrid(
@@ -115,7 +110,7 @@ fun CalendarScreen(
                 notes = uiState.notes,
                 events = uiState.events,
                 weekendDates = uiState.weekendDates,
-                onDayClick = { selectedDate = it }
+                onDayClick = { selectedDate = it },
             )
         }
     }
@@ -131,41 +126,37 @@ fun CalendarScreen(
             onDeleteDay = { viewModel.onEvent(CalendarEvent.DeleteDay(dateKey)) },
             onAddEvent = { viewModel.onEvent(CalendarEvent.AddEvent(dateKey, it)) },
             onUpdateEvent = { viewModel.onEvent(CalendarEvent.UpdateEvent(it)) },
-            onDeleteEvent = { viewModel.onEvent(CalendarEvent.DeleteEvent(it)) }
+            onDeleteEvent = { viewModel.onEvent(CalendarEvent.DeleteEvent(it)) },
         )
     }
 }
 
 @Composable
-private fun CalendarHeader(
-    yearMonth: CalendarYearMonth,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit
-) {
+private fun CalendarHeader(yearMonth: CalendarYearMonth, onPrevious: () -> Unit, onNext: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         val locale = LocalConfiguration.current.locales[0]
         IconButton(onClick = onPrevious) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_left),
                 contentDescription = stringResource(R.string.prev_month),
-                tint = AppTheme.colors.calendarHeader
+                tint = AppTheme.colors.calendarHeader,
             )
         }
         Text(
             // Название месяца форматируется один раз за перерисовку заголовка.
             text = remember(yearMonth, locale) { yearMonth.toDisplayName(locale) },
             style = MaterialTheme.typography.headlineSmall,
-            color = AppTheme.colors.calendarHeader
+            color = AppTheme.colors.calendarHeader,
         )
         IconButton(onClick = onNext) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_right),
                 contentDescription = stringResource(R.string.next_month),
-                tint = AppTheme.colors.calendarHeader
+                tint = AppTheme.colors.calendarHeader,
             )
         }
     }
@@ -181,7 +172,7 @@ private fun WeekDayLabels() {
         stringResource(R.string.weekday_thu),
         stringResource(R.string.weekday_fri),
         stringResource(R.string.weekday_sat),
-        stringResource(R.string.weekday_sun)
+        stringResource(R.string.weekday_sun),
     )
     Row(modifier = Modifier.fillMaxWidth()) {
         weekDays.forEach { day ->
@@ -190,7 +181,7 @@ private fun WeekDayLabels() {
                 style = MaterialTheme.typography.labelLarge,
                 color = AppTheme.colors.calendarWeekdayLabel,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -205,7 +196,7 @@ private fun CalendarGrid(
     notes: Map<String, CalendarNote>,
     events: Map<String, List<ScheduledEvent>>,
     weekendDates: Set<String>,
-    onDayClick: (CalendarDate) -> Unit
+    onDayClick: (CalendarDate) -> Unit,
 ) {
     val today = remember { LocalDate.now() }
 
@@ -266,7 +257,7 @@ private fun CalendarGrid(
                         isPast = cellDate.isBefore(today),
                         isAdjacentMonth = cell.isAdjacentMonth,
                         onClick = { onDayClick(cell.date) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -278,26 +269,26 @@ private fun buildMonthCells(yearMonth: CalendarYearMonth): List<CalendarCell> {
     val daysInMonth = yearMonth.daysInMonth()
     val offset = yearMonth.firstDayOfWeekOffset()
     val totalCells = ((offset + daysInMonth + 6) / 7) * 7
-    
+
     // Получаем количество дней в предыдущем месяце
     val prevMonth = yearMonth.plusMonths(-1)
     val daysInPrevMonth = prevMonth.daysInMonth()
-    
+
     // Создаем список ячеек
     val cells = mutableListOf<CalendarCell>()
-    
+
     // Дни из предыдущего месяца (заполняют начало первой недели)
     for (i in offset downTo 1) {
         val date = CalendarDate(prevMonth.year, prevMonth.month, daysInPrevMonth - i + 1)
         cells.add(CalendarCell(date = date, dateKey = date.toIsoString(), isAdjacentMonth = true))
     }
-    
+
     // Дни текущего месяца
     for (day in 1..daysInMonth) {
         val date = CalendarDate(yearMonth.year, yearMonth.month, day)
         cells.add(CalendarCell(date = date, dateKey = date.toIsoString(), isAdjacentMonth = false))
     }
-    
+
     // Дни следующего месяца (заполняют остаток последней недели)
     val remainingCells = totalCells - cells.size
     if (remainingCells > 0) {
@@ -307,7 +298,7 @@ private fun buildMonthCells(yearMonth: CalendarYearMonth): List<CalendarCell> {
             cells.add(CalendarCell(date = date, dateKey = date.toIsoString(), isAdjacentMonth = true))
         }
     }
-    
+
     return cells
 }
 
@@ -323,7 +314,7 @@ private fun DayCell(
     isPast: Boolean = false,
     isAdjacentMonth: Boolean = false,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val colors = AppTheme.colors
     val backgroundColor = when {
@@ -336,8 +327,10 @@ private fun DayCell(
         isToday -> colors.calendarTodayNumber
         else -> colors.calendarDayNumber
     }
-    val hasContent = hasNote || eventIcons.isNotEmpty() ||
-        recurringIcon != null || isBirthday
+    val hasContent = hasNote ||
+        eventIcons.isNotEmpty() ||
+        recurringIcon != null ||
+        isBirthday
     val shape = MaterialTheme.shapes.small
 
     Box(
@@ -348,7 +341,7 @@ private fun DayCell(
             .background(backgroundColor)
             // Дни из соседнего месяца неактивны: заметки и события добавляются
             // только в дни своего месяца (у них и так нет контента в этом виде).
-            .then(if (isAdjacentMonth) Modifier else Modifier.clickable(onClick = onClick))
+            .then(if (isAdjacentMonth) Modifier else Modifier.clickable(onClick = onClick)),
     ) {
         // Число остаётся обычным приглушённым тоном: полупрозрачными
         // проходят только иконки и маркеры прошедших дней (см. DayCell Row).
@@ -357,7 +350,7 @@ private fun DayCell(
             style = MaterialTheme.typography.bodyLarge,
             color = textColor,
             textAlign = TextAlign.Center,
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier.align(Alignment.Center),
         )
         // Иконка повторяющегося события — в правом верхнем углу ячейки,
         // отдельно от ряда иконок под числом.
@@ -369,7 +362,7 @@ private fun DayCell(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(2.dp)
-                    .size(12.dp)
+                    .size(12.dp),
             )
         }
         if (hasContent) {
@@ -378,7 +371,7 @@ private fun DayCell(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 2.dp)
+                    .padding(bottom = 2.dp),
             ) {
                 if (isBirthday) {
                     // День рождения: иконка подарка, не «тухнет» — он повторяется.
@@ -386,7 +379,7 @@ private fun DayCell(
                         painter = painterResource(R.drawable.ic_event_cake),
                         contentDescription = stringResource(R.string.event_type_birthday),
                         tint = colors.calendarEventMarker,
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(12.dp),
                     )
                 }
                 // Иконки обычных событий (выбираются в редакторе события).
@@ -396,7 +389,7 @@ private fun DayCell(
                         painter = painterResource(icon.drawableRes),
                         contentDescription = stringResource(icon.labelRes),
                         tint = eventIconColor(colorArgb, isPast, colors.calendarEventMarker),
-                        modifier = Modifier.size(10.dp)
+                        modifier = Modifier.size(10.dp),
                     )
                 }
                 if (hasNote) {
@@ -404,10 +397,13 @@ private fun DayCell(
                         modifier = Modifier
                             .size(7.dp)
                             .background(
-                                if (isPast) colors.calendarPastMarker
-                                else colors.calendarNoteMarker,
-                                CircleShape
-                            )
+                                if (isPast) {
+                                    colors.calendarPastMarker
+                                } else {
+                                    colors.calendarNoteMarker
+                                },
+                                CircleShape,
+                            ),
                     )
                 }
             }

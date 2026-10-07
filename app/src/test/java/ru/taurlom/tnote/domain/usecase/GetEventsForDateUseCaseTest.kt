@@ -1,45 +1,35 @@
 package ru.taurlom.tnote.domain.usecase
 
-import ru.taurlom.tnote.domain.model.ScheduledEvent
-import ru.taurlom.tnote.domain.model.ScheduledEventType
-import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.ScheduledEvent
+import ru.taurlom.tnote.domain.model.ScheduledEventType
+import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import java.time.LocalDate
 
 class GetEventsForDateUseCaseTest {
 
-    /** Фиксированное «сегодня» — «удалять прошедшие» считается от него. */
+    /** пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ. */
     private val today: LocalDate = LocalDate.parse("2026-07-10")
 
-    private fun event(
-        id: Long,
-        date: String,
-        type: ScheduledEventType = ScheduledEventType.REGULAR,
-        position: Int = 0
-    ) = ScheduledEvent(id = id, date = date, title = "Событие $id", type = type, position = position)
+    private fun event(id: Long, date: String, type: ScheduledEventType = ScheduledEventType.REGULAR, position: Int = 0) =
+        ScheduledEvent(id = id, date = date, title = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ $id", type = type, position = position)
 
-    private fun repeating(
-        id: Long,
-        anchor: String,
-        interval: Int = 3,
-        hidePast: Boolean = false
-    ) = ScheduledEvent(
+    private fun repeating(id: Long, anchor: String, interval: Int = 3, hidePast: Boolean = false) = ScheduledEvent(
         id = id,
         date = anchor,
-        title = "Повтор $id",
+        title = "пїЅпїЅпїЅпїЅпїЅпїЅ $id",
         type = ScheduledEventType.REPEATING,
         repeatIntervalDays = interval,
-        hidePastOccurrences = hidePast
+        hidePastOccurrences = hidePast,
     )
 
-    private fun useCase(vararg events: ScheduledEvent) =
-        GetEventsForDateUseCase(FakeEventRepository(events.toList()))
+    private fun useCase(vararg events: ScheduledEvent) = GetEventsForDateUseCase(FakeEventRepository(events.toList()))
 
-    /** «2026-07-10» > LocalDate: короче, чем LocalDate.parse в каждом тесте. */
+    /** пїЅ2026-07-10пїЅ > LocalDate: пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ LocalDate.parse пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ. */
     private fun date(iso: String): LocalDate = LocalDate.parse(iso)
 
     @Test
@@ -56,26 +46,26 @@ class GetEventsForDateUseCaseTest {
 
     @Test
     fun `weekend marker is not a digest event`() = runBlocking {
-        // Пометка «выходной» — цвет фона дня, а не событие, ради которого
-        // стоит будить владельца.
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
         val events = useCase(event(1, "2026-07-10", ScheduledEventType.WEEKEND))(date("2026-07-10"), today)
         assertEquals(emptyList<ScheduledEvent>(), events)
     }
 
     @Test
     fun `birthday occurrence is built from anchor in another year`() = runBlocking {
-        // Якорь 1994 года не попадает в месячную выборку 2026-07 —
-        // вхождение собирает сам use case.
+        // пїЅпїЅпїЅпїЅпїЅ 1994 пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 2026-07 пїЅ
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ use case.
         val events = useCase(event(1, "1994-07-10", ScheduledEventType.BIRTHDAY))(date("2026-07-10"), today)
         assertEquals(listOf(1L), events.map { it.id })
-        // Дата события подменяется на дату вхождения — как в сетке календаря.
+        // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
         assertEquals("2026-07-10", events.single().date)
     }
 
     @Test
     fun `birthday in the anchor year comes once - no duplicate`() = runBlocking {
-        // Вхождение якорного года уже в месячной выборке; расширение по
-        // дням рождения его пропускает.
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ
+        // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
         val events = useCase(event(1, "2026-07-10", ScheduledEventType.BIRTHDAY))(date("2026-07-10"), today)
         assertEquals(1, events.size)
     }
@@ -88,8 +78,8 @@ class GetEventsForDateUseCaseTest {
 
     @Test
     fun `repeating occurrence is included once`() = runBlocking {
-        // Якорь 07.07 с интервалом 3 совпадает с 10.07; якорная дата
-        // приходит и из месячного запроса — дублирования быть не должно.
+        // пїЅпїЅпїЅпїЅпїЅ 07.07 пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 3 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ 10.07; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
         val events = useCase(repeating(1, "2026-07-07"))(date("2026-07-10"), today)
         assertEquals(1, events.size)
     }
@@ -103,12 +93,12 @@ class GetEventsForDateUseCaseTest {
     @Test
     fun `hidden past repeating occurrences are skipped, today is shown`() = runBlocking {
         val events = useCase(repeating(1, "2026-07-04", hidePast = true))
-        // 07.07 — вхождение в прошлом: скрыто.
+        // 07.07 пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅ.
         assertEquals(
             emptyList<ScheduledEvent>(),
-            events(date("2026-07-07"), today)
+            events(date("2026-07-07"), today),
         )
-        // 07.10 — сегодняшнее вхождение: видно.
+        // 07.10 пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ.
         assertEquals(1, events(date("2026-07-10"), today).size)
     }
 
@@ -116,22 +106,19 @@ class GetEventsForDateUseCaseTest {
     fun `events are ordered by position`() = runBlocking {
         val events = useCase(
             event(2, "2026-07-10", position = 5),
-            event(1, "2026-07-10", position = 1)
+            event(1, "2026-07-10", position = 1),
         )(date("2026-07-10"), today)
         assertEquals(listOf(1L, 2L), events.map { it.id })
     }
 
-    /** Заглушка хранилища: месячный запрос — LIKE-префикс, типовой — по типу. */
-    private class FakeEventRepository(
-        private val events: List<ScheduledEvent>
-    ) : ScheduledEventRepository {
+    /** пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ LIKE-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ. */
+    private class FakeEventRepository(private val events: List<ScheduledEvent>) : ScheduledEventRepository {
         override fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEvent>> {
             val prefix = monthPrefix.removeSuffix("%")
             return flowOf(events.filter { it.date.startsWith(prefix) })
         }
 
-        override fun getByType(type: ScheduledEventType): Flow<List<ScheduledEvent>> =
-            flowOf(events.filter { it.type == type })
+        override fun getByType(type: ScheduledEventType): Flow<List<ScheduledEvent>> = flowOf(events.filter { it.type == type })
 
         override suspend fun getById(id: Long): ScheduledEvent? = null
         override suspend fun add(event: ScheduledEvent): Long = 0

@@ -6,22 +6,21 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 @Singleton
-class SettingsRepositoryImpl @Inject constructor(
-    private val dataStore: DataStore<Preferences>
-) : SettingsRepository {
+class SettingsRepositoryImpl @Inject constructor(private val dataStore: DataStore<Preferences>) : SettingsRepository {
 
     private val fontKey = stringPreferencesKey("selected_font")
     private val themeKey = stringPreferencesKey("selected_theme")
+
     // У preferences 1.1.1 нет ключа для List<String>, а stringSet не хранит
     // порядок — список разделов живёт одной строкой через запятую (id —
     // стабильные ASCII-метки, экранирование не нужно).

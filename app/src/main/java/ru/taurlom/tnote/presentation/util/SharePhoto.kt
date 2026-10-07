@@ -19,7 +19,7 @@ fun sharePhoto(context: Context, file: File) {
     val uri = FileProvider.getUriForFile(
         context,
         context.packageName + ".fileprovider",
-        file
+        file,
     )
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "image/jpeg"
@@ -27,6 +27,6 @@ fun sharePhoto(context: Context, file: File) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(
-        Intent.createChooser(send, context.getString(R.string.share_photo))
+        Intent.createChooser(send, context.getString(R.string.share_photo)),
     )
 }

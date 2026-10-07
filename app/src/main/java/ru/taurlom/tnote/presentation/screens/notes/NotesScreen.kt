@@ -28,11 +28,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.presentation.components.AppFab
-import ru.taurlom.tnote.presentation.components.AppTopBar
-import ru.taurlom.tnote.presentation.components.SectionTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.NoteItem
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
+import ru.taurlom.tnote.presentation.components.SectionTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +39,7 @@ fun NotesScreen(
     onNoteClick: (Long) -> Unit,
     showBrandHeader: Boolean,
     onImportLists: () -> Unit,
-    viewModel: NotesViewModel = hiltViewModel()
+    viewModel: NotesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -58,7 +57,7 @@ fun NotesScreen(
                 title = stringResource(R.string.notes_title),
                 showBrandHeader = showBrandHeader,
                 scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists
+                onImportLists = onImportLists,
             )
         },
         floatingActionButton = {
@@ -66,21 +65,21 @@ fun NotesScreen(
             // (id 0), длинный текст в диалоге тесно.
             AppFab(
                 onClick = { onNoteClick(NEW_NOTE_ID) },
-                contentDescriptionRes = R.string.add_note
+                contentDescriptionRes = R.string.add_note,
             )
-        }
+        },
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             if (uiState.notes.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_notes),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
@@ -89,13 +88,13 @@ fun NotesScreen(
                     onReorder = { viewModel.onEvent(NotesEvent.OnReorderNotes(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 ) { note, _ ->
                     NoteItem(
                         note = note,
                         onClick = { onNoteClick(note.id) },
                         onDelete = { noteToDelete = note },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -110,7 +109,7 @@ fun NotesScreen(
             onConfirm = {
                 viewModel.onEvent(NotesEvent.OnDeleteNote(note))
                 noteToDelete = null
-            }
+            },
         )
     }
 }

@@ -31,9 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.core.net.toUri
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.components.AppTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
@@ -45,10 +45,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DocumentDetailScreen(
-    onBackClick: () -> Unit,
-    viewModel: DocumentDetailViewModel = hiltViewModel()
-) {
+fun DocumentDetailScreen(onBackClick: () -> Unit, viewModel: DocumentDetailViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val document = uiState.document
     val context = LocalContext.current
@@ -67,7 +64,7 @@ fun DocumentDetailScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.back)
+                            contentDescription = stringResource(R.string.back),
                         )
                     }
                 },
@@ -76,13 +73,13 @@ fun DocumentDetailScreen(
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_delete),
-                                contentDescription = stringResource(R.string.delete)
+                                contentDescription = stringResource(R.string.delete),
                             )
                         }
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
         if (document == null) {
             if (!uiState.isLoading) {
@@ -91,7 +88,7 @@ fun DocumentDetailScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .padding(padding),
                 )
             }
             return@Scaffold
@@ -103,34 +100,34 @@ fun DocumentDetailScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             Text(
                 text = document.title,
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineSmall,
             )
 
             if (document.description.isNotBlank()) {
                 Text(
                     text = document.description,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
                 )
             }
 
             Text(
                 text = stringResource(R.string.created_at, document.createdAt.formatDate()),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             if (document.photoPaths.isNotEmpty()) {
-                // Плитка по два крупных фото в ряд; ряды формируются
-                // автоматически, одиночное фото последней строки не тянется
-                // на всю ширину.
+                // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ; пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+                // пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
                 document.photoPaths.chunked(2).forEachIndexed { rowIndex, rowPaths ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         rowPaths.forEachIndexed { colIndex, path ->
                             val index = rowIndex * 2 + colIndex
@@ -140,12 +137,12 @@ fun DocumentDetailScreen(
                                 onClick = { galleryIndex = index },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .aspectRatio(1f)
+                                    .aspectRatio(1f),
                             )
                         }
                         if (rowPaths.size == 1) {
-                            // Пустая правая ячейка, чтобы одиночное фото
-                            // последней строки осталось половинной ширины.
+                            // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+                            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
@@ -166,7 +163,7 @@ fun DocumentDetailScreen(
             },
             onCropComplete = { oldPath, newPath ->
                 viewModel.updatePhotoPath(oldPath, newPath)
-            }
+            },
         )
     }
 
@@ -177,11 +174,9 @@ fun DocumentDetailScreen(
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
                 viewModel.deleteDocument(onDeleted = onBackClick)
-            }
+            },
         )
     }
 }
 
-private fun Long.formatDate(): String {
-    return SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(this)
-}
+private fun Long.formatDate(): String = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(this)

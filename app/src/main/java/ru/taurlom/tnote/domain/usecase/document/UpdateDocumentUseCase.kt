@@ -1,21 +1,14 @@
 package ru.taurlom.tnote.domain.usecase.document
 
 import android.net.Uri
+import kotlinx.coroutines.flow.first
 import ru.taurlom.tnote.data.local.DocumentPhotoSaver
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.domain.repository.DocumentRepository
 import javax.inject.Inject
-import kotlinx.coroutines.flow.first
 
-class UpdateDocumentUseCase @Inject constructor(
-    private val repository: DocumentRepository,
-    private val photoSaver: DocumentPhotoSaver
-) {
-    suspend operator fun invoke(
-        document: Document,
-        newPhotoUris: List<Uri> = emptyList(),
-        removedPhotoPaths: List<String> = emptyList()
-    ) {
+class UpdateDocumentUseCase @Inject constructor(private val repository: DocumentRepository, private val photoSaver: DocumentPhotoSaver) {
+    suspend operator fun invoke(document: Document, newPhotoUris: List<Uri> = emptyList(), removedPhotoPaths: List<String> = emptyList()) {
         // Файл ложится на диск до записи в базу: теперь это обязательный
         // порядок — база может сослаться только на существующий файл.
         val newPaths = photoSaver.savePhotos(newPhotoUris)
@@ -31,8 +24,8 @@ class UpdateDocumentUseCase @Inject constructor(
             fresh.copy(
                 title = document.title,
                 description = document.description,
-                photoPaths = updatedPaths
-            )
+                photoPaths = updatedPaths,
+            ),
         )
 
         // Удаляем файлы только после коммита базы и только те, на которые
@@ -48,7 +41,7 @@ class UpdateDocumentUseCase @Inject constructor(
     suspend fun renamePhotoPath(documentId: Long, oldPath: String, newPath: String) {
         val fresh = repository.getById(documentId).first() ?: return
         val updated = fresh.copy(
-            photoPaths = fresh.photoPaths.map { if (it == oldPath) newPath else it }
+            photoPaths = fresh.photoPaths.map { if (it == oldPath) newPath else it },
         )
         repository.update(updated)
         photoSaver.deletePhotos(listOf(oldPath))

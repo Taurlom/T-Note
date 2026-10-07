@@ -1,7 +1,7 @@
 package ru.taurlom.tnote.domain.repository
 
-import ru.taurlom.tnote.domain.model.Note
 import kotlinx.coroutines.flow.Flow
+import ru.taurlom.tnote.domain.model.Note
 
 interface NoteRepository {
 

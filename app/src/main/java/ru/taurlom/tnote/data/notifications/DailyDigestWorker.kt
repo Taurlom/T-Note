@@ -3,11 +3,11 @@ package ru.taurlom.tnote.data.notifications
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
-import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
+import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
@@ -21,15 +21,12 @@ import java.time.ZonedDateTime
  * она строит воркеры рефлексией именно через него (см. keep-правило
  * в proguard-rules.pro).
  */
-class DailyDigestWorker(
-    appContext: Context,
-    params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
+class DailyDigestWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         val dependencies = EntryPointAccessors.fromApplication(
             applicationContext,
-            DailyDigestDependencies::class.java
+            DailyDigestDependencies::class.java,
         )
         // Напоминания выключили, пока задача висела: не постим и цепочку
         // не продолжаем — включение в настройках построит её заново.

@@ -16,7 +16,7 @@ fun ScheduledEventEntity.toDomain(): ScheduledEvent = ScheduledEvent(
     repeatIntervalDays = repeatIntervalDays,
     repeatDays = repeatDays,
     hidePastOccurrences = hidePast,
-    position = position
+    position = position,
 )
 
 fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
@@ -29,5 +29,5 @@ fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
     repeatIntervalDays = repeatIntervalDays,
     repeatDays = repeatDays,
     hidePast = hidePastOccurrences,
-    position = position
+    position = position,
 )

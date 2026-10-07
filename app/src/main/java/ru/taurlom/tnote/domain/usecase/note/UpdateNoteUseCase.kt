@@ -6,10 +6,7 @@ import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.repository.NoteRepository
 import javax.inject.Inject
 
-class UpdateNoteUseCase @Inject constructor(
-    private val repository: NoteRepository,
-    private val photoSaver: NotePhotoSaver
-) {
+class UpdateNoteUseCase @Inject constructor(private val repository: NoteRepository, private val photoSaver: NotePhotoSaver) {
     /**
      * Тот же безопасный порядок, что у документов после фикса гонок:
      * новые файлы — до записи, удаление старых — только после коммита базы
@@ -17,11 +14,7 @@ class UpdateNoteUseCase @Inject constructor(
      * остальное (position, createdAt, фото из параллельной правки) — свежий
      * снапшот базы.
      */
-    suspend operator fun invoke(
-        note: Note,
-        newPhotoUris: List<Uri> = emptyList(),
-        removedPhotoPaths: List<String> = emptyList()
-    ) {
+    suspend operator fun invoke(note: Note, newPhotoUris: List<Uri> = emptyList(), removedPhotoPaths: List<String> = emptyList()) {
         val newPaths = photoSaver.savePhotos(newPhotoUris)
         val fresh = repository.getByIdOnce(note.id) ?: note
         val updatedPaths = fresh.photoPaths
@@ -31,8 +24,8 @@ class UpdateNoteUseCase @Inject constructor(
             fresh.copy(
                 title = note.title,
                 content = note.content,
-                photoPaths = updatedPaths
-            )
+                photoPaths = updatedPaths,
+            ),
         )
         photoSaver.deletePhotos(removedPhotoPaths.filterNot { it in updatedPaths })
     }

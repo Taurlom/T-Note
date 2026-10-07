@@ -12,5 +12,5 @@ data class NoteEntity(
     val content: String,
     val createdAt: Long,
     @ColumnInfo(defaultValue = "0")
-    val position: Int = 0
+    val position: Int = 0,
 )

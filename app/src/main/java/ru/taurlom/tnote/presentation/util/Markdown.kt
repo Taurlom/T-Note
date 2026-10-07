@@ -30,7 +30,7 @@ object Markdown {
     private val headingStyles = mapOf(
         1 to SpanStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
         2 to SpanStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-        3 to SpanStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        3 to SpanStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold),
     )
 
     fun render(source: String): AnnotatedString = AnnotatedString.Builder().apply {

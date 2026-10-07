@@ -1,8 +1,8 @@
 package ru.taurlom.tnote.domain.repository
 
+import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.ThemeKind
-import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     val selectedFont: Flow<AppFont>

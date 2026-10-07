@@ -34,12 +34,7 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * @param onClick клик по плитке (галерея); без него плитка некликабельна.
  */
 @Composable
-fun PhotoTile(
-    model: Any,
-    modifier: Modifier = Modifier,
-    version: Any? = null,
-    onClick: (() -> Unit)? = null
-) {
+fun PhotoTile(model: Any, modifier: Modifier = Modifier, version: Any? = null, onClick: (() -> Unit)? = null) {
     val requestBuilder = ImageRequest.Builder(LocalContext.current)
         .data(model)
         .crossfade(true)
@@ -52,7 +47,7 @@ fun PhotoTile(
         contentScale = ContentScale.Crop,
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     )
 }
 
@@ -61,21 +56,17 @@ fun PhotoTile(
  * в углу поверх изображения.
  */
 @Composable
-fun RemovablePhotoTile(
-    model: Any,
-    onRemove: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun RemovablePhotoTile(model: Any, onRemove: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(100.dp)) {
         PhotoTile(
             model = model,
-            modifier = Modifier.matchParentSize()
+            modifier = Modifier.matchParentSize(),
         )
         IconButton(
             onClick = onRemove,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(4.dp)
+                .padding(4.dp),
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_close),
@@ -85,9 +76,9 @@ fun RemovablePhotoTile(
                     .size(24.dp)
                     .background(
                         AppTheme.colors.buttonContainer,
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.small,
                     )
-                    .padding(4.dp)
+                    .padding(4.dp),
             )
         }
     }

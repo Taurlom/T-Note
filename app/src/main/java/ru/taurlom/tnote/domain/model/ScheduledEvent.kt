@@ -12,8 +12,22 @@ enum class ScheduledEventType { REGULAR, BIRTHDAY, REPEATING, WEEKEND }
  * иконку не выбирает.
  */
 enum class EventIcon {
-    NOTE, TRAVEL, FOREST, GIFTS, HOME, HEALTH, BEACH, FOOTPRINT,
-    CELEBRATION, BUILD, FITNESS, GROUPS, DELIVERY, SELF_CARE, BAR, GARDEN
+    NOTE,
+    TRAVEL,
+    FOREST,
+    GIFTS,
+    HOME,
+    HEALTH,
+    BEACH,
+    FOOTPRINT,
+    CELEBRATION,
+    BUILD,
+    FITNESS,
+    GROUPS,
+    DELIVERY,
+    SELF_CARE,
+    BAR,
+    GARDEN,
 }
 
 /**
@@ -37,10 +51,9 @@ data class ScheduledEvent(
     val repeatDays: Int = 0,
     /** Скрывать вхождения до сегодняшней даты («удалять прошедшие»). */
     val hidePastOccurrences: Boolean = false,
-    val position: Int = 0
+    val position: Int = 0,
 ) {
-    fun dateOrNull(): LocalDate? =
-        date.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    fun dateOrNull(): LocalDate? = date.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
     /**
      * Происходит ли повторяющееся событие в дату [date]

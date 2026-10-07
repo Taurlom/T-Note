@@ -11,7 +11,7 @@ fun NoteWithPhotos.toDomain(): Note = Note(
     content = note.content,
     createdAt = note.createdAt,
     position = note.position,
-    photoPaths = photos.sortedBy { it.orderIndex }.map { it.photoPath }
+    photoPaths = photos.sortedBy { it.orderIndex }.map { it.photoPath },
 )
 
 // Замечание: у NoteEntity нет toDomain() — домен всегда читается через
@@ -22,10 +22,9 @@ fun Note.toEntity(): NoteEntity = NoteEntity(
     title = title,
     content = content,
     createdAt = createdAt,
-    position = position
+    position = position,
 )
 
-fun Note.toPhotoEntities(): List<NotePhotoEntity> =
-    photoPaths.mapIndexed { index, path ->
-        NotePhotoEntity(noteId = id, photoPath = path, orderIndex = index)
-    }
+fun Note.toPhotoEntities(): List<NotePhotoEntity> = photoPaths.mapIndexed { index, path ->
+    NotePhotoEntity(noteId = id, photoPath = path, orderIndex = index)
+}

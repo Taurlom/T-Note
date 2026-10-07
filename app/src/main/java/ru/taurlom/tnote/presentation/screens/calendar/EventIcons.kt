@@ -24,7 +24,7 @@ val eventColorPresets: List<Long> = listOf(
     0xFF1E88E5, // синий
     0xFF8E24AA, // фиолетовый
     0xFFD81B60, // розовый
-    0xFF6D4C41  // коричневый
+    0xFF6D4C41, // коричневый
 )
 
 /**
@@ -32,12 +32,11 @@ val eventColorPresets: List<Long> = listOf(
  * Прошедшие дни приглушаются — тёмным маркером или прозрачностью.
  */
 @Composable
-fun eventIconColor(colorArgb: Long, isPast: Boolean, defaultColor: Color): Color =
-    if (colorArgb == ScheduledEvent.DEFAULT_COLOR) {
-        if (isPast) AppTheme.colors.calendarPastMarker else defaultColor
-    } else {
-        if (isPast) Color(colorArgb).copy(alpha = 0.45f) else Color(colorArgb)
-    }
+fun eventIconColor(colorArgb: Long, isPast: Boolean, defaultColor: Color): Color = if (colorArgb == ScheduledEvent.DEFAULT_COLOR) {
+    if (isPast) AppTheme.colors.calendarPastMarker else defaultColor
+} else {
+    if (isPast) Color(colorArgb).copy(alpha = 0.45f) else Color(colorArgb)
+}
 
 /** Иконка типа события для выпадающего списка «Тип события». */
 @get:DrawableRes

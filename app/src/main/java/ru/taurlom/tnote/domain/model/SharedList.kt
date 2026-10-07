@@ -8,14 +8,10 @@ data class SharedList(
     val name: String,
     /** null — получатель возьмёт цвет по умолчанию. */
     val color: Long?,
-    val tasks: List<SharedTask>
+    val tasks: List<SharedTask>,
 )
 
-data class SharedTask(
-    val title: String,
-    val description: String = "",
-    val completed: Boolean = false
-)
+data class SharedTask(val title: String, val description: String = "", val completed: Boolean = false)
 
 /** Конвенции формата для интентов, манифеста и codec. */
 object ListShareFormat {

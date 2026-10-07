@@ -47,18 +47,24 @@ class MarkdownTest {
     @Test
     fun `link scheme case does not matter`() {
         val rendered = Markdown.render("[тут](HTTP://example.com)")
-        assertEquals("HTTP://example.com", rendered.getLinkAnnotations(0, rendered.text.length)
-            .mapNotNull { it.item as? LinkAnnotation.Url }
-            .first().url)
+        assertEquals(
+            "HTTP://example.com",
+            rendered.getLinkAnnotations(0, rendered.text.length)
+                .mapNotNull { it.item as? LinkAnnotation.Url }
+                .first().url,
+        )
     }
 
     @Test
     fun `mailto and tel become links`() {
         listOf("mailto:mail@example.com", "tel:+79990000000").forEach { url ->
             val rendered = Markdown.render("[связь]($url)")
-            assertEquals(url, rendered.getLinkAnnotations(0, rendered.text.length)
-                .mapNotNull { it.item as? LinkAnnotation.Url }
-                .first().url)
+            assertEquals(
+                url,
+                rendered.getLinkAnnotations(0, rendered.text.length)
+                    .mapNotNull { it.item as? LinkAnnotation.Url }
+                    .first().url,
+            )
         }
     }
 
@@ -70,7 +76,7 @@ class MarkdownTest {
             "file:///etc/hosts",
             "intent://x",
             "qwerty://x",
-            "example.com"
+            "example.com",
         ).forEach { url ->
             val source = "[текст]($url)"
             val rendered = Markdown.render(source)
@@ -96,7 +102,7 @@ class MarkdownTest {
     fun `preview strips all markers`() {
         val preview = Markdown.preview(
             "# Борщ\nСвиной **мясо**\n- свёкла\n[рецепт](https://x)",
-            maxLength = 120
+            maxLength = 120,
         )
         assertEquals("Борщ Свиной мясо свёкла рецепт", preview)
     }
@@ -120,7 +126,9 @@ class MarkdownTest {
     @Test
     fun `toggleLinePrefix adds and removes on current line`() {
         val (added, caret) = MarkdownEditing.toggleLinePrefix(
-            "шаг1\nшаг2", TextRange(8), prefix = "# "
+            "шаг1\nшаг2",
+            TextRange(8),
+            prefix = "# ",
         )
         assertEquals("шаг1\n# шаг2", added)
         assertEquals(10, caret.end)

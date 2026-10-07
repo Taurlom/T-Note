@@ -1,7 +1,7 @@
 package ru.taurlom.tnote.presentation.theme
 
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -91,7 +91,7 @@ data class AppColors(
     val brandLogo: Color,
     val brandTitle: Color,
     // Splash-экран (системный сплэш фиксирован тёмным — см. colors.xml)
-    val launchBackground: Color
+    val launchBackground: Color,
 )
 
 val LocalAppColors = staticCompositionLocalOf { DarkTheme.colors }
@@ -99,5 +99,6 @@ val LocalAppColors = staticCompositionLocalOf { DarkTheme.colors }
 /** Точка доступа к компонентным ролям: `AppTheme.colors.dialogContent`. */
 object AppTheme {
     val colors: AppColors
-        @Composable @ReadOnlyComposable get() = LocalAppColors.current
+        @Composable @ReadOnlyComposable
+        get() = LocalAppColors.current
 }

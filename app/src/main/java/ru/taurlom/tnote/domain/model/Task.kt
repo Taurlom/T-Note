@@ -8,5 +8,5 @@ data class Task(
     val categoryId: Long,
     /** Время создания (мс UTC). Проставляется use-case'ом через [java.time.Clock]. */
     val createdAt: Long,
-    val position: Int = 0
+    val position: Int = 0,
 )

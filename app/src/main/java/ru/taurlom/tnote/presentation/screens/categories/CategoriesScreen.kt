@@ -64,27 +64,27 @@ fun CategoriesScreen(
                 title = stringResource(R.string.bottom_nav_categories),
                 showBrandHeader = showBrandHeader,
                 scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists
+                onImportLists = onImportLists,
             )
         },
         floatingActionButton = {
             AppFab(
                 onClick = { showAddDialog = true },
-                contentDescriptionRes = R.string.add_category
+                contentDescriptionRes = R.string.add_category,
             )
         },
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             if (uiState.categories.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_categories),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
@@ -93,14 +93,14 @@ fun CategoriesScreen(
                     onReorder = { viewModel.onEvent(CategoriesEvent.OnReorderCategories(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 ) { category, _ ->
                     CategoryCard(
                         category = category,
                         onClick = { onCategoryClick(category.id) },
                         onEdit = { categoryToEdit = category },
                         onDelete = { categoryToDelete = category },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -113,7 +113,7 @@ fun CategoriesScreen(
             onConfirm = { name, color ->
                 viewModel.onEvent(CategoriesEvent.OnAddCategory(name, color))
                 showAddDialog = false
-            }
+            },
         )
     }
 
@@ -123,10 +123,10 @@ fun CategoriesScreen(
             onDismiss = { categoryToEdit = null },
             onConfirm = { name, color ->
                 viewModel.onEvent(
-                    CategoriesEvent.OnEditCategory(category.copy(name = name, color = color))
+                    CategoriesEvent.OnEditCategory(category.copy(name = name, color = color)),
                 )
                 categoryToEdit = null
-            }
+            },
         )
     }
 
@@ -138,7 +138,7 @@ fun CategoriesScreen(
             onConfirm = {
                 viewModel.onEvent(CategoriesEvent.OnDeleteCategory(category))
                 categoryToDelete = null
-            }
+            },
         )
     }
 }

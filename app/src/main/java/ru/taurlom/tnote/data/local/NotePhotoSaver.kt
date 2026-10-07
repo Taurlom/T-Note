@@ -3,13 +3,13 @@ package ru.taurlom.tnote.data.local
 import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * Копирование выбранных фото заметки в filesDir/note_photos.
@@ -20,9 +20,7 @@ import kotlinx.coroutines.withContext
  * [Dispatchers.IO] (см. комментарий в [DocumentPhotoSaver]).
  */
 @Singleton
-class NotePhotoSaver @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
+class NotePhotoSaver @Inject constructor(@ApplicationContext private val context: Context) {
 
     suspend fun savePhotos(uris: List<Uri>): List<String> = withContext(Dispatchers.IO) {
         uris.mapNotNull { savePhotoBlocking(it) }

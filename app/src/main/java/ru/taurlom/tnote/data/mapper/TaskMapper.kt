@@ -10,7 +10,7 @@ fun TaskEntity.toDomain(): Task = Task(
     isCompleted = isCompleted,
     categoryId = categoryId,
     createdAt = createdAt,
-    position = position
+    position = position,
 )
 
 fun Task.toEntity(): TaskEntity = TaskEntity(
@@ -20,5 +20,5 @@ fun Task.toEntity(): TaskEntity = TaskEntity(
     isCompleted = isCompleted,
     categoryId = categoryId,
     createdAt = createdAt,
-    position = position
+    position = position,
 )

@@ -11,7 +11,7 @@ import javax.inject.Inject
  */
 class SetReminderTimeUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val scheduleNextDailyDigest: ScheduleNextDailyDigestUseCase
+    private val scheduleNextDailyDigest: ScheduleNextDailyDigestUseCase,
 ) {
     suspend operator fun invoke(minutes: Int) {
         settingsRepository.setReminderTimeMinutes(minutes)

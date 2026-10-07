@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.components
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -21,17 +21,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Category
 import ru.taurlom.tnote.presentation.theme.AppTheme
 
 @Composable
-fun CategoryInputDialog(
-    category: Category? = null,
-    onDismiss: () -> Unit,
-    onConfirm: (String, Long) -> Unit
-) {
+fun CategoryInputDialog(category: Category? = null, onDismiss: () -> Unit, onConfirm: (String, Long) -> Unit) {
     // rememberSaveable: набранное имя и выбранный цвет переживают
     // пересоздание Activity (смена системной темы/языка/масштаба шрифта),
     // а не только пересборку композиции. Для редактирования это спасает
@@ -42,7 +37,7 @@ fun CategoryInputDialog(
 
     AppDialog(
         title = stringResource(
-            if (category == null) R.string.add_category else R.string.edit_category
+            if (category == null) R.string.add_category else R.string.edit_category,
         ),
         onDismissRequest = onDismiss,
         text = {
@@ -53,28 +48,28 @@ fun CategoryInputDialog(
                     label = stringResource(R.string.category_name),
                     singleLine = true,
                     required = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
                     text = stringResource(R.string.choose_color),
                     style = MaterialTheme.typography.labelLarge,
-                    color = AppTheme.colors.dialogContent
+                    color = AppTheme.colors.dialogContent,
                 )
                 AppColorPicker(
                     options = categoryColorOptions(),
                     selected = selectedColor,
                     onSelect = { selectedColor = it },
                     size = 40.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
             AppSaveButton(
                 onClick = { onConfirm(name, selectedColor) },
-                enabled = name.isNotBlank()
+                enabled = name.isNotBlank(),
             )
-        }
+        },
     )
 }
 
@@ -92,7 +87,7 @@ fun TaskInputDialog(
     onCopyTo: ((Long, String, String) -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit,
-    onNext: ((String, String) -> Unit)? = null
+    onNext: ((String, String) -> Unit)? = null,
 ) {
     // Аналогично CategoryInputDialog: черновик задачи живёт в Bundle
     // и не теряется на пересоздании Activity.
@@ -111,7 +106,7 @@ fun TaskInputDialog(
                 label = stringResource(R.string.task_title),
                 singleLine = true,
                 required = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
             AppTextField(
                 value = description,
@@ -119,7 +114,7 @@ fun TaskInputDialog(
                 label = stringResource(R.string.task_description),
                 minLines = 2,
                 maxLines = 4,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             if (copyTargets.isNotEmpty() && onCopyTo != null) {
@@ -130,11 +125,11 @@ fun TaskInputDialog(
                     optionText = { target ->
                         Text(
                             text = target.name,
-                            color = AppTheme.colors.dialogContent
+                            color = AppTheme.colors.dialogContent,
                         )
                     },
                     placeholder = stringResource(R.string.choose_list),
-                    onSelect = { targetCategoryId = it.id }
+                    onSelect = { targetCategoryId = it.id },
                 )
                 AppButton(
                     onClick = {
@@ -144,21 +139,21 @@ fun TaskInputDialog(
                         Toast.makeText(
                             context,
                             context.getString(R.string.task_copied, target.name),
-                            Toast.LENGTH_SHORT
+                            Toast.LENGTH_SHORT,
                         ).show()
                     },
                     // Выбор цели обязателен; пустую задачу копировать некуда.
                     enabled = targetCategoryId != 0L && title.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_copy),
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                     Text(
                         text = stringResource(R.string.copy),
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }
@@ -172,16 +167,16 @@ fun TaskInputDialog(
                             title = ""
                             description = ""
                         },
-                        enabled = title.isNotBlank()
+                        enabled = title.isNotBlank(),
                     ) {
                         Text(stringResource(R.string.next))
                     }
                 }
                 AppSaveButton(
                     onClick = { onConfirm(title, description) },
-                    enabled = title.isNotBlank()
+                    enabled = title.isNotBlank(),
                 )
             }
-        }
+        },
     )
 }

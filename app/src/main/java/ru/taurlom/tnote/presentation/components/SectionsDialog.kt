@@ -25,11 +25,7 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * панель живёт за диалогом и перестраивается на глазах.
  */
 @Composable
-fun SectionsDialog(
-    visibleSections: List<String>,
-    onDismiss: () -> Unit,
-    onApply: (List<String>) -> Unit
-) {
+fun SectionsDialog(visibleSections: List<String>, onDismiss: () -> Unit, onApply: (List<String>) -> Unit) {
     val shown = BottomNavItem.itemsFor(visibleSections)
         .filterNot { it == BottomNavItem.Settings }
     val shownIds = shown.map { it.id }
@@ -52,15 +48,19 @@ fun SectionsDialog(
                             if (shown.size > 1) onApply(shownIds - item.id)
                         },
                         onMoveUp = {
-                            onApply(shownIds.toMutableList().apply {
-                                add(index - 1, removeAt(index))
-                            })
+                            onApply(
+                                shownIds.toMutableList().apply {
+                                    add(index - 1, removeAt(index))
+                                },
+                            )
                         },
                         onMoveDown = {
-                            onApply(shownIds.toMutableList().apply {
-                                add(index + 1, removeAt(index))
-                            })
-                        }
+                            onApply(
+                                shownIds.toMutableList().apply {
+                                    add(index + 1, removeAt(index))
+                                },
+                            )
+                        },
                     )
                 }
                 hidden.forEach { item ->
@@ -70,14 +70,14 @@ fun SectionsDialog(
                         canMoveUp = false,
                         canMoveDown = false,
                         // Включение — в конец видимого списка.
-                        onToggle = { onApply(shownIds + item.id) }
+                        onToggle = { onApply(shownIds + item.id) },
                     )
                 }
             }
         },
         confirmButton = {
             AppTextButton(onClick = onDismiss, textRes = R.string.done)
-        }
+        },
     )
 }
 
@@ -89,43 +89,43 @@ private fun SectionRow(
     canMoveDown: Boolean,
     onToggle: () -> Unit,
     onMoveUp: () -> Unit = {},
-    onMoveDown: () -> Unit = {}
+    onMoveDown: () -> Unit = {},
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         AppCheckbox(
             checked = checked,
             onCheckedChange = { onToggle() },
-            onDarkBackground = false
+            onDarkBackground = false,
         )
         Icon(
             painter = painterResource(item.iconRes),
             contentDescription = null,
             tint = AppTheme.colors.dialogContent,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
         )
         Text(
             text = stringResource(item.contentDescriptionRes),
             style = MaterialTheme.typography.bodyLarge,
             color = AppTheme.colors.dialogContent,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
         if (checked) {
             IconButton(onClick = onMoveUp, enabled = canMoveUp) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_upward),
                     contentDescription = stringResource(R.string.section_move_up),
-                    tint = AppTheme.colors.dialogContent
+                    tint = AppTheme.colors.dialogContent,
                 )
             }
             IconButton(onClick = onMoveDown, enabled = canMoveDown) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_downward),
                     contentDescription = stringResource(R.string.section_move_down),
-                    tint = AppTheme.colors.dialogContent
+                    tint = AppTheme.colors.dialogContent,
                 )
             }
         }

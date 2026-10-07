@@ -7,10 +7,10 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.data.local.entity.NoteEntity
 import ru.taurlom.tnote.data.local.entity.NotePhotoEntity
 import ru.taurlom.tnote.data.local.entity.NoteWithPhotos
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface NoteDao {
@@ -59,30 +59,24 @@ interface NoteDao {
     suspend fun deleteAllPhotos()
 
     @Transaction
-    suspend fun insertNoteWithPhotos(
-        note: NoteEntity,
-        photos: List<NotePhotoEntity>
-    ): Long {
+    suspend fun insertNoteWithPhotos(note: NoteEntity, photos: List<NotePhotoEntity>): Long {
         val noteId = insert(note)
         insertPhotos(
             photos.mapIndexed { index, photo ->
                 photo.copy(noteId = noteId, orderIndex = index)
-            }
+            },
         )
         return noteId
     }
 
     @Transaction
-    suspend fun updateNoteWithPhotos(
-        note: NoteEntity,
-        photos: List<NotePhotoEntity>
-    ) {
+    suspend fun updateNoteWithPhotos(note: NoteEntity, photos: List<NotePhotoEntity>) {
         update(note)
         deletePhotosByNoteId(note.id)
         insertPhotos(
             photos.mapIndexed { index, photo ->
                 photo.copy(noteId = note.id, orderIndex = index)
-            }
+            },
         )
     }
 }

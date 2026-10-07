@@ -24,7 +24,7 @@ fun SectionTopBar(
     title: String,
     showBrandHeader: Boolean,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    onImportLists: () -> Unit = {}
+    onImportLists: () -> Unit = {},
 ) {
     if (showBrandHeader) {
         // Название раздела у первого не показываем: бренд-шапка — это
@@ -35,15 +35,15 @@ fun SectionTopBar(
                     Icon(
                         painter = painterResource(R.drawable.ic_file_download),
                         contentDescription = stringResource(R.string.import_list),
-                        tint = AppTheme.colors.brandTitle
+                        tint = AppTheme.colors.brandTitle,
                     )
                 }
-            }
+            },
         )
     } else {
         AppTopBar(
             title = title,
-            scrollBehavior = scrollBehavior
+            scrollBehavior = scrollBehavior,
         )
     }
 }

@@ -8,7 +8,7 @@ data class NotesUiState(
     /** Текст из системного «Поделиться», ждёт подтверждения в диалоге. */
     val incomingSharedText: SharedText? = null,
     /** Одноразовый результат сохранения — тост показывает AppNavigation. */
-    val saveFeedback: NotesFeedback? = null
+    val saveFeedback: NotesFeedback? = null,
 )
 
 /** Результат сохранения шэра в заметки; аналог ShareFeedback категорий. */

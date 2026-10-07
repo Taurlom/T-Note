@@ -32,7 +32,7 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
 fun AppBrandHeader(
     modifier: Modifier = Modifier,
     title: String = stringResource(R.string.app_name),
-    actions: @Composable RowScope.() -> Unit = {}
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -41,20 +41,20 @@ fun AppBrandHeader(
             .statusBarsPadding()
             .fillMaxWidth()
             .height(64.dp)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp),
     ) {
         Icon(
             painter = painterResource(R.drawable.logo_vector),
             contentDescription = null,
             tint = AppTheme.colors.brandLogo,
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier.size(44.dp),
         )
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = AppTheme.colors.brandTitle,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
         actions()
     }

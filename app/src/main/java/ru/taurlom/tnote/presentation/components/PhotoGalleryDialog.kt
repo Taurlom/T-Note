@@ -28,13 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.util.sharePhoto
 import java.io.File
 import java.io.FileOutputStream
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Полноэкранная галерея фотографий с горизонтальным свайпом.
@@ -47,7 +47,7 @@ fun PhotoGalleryDialog(
     photoPaths: List<String>,
     initialIndex: Int = 0,
     onDismiss: () -> Unit,
-    onCropComplete: ((oldPath: String, newPath: String) -> Unit)? = null
+    onCropComplete: ((oldPath: String, newPath: String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = { photoPaths.size })
@@ -59,7 +59,7 @@ fun PhotoGalleryDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         currentPhotoPath = photoPaths[pagerState.currentPage]
 
@@ -73,7 +73,7 @@ fun PhotoGalleryDialog(
                             Icon(
                                 painter = painterResource(R.drawable.ic_close),
                                 contentDescription = stringResource(R.string.close),
-                                tint = Color.White
+                                tint = Color.White,
                             )
                         }
                     },
@@ -83,14 +83,14 @@ fun PhotoGalleryDialog(
                                 onClick = {
                                     sharePhoto(
                                         context,
-                                        File(context.filesDir, currentPhotoPath)
+                                        File(context.filesDir, currentPhotoPath),
                                     )
-                                }
+                                },
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_share),
                                     contentDescription = stringResource(R.string.share_photo),
-                                    tint = Color.White
+                                    tint = Color.White,
                                 )
                             }
 
@@ -111,24 +111,24 @@ fun PhotoGalleryDialog(
                                             busy = false
                                         }
                                     }
-                                }
+                                },
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_rotate_right),
                                     contentDescription = stringResource(R.string.rotate),
-                                    tint = Color.White
+                                    tint = Color.White,
                                 )
                             }
 
                             if (onCropComplete != null) {
                                 IconButton(
                                     enabled = !busy,
-                                    onClick = { showCropDialog = true }
+                                    onClick = { showCropDialog = true },
                                 ) {
                                     Icon(
                                         painter = painterResource(R.drawable.ic_crop),
                                         contentDescription = stringResource(R.string.crop),
-                                        tint = Color.White
+                                        tint = Color.White,
                                     )
                                 }
                             }
@@ -136,10 +136,10 @@ fun PhotoGalleryDialog(
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black,
-                        navigationIconContentColor = Color.White
-                    )
+                        navigationIconContentColor = Color.White,
+                    ),
                 )
-            }
+            },
         ) { padding ->
             if (showCropDialog) {
                 Cropper(
@@ -159,7 +159,9 @@ fun PhotoGalleryDialog(
                                 withContext(Dispatchers.IO) {
                                     FileOutputStream(newFile).use { out ->
                                         bitmap.compress(
-                                            android.graphics.Bitmap.CompressFormat.JPEG, 100, out
+                                            android.graphics.Bitmap.CompressFormat.JPEG,
+                                            100,
+                                            out,
                                         )
                                     }
                                     bitmap.recycle()
@@ -170,19 +172,19 @@ fun PhotoGalleryDialog(
                                 busy = false
                             }
                         }
-                    }
+                    },
                 )
             } else {
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
+                        .padding(padding),
                 ) { page ->
                     ZoomableImage(
                         model = File(context.filesDir, photoPaths[page]).toUri(),
                         contentDescription = stringResource(R.string.document_photo),
-                        refreshKey = refreshTrigger
+                        refreshKey = refreshTrigger,
                     )
                 }
             }

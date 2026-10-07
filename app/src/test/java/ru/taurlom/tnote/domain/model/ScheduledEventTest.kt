@@ -9,16 +9,12 @@ import java.time.LocalDate
 
 class ScheduledEventTest {
 
-    private fun repeating(
-        anchor: String = "2026-01-01",
-        interval: Int? = 3,
-        repeatDays: Int = 0
-    ) = ScheduledEvent(
+    private fun repeating(anchor: String = "2026-01-01", interval: Int? = 3, repeatDays: Int = 0) = ScheduledEvent(
         date = anchor,
         title = "Тест",
         type = ScheduledEventType.REPEATING,
         repeatIntervalDays = interval,
-        repeatDays = repeatDays
+        repeatDays = repeatDays,
     )
 
     // occursOn

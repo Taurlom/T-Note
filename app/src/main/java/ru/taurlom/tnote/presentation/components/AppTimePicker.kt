@@ -28,19 +28,19 @@ import ru.taurlom.tnote.presentation.theme.appTimePickerColors
 @Composable
 fun AppTimePicker(
     state: TimePickerState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
         // Форма — единая с AppDialog (MaterialTheme.shapes.small).
         color = AppTheme.colors.pickerBackdrop,
-        shape = MaterialTheme.shapes.small
+        shape = MaterialTheme.shapes.small,
     ) {
         TimePicker(
             state = state,
             // Зазор, чтобы чипы и циферблат не упирались в край подложки.
             modifier = Modifier.padding(8.dp),
-            colors = appTimePickerColors()
+            colors = appTimePickerColors(),
         )
     }
 }

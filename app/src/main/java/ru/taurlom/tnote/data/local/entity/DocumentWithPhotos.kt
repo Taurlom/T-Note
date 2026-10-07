@@ -9,7 +9,7 @@ data class DocumentWithPhotos(
 
     @Relation(
         parentColumn = "id",
-        entityColumn = "documentId"
+        entityColumn = "documentId",
     )
-    val photos: List<DocumentPhotoEntity>
+    val photos: List<DocumentPhotoEntity>,
 )

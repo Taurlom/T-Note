@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Task
 import ru.taurlom.tnote.presentation.components.AppButton
@@ -43,15 +44,10 @@ import ru.taurlom.tnote.presentation.components.TaskInputDialog
 import ru.taurlom.tnote.presentation.components.TaskItem
 import ru.taurlom.tnote.presentation.util.shareList
 import ru.taurlom.tnote.presentation.util.shareListFile
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TasksScreen(
-    categoryId: Long,
-    onBackClick: () -> Unit,
-    viewModel: TasksViewModel = hiltViewModel()
-) {
+fun TasksScreen(categoryId: Long, onBackClick: () -> Unit, viewModel: TasksViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -75,7 +71,7 @@ fun TasksScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.back)
+                            contentDescription = stringResource(R.string.back),
                         )
                     }
                 },
@@ -85,32 +81,32 @@ fun TasksScreen(
                         IconButton(onClick = { showShareDialog = true }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_share),
-                                contentDescription = stringResource(R.string.share_list)
+                                contentDescription = stringResource(R.string.share_list),
                             )
                         }
                     }
                 },
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
             )
         },
         floatingActionButton = {
             AppFab(
                 onClick = { showAddDialog = true },
-                contentDescriptionRes = R.string.add_task
+                contentDescriptionRes = R.string.add_task,
             )
-        }
+        },
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             if (uiState.tasks.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_tasks),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
@@ -119,7 +115,7 @@ fun TasksScreen(
                     onReorder = { viewModel.onEvent(TasksEvent.OnReorderTasks(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 ) { task, _ ->
                     TaskItem(
                         task = task,
@@ -128,7 +124,7 @@ fun TasksScreen(
                         },
                         onEdit = { taskToEdit = task },
                         onDelete = { taskToDelete = task },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -145,7 +141,7 @@ fun TasksScreen(
             },
             onNext = { title, description ->
                 viewModel.onEvent(TasksEvent.OnAddTask(title, description))
-            }
+            },
         )
     }
 
@@ -159,17 +155,17 @@ fun TasksScreen(
                 viewModel.onEvent(
                     TasksEvent.OnCopyTask(
                         task.copy(title = title.trim(), description = description.trim()),
-                        targetId
-                    )
+                        targetId,
+                    ),
                 )
             },
             onDismiss = { taskToEdit = null },
             onConfirm = { title, description ->
                 viewModel.onEvent(
-                    TasksEvent.OnEditTask(task.copy(title = title, description = description))
+                    TasksEvent.OnEditTask(task.copy(title = title, description = description)),
                 )
                 taskToEdit = null
-            }
+            },
         )
     }
 
@@ -181,7 +177,7 @@ fun TasksScreen(
             onConfirm = {
                 viewModel.onEvent(TasksEvent.OnDeleteTask(task))
                 taskToDelete = null
-            }
+            },
         )
     }
 
@@ -196,10 +192,10 @@ fun TasksScreen(
                         shareList(
                             context = context,
                             categoryName = uiState.category?.name.orEmpty(),
-                            tasks = uiState.tasks
+                            tasks = uiState.tasks,
                         )
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.share_list_text))
                 }
@@ -214,17 +210,17 @@ fun TasksScreen(
                                 Toast.makeText(
                                     context,
                                     R.string.share_list_file_error,
-                                    Toast.LENGTH_SHORT
+                                    Toast.LENGTH_SHORT,
                                 ).show()
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.share_list_file))
                 }
             },
-            confirmButton = {}
+            confirmButton = {},
         )
     }
 }

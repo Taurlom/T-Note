@@ -18,12 +18,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
-import androidx.compose.ui.tooling.preview.Preview
 import ru.taurlom.tnote.presentation.util.Markdown
 
 /**
@@ -31,12 +31,7 @@ import ru.taurlom.tnote.presentation.util.Markdown
  * сами метки в списке только мешают, рендер полный — в деталях.
  */
 @Composable
-fun NoteItem(
-    note: Note,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun NoteItem(note: Note, onClick: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -45,17 +40,17 @@ fun NoteItem(
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = note.title,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             val preview = Markdown.preview(note.content)
             if (preview.isNotBlank()) {
@@ -64,7 +59,7 @@ fun NoteItem(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             if (note.photoPaths.isNotEmpty()) {
@@ -72,7 +67,7 @@ fun NoteItem(
                 Text(
                     text = "${note.photoPaths.size}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -81,7 +76,7 @@ fun NoteItem(
             Icon(
                 painter = painterResource(R.drawable.ic_delete),
                 contentDescription = stringResource(R.string.delete),
-                tint = AppTheme.colors.actionIcon
+                tint = AppTheme.colors.actionIcon,
             )
         }
     }
@@ -90,9 +85,11 @@ fun NoteItem(
 // ── Previews ──
 
 private val previewNote = Note(
-    id = 1, title = "Идеи для проекта",
+    id = 1,
+    title = "Идеи для проекта",
     content = "Продумать архитектуру **модулей** и нарисовать схему.",
-    createdAt = 0L, position = 0
+    createdAt = 0L,
+    position = 0,
 )
 
 @Preview(showBackground = true, name = "С текстом")
@@ -109,7 +106,8 @@ private fun NoteItemEmptyPreview() {
     TNoteTheme {
         NoteItem(
             note = previewNote.copy(title = "Пустая заметка", content = ""),
-            onClick = {}, onDelete = {}
+            onClick = {},
+            onDelete = {},
         )
     }
 }

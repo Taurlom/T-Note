@@ -43,7 +43,7 @@ fun <T> AppDropdown(
     placeholder: String? = null,
     optionIcon: (@Composable (T) -> Unit)? = null,
     required: Boolean = false,
-    onDarkBackground: Boolean = false
+    onDarkBackground: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     // Ширина выпадающего меню = ширина поля-якоря (в Material 3.1.3 нет
@@ -53,7 +53,7 @@ fun <T> AppDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        modifier = modifier
+        modifier = modifier,
     ) {
         AppTextField(
             value = selectedLabel.orEmpty(),
@@ -70,7 +70,7 @@ fun <T> AppDropdown(
                 .onSizeChanged { anchorWidth = it.width },
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            }
+            },
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -78,7 +78,7 @@ fun <T> AppDropdown(
             containerColor = AppTheme.colors.dialogContainer,
             modifier = with(LocalDensity.current) {
                 if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
-            }
+            },
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
@@ -89,7 +89,7 @@ fun <T> AppDropdown(
                     onClick = {
                         onSelect(option)
                         expanded = false
-                    }
+                    },
                 )
             }
         }

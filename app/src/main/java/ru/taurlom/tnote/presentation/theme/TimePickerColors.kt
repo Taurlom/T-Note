@@ -35,5 +35,5 @@ internal fun appTimePickerColors(): TimePickerColors = TimePickerDefaults.colors
     timeSelectorUnselectedContainerColor = AppTheme.colors.pickerDial,
     timeSelectorUnselectedContentColor = AppTheme.colors.pickerDialContent,
     timeSelectorSelectedContainerColor = AppTheme.colors.pickerChipSelectedContainer,
-    timeSelectorSelectedContentColor = AppTheme.colors.pickerChipSelectedContent
+    timeSelectorSelectedContentColor = AppTheme.colors.pickerChipSelectedContent,
 )

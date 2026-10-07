@@ -11,7 +11,8 @@ enum class ThemeKind {
     LIGHT,
     OCEAN,
     FOREST,
-    AUTUMN;
+    AUTUMN,
+    ;
 
     companion object {
         fun fromName(name: String): ThemeKind = entries.find { it.name == name } ?: DARK

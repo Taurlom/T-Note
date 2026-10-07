@@ -8,7 +8,7 @@ data class CategoriesUiState(
     /** Список, прочитанный из `.tnote`-файла, ждёт подтверждения импорта. */
     val incomingShare: SharedList? = null,
     /** Разовое уведомление о результате (тост покажет AppNavigation). */
-    val shareFeedback: ShareFeedback? = null
+    val shareFeedback: ShareFeedback? = null,
 )
 
 sealed interface ShareFeedback {

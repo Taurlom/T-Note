@@ -1,9 +1,9 @@
 package ru.taurlom.tnote.domain.usecase
 
+import kotlinx.coroutines.flow.first
 import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
 import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import ru.taurlom.tnote.domain.repository.SettingsRepository
-import kotlinx.coroutines.flow.first
 import java.time.Clock
 import java.time.ZonedDateTime
 import javax.inject.Inject
@@ -21,7 +21,7 @@ import javax.inject.Inject
 class ScheduleNextDailyDigestUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val reminderScheduler: ReminderScheduler,
-    private val clock: Clock
+    private val clock: Clock,
 ) {
     suspend operator fun invoke(mode: ReminderScheduler.Mode) {
         if (!settingsRepository.remindersEnabled.first()) {

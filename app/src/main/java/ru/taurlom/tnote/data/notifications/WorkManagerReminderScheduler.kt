@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
+import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,9 +22,7 @@ import javax.inject.Singleton
  * задачей.
  */
 @Singleton
-class WorkManagerReminderScheduler @Inject constructor(
-    @ApplicationContext private val context: Context
-) : ReminderScheduler {
+class WorkManagerReminderScheduler @Inject constructor(@ApplicationContext private val context: Context) : ReminderScheduler {
 
     override suspend fun scheduleNextDigest(atEpochMillis: Long, mode: ReminderScheduler.Mode) {
         val policy = when (mode) {

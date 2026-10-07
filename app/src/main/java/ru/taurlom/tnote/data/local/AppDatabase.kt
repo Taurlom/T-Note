@@ -20,11 +20,11 @@ import ru.taurlom.tnote.data.local.entity.TaskEntity
         DocumentEntity::class,
         DocumentPhotoEntity::class,
         NoteEntity::class,
-        NotePhotoEntity::class
+        NotePhotoEntity::class,
     ],
     version = 16,
     // Схемы экспортируются в app/schemas (см. ksp-аргумент в build.gradle.kts).
-    exportSchema = true
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
 

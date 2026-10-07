@@ -14,8 +14,10 @@ object MarkdownEditing {
         val start = selection.start.coerceIn(0, text.length)
         val end = selection.end.coerceIn(0, text.length)
         // Уже обёрнуто?
-        if (start >= 2 && end + 2 <= text.length &&
-            text.startsWith("**", start - 2) && text.startsWith("**", end)
+        if (start >= 2 &&
+            end + 2 <= text.length &&
+            text.startsWith("**", start - 2) &&
+            text.startsWith("**", end)
         ) {
             val inner = text.substring(start, end)
             return (text.take(start - 2) + inner + text.substring(end + 2)) to
@@ -46,11 +48,7 @@ object MarkdownEditing {
      * [placeholder] — подпись ссылки, если выделение пусто (локализуемый
      * ресурс, передаёт экран).
      */
-    fun insertLink(
-        text: String,
-        selection: TextRange,
-        placeholder: String
-    ): Pair<String, TextRange> {
+    fun insertLink(text: String, selection: TextRange, placeholder: String): Pair<String, TextRange> {
         val start = selection.start.coerceIn(0, text.length)
         val end = selection.end.coerceIn(0, text.length)
         val selected = text.substring(start, end)

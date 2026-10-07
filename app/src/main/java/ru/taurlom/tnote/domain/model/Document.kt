@@ -8,5 +8,5 @@ data class Document(
     /** Время создания (мс UTC). Проставляется use-case'ом через [java.time.Clock]. */
     val createdAt: Long,
     /** Порядок в списке (перетаскивание), как у задач и категорий. */
-    val position: Int = 0
+    val position: Int = 0,
 )

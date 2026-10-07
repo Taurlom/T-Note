@@ -21,12 +21,7 @@ internal const val CROP_MIN_SELECTION_PX = 56f
 private const val CROP_OUTPUT_MAX_DIM = 4096
 
 /** Простой прямоугольник в координатах bitmap: left/top/right/bottom. */
-internal data class CropRect(
-    val left: Float,
-    val top: Float,
-    val right: Float,
-    val bottom: Float
-) {
+internal data class CropRect(val left: Float, val top: Float, val right: Float, val bottom: Float) {
     val width: Float get() = right - left
     val height: Float get() = bottom - top
 }
@@ -36,12 +31,7 @@ internal data class CropRect(
  * и ориентация «сырого» оригинала: по ним рамка пересчитывается в пиксели
  * файла — region-декодер тег не применяет и видит пиксели как лежат.
  */
-internal data class SampledPhoto(
-    val bitmap: Bitmap,
-    val sourceWidth: Int,
-    val sourceHeight: Int,
-    val orientation: Int
-)
+internal data class SampledPhoto(val bitmap: Bitmap, val sourceWidth: Int, val sourceHeight: Int, val orientation: Int)
 
 internal fun decodeSampledBitmap(path: String, maxDim: Int): SampledPhoto? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -63,14 +53,14 @@ internal fun decodeSampledBitmap(path: String, maxDim: Int): SampledPhoto? {
         bitmap = applyOrientation(decoded, orientation),
         sourceWidth = bounds.outWidth,
         sourceHeight = bounds.outHeight,
-        orientation = orientation
+        orientation = orientation,
     )
 }
 
 internal fun readOrientation(file: File): Int = runCatching {
     ExifInterface(file.absolutePath).getAttributeInt(
         ExifInterface.TAG_ORIENTATION,
-        ExifInterface.ORIENTATION_NORMAL
+        ExifInterface.ORIENTATION_NORMAL,
     )
 }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
 
@@ -99,11 +89,12 @@ internal fun rotateViaExifTag(file: File): Boolean {
     val exif = runCatching { ExifInterface(file.absolutePath) }.getOrNull() ?: return false
     val current = exif.getAttributeInt(
         ExifInterface.TAG_ORIENTATION,
-        ExifInterface.ORIENTATION_UNDEFINED
+        ExifInterface.ORIENTATION_UNDEFINED,
     )
     val next = when (current) {
         ExifInterface.ORIENTATION_UNDEFINED,
-        ExifInterface.ORIENTATION_NORMAL -> ExifInterface.ORIENTATION_ROTATE_90
+        ExifInterface.ORIENTATION_NORMAL,
+        -> ExifInterface.ORIENTATION_ROTATE_90
         ExifInterface.ORIENTATION_ROTATE_90 -> ExifInterface.ORIENTATION_ROTATE_180
         ExifInterface.ORIENTATION_ROTATE_180 -> ExifInterface.ORIENTATION_ROTATE_270
         ExifInterface.ORIENTATION_ROTATE_270 -> ExifInterface.ORIENTATION_NORMAL
@@ -126,11 +117,7 @@ internal fun rotateViaExifTag(file: File): Boolean {
  * Зеркальные ориентации и форматы без region-декода возвращают null —
  * вызывающий откатывается к кропу из уменьшенной копии.
  */
-internal fun decodeRegionCrop(
-    path: String,
-    selection: CropRect,
-    photo: SampledPhoto
-): Bitmap? {
+internal fun decodeRegionCrop(path: String, selection: CropRect, photo: SampledPhoto): Bitmap? {
     val dw = photo.bitmap.width.toFloat()
     val dh = photo.bitmap.height.toFloat()
     if (dw <= 0f || dh <= 0f) return null
@@ -144,21 +131,29 @@ internal fun decodeRegionCrop(
     val rawRect = when (photo.orientation) {
         // показ = raw, повёрнутый на 90° по часовой: x = v·W, y = (1−u)·H
         ExifInterface.ORIENTATION_ROTATE_90 -> Rect(
-            (nt * sw).roundToInt(), ((1f - nr) * sh).roundToInt(),
-            (nb * sw).roundToInt(), ((1f - nl) * sh).roundToInt()
+            (nt * sw).roundToInt(),
+            ((1f - nr) * sh).roundToInt(),
+            (nb * sw).roundToInt(),
+            ((1f - nl) * sh).roundToInt(),
         )
         ExifInterface.ORIENTATION_ROTATE_180 -> Rect(
-            ((1f - nr) * sw).roundToInt(), ((1f - nb) * sh).roundToInt(),
-            ((1f - nl) * sw).roundToInt(), ((1f - nt) * sh).roundToInt()
+            ((1f - nr) * sw).roundToInt(),
+            ((1f - nb) * sh).roundToInt(),
+            ((1f - nl) * sw).roundToInt(),
+            ((1f - nt) * sh).roundToInt(),
         )
         // показ = raw, повёрнутый на 270° по часовой: x = (1−v)·W, y = u·H
         ExifInterface.ORIENTATION_ROTATE_270 -> Rect(
-            ((1f - nb) * sw).roundToInt(), (nl * sh).roundToInt(),
-            ((1f - nt) * sw).roundToInt(), (nr * sh).roundToInt()
+            ((1f - nb) * sw).roundToInt(),
+            (nl * sh).roundToInt(),
+            ((1f - nt) * sw).roundToInt(),
+            (nr * sh).roundToInt(),
         )
         ExifInterface.ORIENTATION_NORMAL, ExifInterface.ORIENTATION_UNDEFINED -> Rect(
-            (nl * sw).roundToInt(), (nt * sh).roundToInt(),
-            (nr * sw).roundToInt(), (nb * sh).roundToInt()
+            (nl * sw).roundToInt(),
+            (nt * sh).roundToInt(),
+            (nr * sw).roundToInt(),
+            (nb * sh).roundToInt(),
         )
         // Зеркальные варианты: эта математика осей не годится — откат на копию.
         else -> return null
@@ -178,7 +173,7 @@ internal fun decodeRegionCrop(
         try {
             val region = decoder.decodeRegion(
                 Rect(left, top, right, bottom),
-                BitmapFactory.Options().apply { inSampleSize = sample }
+                BitmapFactory.Options().apply { inSampleSize = sample },
             )
             region?.let { applyOrientation(it, photo.orientation) }
         } finally {
@@ -209,12 +204,20 @@ internal fun rotateImage(file: File) {
     }
 
     val rotatedBitmap = Bitmap.createBitmap(
-        bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+        bitmap,
+        0,
+        0,
+        bitmap.width,
+        bitmap.height,
+        matrix,
+        true,
     )
 
     FileOutputStream(file).use { out ->
         rotatedBitmap.compress(
-            android.graphics.Bitmap.CompressFormat.JPEG, 100, out
+            android.graphics.Bitmap.CompressFormat.JPEG,
+            100,
+            out,
         )
     }
 

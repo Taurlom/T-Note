@@ -1,9 +1,9 @@
 package ru.taurlom.tnote.data.share
 
-import ru.taurlom.tnote.domain.model.SharedList
-import ru.taurlom.tnote.domain.model.SharedTask
 import org.json.JSONArray
 import org.json.JSONObject
+import ru.taurlom.tnote.domain.model.SharedList
+import ru.taurlom.tnote.domain.model.SharedTask
 
 /**
  * Формат `.tnote`: JSON с магическим полем `tnoteList`.
@@ -35,10 +35,10 @@ object ListShareCodec {
                             put("title", task.title)
                             put("description", task.description)
                             put("completed", task.completed)
-                        }
+                        },
                     )
                 }
-            }
+            },
         )
     }.toString(2)
 
@@ -65,15 +65,15 @@ object ListShareCodec {
                         description = task.optString("description")
                             .trim()
                             .take(MAX_DESCRIPTION_LENGTH),
-                        completed = task.optBoolean("completed", false)
-                    )
+                        completed = task.optBoolean("completed", false),
+                    ),
                 )
             }
         }
         return SharedList(
             name = name,
             color = (json.opt("color") as? Number)?.toLong(),
-            tasks = tasks
+            tasks = tasks,
         )
     }
 }

@@ -35,7 +35,6 @@ private val SplashLogoSize = 190.dp
 
 @Composable
 fun SplashScreen() {
-
     val transition = rememberInfiniteTransition(label = "")
 
     val angle by transition.animateFloat(
@@ -44,24 +43,23 @@ fun SplashScreen() {
         animationSpec = infiniteRepeatable(
             animation = tween(
                 durationMillis = 10000,
-                easing = LinearEasing
+                easing = LinearEasing,
             ),
-            repeatMode = RepeatMode.Restart
+            repeatMode = RepeatMode.Restart,
         ),
-        label = ""
+        label = "",
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AppTheme.colors.launchBackground),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
-
         Image(
             painter = painterResource(R.drawable.logo_center),
             contentDescription = null,
-            modifier = Modifier.size(SplashLogoSize)
+            modifier = Modifier.size(SplashLogoSize),
         )
 
         Image(
@@ -69,7 +67,7 @@ fun SplashScreen() {
             contentDescription = null,
             modifier = Modifier
                 .size(SplashLogoSize)
-                .rotate(angle)
+                .rotate(angle),
         )
     }
 }

@@ -12,15 +12,15 @@ import androidx.room.PrimaryKey
             entity = DocumentEntity::class,
             parentColumns = ["id"],
             childColumns = ["documentId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index(value = ["documentId"])]
+    indices = [Index(value = ["documentId"])],
 )
 data class DocumentPhotoEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val documentId: Long,
     val photoPath: String,
-    val orderIndex: Int
+    val orderIndex: Int,
 )

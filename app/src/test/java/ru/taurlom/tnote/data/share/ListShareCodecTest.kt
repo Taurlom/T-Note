@@ -1,11 +1,11 @@
 package ru.taurlom.tnote.data.share
 
-import ru.taurlom.tnote.domain.model.SharedList
-import ru.taurlom.tnote.domain.model.SharedTask
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.SharedList
+import ru.taurlom.tnote.domain.model.SharedTask
 
 class ListShareCodecTest {
 
@@ -17,8 +17,8 @@ class ListShareCodecTest {
             tasks = listOf(
                 SharedTask("Молоко", completed = true),
                 SharedTask("Хлеб", description = "цельнозерновой"),
-                SharedTask("Яблоки")
-            )
+                SharedTask("Яблоки"),
+            ),
         )
         val decoded = ListShareCodec.decode(ListShareCodec.encode(source))
         assertEquals(source, decoded)
@@ -33,14 +33,14 @@ class ListShareCodecTest {
     @Test
     fun `не json отклоняется`() {
         assertTrue(
-            runCatching { ListShareCodec.decode("это не json") }.isFailure
+            runCatching { ListShareCodec.decode("это не json") }.isFailure,
         )
     }
 
     @Test
     fun `цвет без значения читается как null`() {
         val raw = ListShareCodec.encode(
-            SharedList(name = "Дела", color = null, tasks = emptyList())
+            SharedList(name = "Дела", color = null, tasks = emptyList()),
         )
         assertNull(ListShareCodec.decode(raw).color)
     }

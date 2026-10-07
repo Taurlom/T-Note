@@ -7,12 +7,12 @@ fun CategoryEntity.toDomain(): Category = Category(
     id = id,
     name = name,
     color = color,
-    position = position
+    position = position,
 )
 
 fun Category.toEntity(): CategoryEntity = CategoryEntity(
     id = id,
     name = name,
     color = color,
-    position = position
+    position = position,
 )
