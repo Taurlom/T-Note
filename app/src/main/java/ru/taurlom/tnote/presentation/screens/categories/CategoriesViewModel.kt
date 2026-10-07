@@ -55,12 +55,12 @@ class CategoriesViewModel @Inject constructor(
             }
             is CategoriesEvent.OnAddCategory -> {
                 viewModelScope.launch {
-                    val nextPosition = (_uiState.value.categories.maxOfOrNull { it.position } ?: -1) + 1
+                    // position заполнит AddCategoryUseCase: позиция считается
+                    // по базе, а не по снапшоту UI (гонка двух быстрых добавлений).
                     addCategoryUseCase(
                         Category(
                             name = event.name.trim(),
                             color = event.color,
-                            position = nextPosition,
                         ),
                     )
                 }

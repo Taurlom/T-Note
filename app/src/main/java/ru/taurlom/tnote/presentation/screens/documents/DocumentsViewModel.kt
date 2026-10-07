@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.screens.documents
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,11 +46,12 @@ class DocumentsViewModel @Inject constructor(
         when (event) {
             is DocumentsEvent.OnAddDocument -> {
                 viewModelScope.launch {
-                    // Новый документ — в конец списка (position = max + 1).
-                    val nextPosition = (_uiState.value.documents.maxOfOrNull { it.position } ?: -1) + 1
+                    // createdAt, позицию (по базе, не по снапшоту UI) и пути
+                    // новых фото заполнит AddDocumentUseCase.
                     addDocumentUseCase(
-                        document = event.document.copy(position = nextPosition),
-                        photoUris = event.photoUris,
+                        document = event.document,
+                        // Domain работает с URI строками, не зная android.net.Uri.
+                        photoUris = event.photoUris.map(Uri::toString),
                     )
                 }
             }
@@ -57,7 +59,7 @@ class DocumentsViewModel @Inject constructor(
                 viewModelScope.launch {
                     updateDocumentUseCase(
                         document = event.document,
-                        newPhotoUris = event.newPhotoUris,
+                        newPhotoUris = event.newPhotoUris.map(Uri::toString),
                         removedPhotoPaths = event.removedPhotoPaths,
                     )
                 }

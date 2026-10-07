@@ -35,22 +35,22 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
-    // Compose-��������� ��� composition: ����� ��� onNewIntent, ������ AppNavigation.
+    // Compose-состояние вне composition: пишет его onNewIntent, читает AppNavigation.
     private val pendingShareUri = mutableStateOf<Uri?>(null)
 
-    // ����� �� ������������ � ��� �� ���������, ��� � Uri ������: �� ����
-    // � SAF, � ���� �����, ������� ������� � �������.
+    // Текст из «Поделиться» — тем же маршрутом, что и Uri списка: не файл
+    // в SAF, а пара строк, целиком живущая в интенте.
     private val pendingSharedText = mutableStateOf<SharedText?>(null)
 
-    // ��� �� �����������-������: ������� ������ �����������. ��� ��
-    // ���������, ��� � ����, � ��������� ��� composition.
+    // Тап по уведомлению-сводке: открыть раздел «Календарь». Тем же
+    // маршрутом, что и шэры, — состояние вне composition.
     private val pendingOpenCalendar = mutableStateOf(false)
 
     companion object {
         /**
-         * Extra �� �����������-������ (������ DailyDigestNotifier � ����
-         * ������): ��� ������ ������� ���������, � �� ������, �������
-         * �������� ��������.
+         * Extra из уведомления-сводки (ставит DailyDigestNotifier в слое
+         * данных): тап должен открыть календарь, а не раздел, который
+         * случился открытым.
          */
         const val EXTRA_OPEN_CALENDAR = "open_calendar"
     }
@@ -105,13 +105,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // launchMode="singleTop": ����, �������� � ���������� ����������,
-        // �������� ����, � �� � ����� ����������.
+        // launchMode="singleTop": файл, открытый в запущенном приложении,
+        // приходит сюда, а не в новую активность.
         handleIncomingIntent(intent)
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
-        // �����������-������ ������ ��� action � ������ ��� extra.
+        // Уведомление-сводку тапают без action — только наш extra.
         if (intent?.getBooleanExtra(EXTRA_OPEN_CALENDAR, false) == true) {
             pendingOpenCalendar.value = true
         }
@@ -119,13 +119,13 @@ class MainActivity : AppCompatActivity() {
             Intent.ACTION_VIEW ->
                 intent.data?.let { pendingShareUri.value = it }
             Intent.ACTION_SEND -> {
-                // ����� �� ������������ (text/plain): ������� ����� ��������
-                // �������� � EXTRA_SUBJECT, ��������� ��� ������ � � EXTRA_TEXT.
-                // ������ ����� �� ���������: ������ ���������� �������
-                // ������ ������� � �����. ���� ������ ���, � type text/plain
-                // (���������� ����� ��������� ����), ������ � �������� ����� �
-                // ��� ������� ������ �������, � �� ���������� ������� ��
-                // ���������.
+                // Текст из «Поделиться» (text/plain): браузер кладёт название
+                // страницы в EXTRA_SUBJECT, выделение или ссылку — в EXTRA_TEXT.
+                // Пустой текст не принимаем: диалог «сохранить пустоту»
+                // только сбивает с толку. Если текста нет, а type text/plain
+                // (приложение шэрит текстовый файл), уходим в файловую ветку —
+                // там честная ошибка разбора, а не молчаливое «ничего не
+                // произошло».
                 val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)
                 if (intent.type.equals("text/plain", ignoreCase = true) && text != null) {
                     if (text.isNotBlank()) {
@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity() {
                         )
                     }
                 } else {
-                    // ����������� > T-Note� ������ .tnote: �� ����� � EXTRA_STREAM.
+                    // «Поделиться > T-Note» файлом .tnote: он лежит в EXTRA_STREAM.
                     @Suppress("DEPRECATION")
                     (intent.extras?.getParcelable(Intent.EXTRA_STREAM) as? Uri)
                         ?.let { pendingShareUri.value = it }

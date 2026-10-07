@@ -81,20 +81,31 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
     var photoVersion by remember { mutableIntStateOf(0) }
 
     // Буферы редактирования: заполняются при входе в режим, чтобы отмена
-    // («назад» из редактора) не портила сохранённый текст.
-    var editTitle by remember { mutableStateOf("") }
-    var editContent by remember { mutableStateOf(TextFieldValue("")) }
-    val editPhotoPaths = remember { mutableStateListOf<String>() }
-    val pendingPhotoUris = remember { mutableStateListOf<Uri>() }
-    val removedPhotoPaths = remember { mutableStateListOf<String>() }
+    // («назад» из редактора) не портила сохранённый текст. Все буферы —
+    // saveable: isEditing живёт во ViewModel и переживает поворот, а
+    // обычный remember затирал бы несохранённый ввод снапшотом из базы.
+    var editTitle by rememberSaveable { mutableStateOf("") }
+    var editContent by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    val editPhotoPaths = rememberSaveable { mutableStateListOf<String>() }
+    // Uri — Parcelable, поэтому список тоже переживает пересоздание.
+    val pendingPhotoUris = rememberSaveable { mutableStateListOf<Uri>() }
+    val removedPhotoPaths = rememberSaveable { mutableStateListOf<String>() }
+    // Заполнение из заметки — один раз на вход в редактор; после поворота
+    // буферы восстановлены из saved state и затирать их нельзя.
+    var editBuffersLoaded by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(uiState.isEditing) {
-        if (uiState.isEditing) {
+        if (uiState.isEditing && !editBuffersLoaded) {
             editTitle = note?.title.orEmpty()
             editContent = TextFieldValue(note?.content.orEmpty())
             editPhotoPaths.clear()
             editPhotoPaths += note?.photoPaths.orEmpty()
             pendingPhotoUris.clear()
             removedPhotoPaths.clear()
+            editBuffersLoaded = true
+        } else if (!uiState.isEditing) {
+            editBuffersLoaded = false
         }
     }
 

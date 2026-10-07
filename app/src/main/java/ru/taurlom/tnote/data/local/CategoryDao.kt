@@ -6,7 +6,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.data.local.entity.CategoryEntity
 
@@ -42,8 +41,24 @@ interface CategoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(category: CategoryEntity): Long
 
-    @Update
-    suspend fun update(category: CategoryEntity)
+    /**
+     * Точечный апдейт только редактируемых полей: archived намеренно не
+     * пишется — доменная Category его не содержит, и полный @Update по
+     * entity затирал бы флаг у архивного списка. Смена архивности идёт
+     * отдельными запросами (archive/restore).
+     */
+    @Query("UPDATE categories SET name = :name, color = :color, position = :position WHERE id = :id")
+    suspend fun update(id: Long, name: String, color: Long, position: Int)
+
+    /**
+     * Перестановка — одной транзакцией, как у заметок: N отдельных апдейтов
+     * давали N коммитов (и N эмитов в Flow) на одно перетаскивание, а сбой
+     * посередине оставлял «рваные» позиции.
+     */
+    @Transaction
+    suspend fun updatePositions(categories: List<CategoryEntity>) {
+        categories.forEach { update(it.id, it.name, it.color, it.position) }
+    }
 
     @Delete
     suspend fun delete(category: CategoryEntity)

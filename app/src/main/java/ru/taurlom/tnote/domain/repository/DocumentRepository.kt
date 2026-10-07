@@ -12,5 +12,4 @@ interface DocumentRepository {
     suspend fun update(document: Document)
     suspend fun updatePositions(documents: List<Document>)
     suspend fun delete(document: Document)
-    suspend fun deleteAll()
 }

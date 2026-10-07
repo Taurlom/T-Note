@@ -5,6 +5,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import ru.taurlom.tnote.data.backup.BackupRepositoryImpl
+import ru.taurlom.tnote.data.local.DocumentPhotoSaver
+import ru.taurlom.tnote.data.local.NotePhotoSaver
 import ru.taurlom.tnote.data.notifications.WorkManagerReminderScheduler
 import ru.taurlom.tnote.data.repository.CalendarRepositoryImpl
 import ru.taurlom.tnote.data.repository.CategoryRepositoryImpl
@@ -21,6 +23,7 @@ import ru.taurlom.tnote.domain.repository.CategoryRepository
 import ru.taurlom.tnote.domain.repository.DocumentRepository
 import ru.taurlom.tnote.domain.repository.ListShareRepository
 import ru.taurlom.tnote.domain.repository.NoteRepository
+import ru.taurlom.tnote.domain.repository.PhotoStorage
 import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.domain.repository.TaskRepository
@@ -71,4 +74,16 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindReminderScheduler(impl: WorkManagerReminderScheduler): ReminderScheduler
+
+    // Два каталога фото — один интерфейс PhotoStorage, различение
+    // квалификаторами (семантика вложений разная, см. saver'ы).
+    @Binds
+    @Singleton
+    @DocumentPhotos
+    abstract fun bindDocumentPhotoStorage(impl: DocumentPhotoSaver): PhotoStorage
+
+    @Binds
+    @Singleton
+    @NotePhotos
+    abstract fun bindNotePhotoStorage(impl: NotePhotoSaver): PhotoStorage
 }

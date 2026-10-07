@@ -2,12 +2,12 @@ package ru.taurlom.tnote.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
@@ -91,7 +94,11 @@ private fun ColorSwatch(swatch: Color, selected: Boolean, label: String?, size: 
                 color = if (selected) AppTheme.colors.dialogContent else Color.Transparent,
                 shape = CircleShape,
             )
-            .clickable(onClickLabel = label) { onClick() },
+            // selectable, а не clickable: палитра по смыслу радио-группа,
+            // и TalkBack объявляет состояние «выбрано/не выбрано». Имя цвета
+            // идёт в contentDescription — selectable не принимает onClickLabel.
+            .semantics { if (label != null) contentDescription = label }
+            .selectable(selected = selected, role = Role.RadioButton) { onClick() },
     ) {
         if (selected) {
             Icon(

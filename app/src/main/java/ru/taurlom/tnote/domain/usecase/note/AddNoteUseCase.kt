@@ -1,23 +1,23 @@
 package ru.taurlom.tnote.domain.usecase.note
 
-import android.net.Uri
-import ru.taurlom.tnote.data.local.NotePhotoSaver
+import ru.taurlom.tnote.di.NotePhotos
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.repository.NoteRepository
+import ru.taurlom.tnote.domain.repository.PhotoStorage
 import java.time.Clock
 import javax.inject.Inject
 
 class AddNoteUseCase @Inject constructor(
     private val repository: NoteRepository,
-    private val photoSaver: NotePhotoSaver,
+    @NotePhotos private val photoStorage: PhotoStorage,
     private val clock: Clock,
 ) {
     /**
      * Позиция — из базы (max + 1), а не из снапшота UI; файлы фото ложатся
      * до записи: база ссылается только на существующее.
      */
-    suspend operator fun invoke(note: Note, newPhotoUris: List<Uri> = emptyList()): Long {
-        val savedPaths = photoSaver.savePhotos(newPhotoUris)
+    suspend operator fun invoke(note: Note, newPhotoUris: List<String> = emptyList()): Long {
+        val savedPaths = photoStorage.savePhotos(newPhotoUris)
         return repository.insert(
             note.copy(
                 createdAt = clock.millis(),

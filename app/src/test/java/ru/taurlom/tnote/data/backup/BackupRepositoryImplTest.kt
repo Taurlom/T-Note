@@ -695,8 +695,6 @@ class BackupRepositoryImplTest {
         override suspend fun updatePositions(documents: List<Document>) = error("не используется тестами копий")
 
         override suspend fun delete(document: Document) = error("не используется тестами копий")
-
-        override suspend fun deleteAll() = error("не используется тестами копий")
     }
 
     private class FakeNoteRepository : NoteRepository {
@@ -717,8 +715,6 @@ class BackupRepositoryImplTest {
         override suspend fun updatePositions(notes: List<Note>) = error("не используется тестами копий")
 
         override suspend fun delete(note: Note) = error("не используется тестами копий")
-
-        override suspend fun deleteAll() = error("не используется тестами копий")
     }
 
     private companion object {

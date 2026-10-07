@@ -46,17 +46,11 @@ interface NoteDao {
     @Delete
     suspend fun delete(note: NoteEntity)
 
-    @Query("DELETE FROM notes")
-    suspend fun deleteAll()
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPhotos(photos: List<NotePhotoEntity>)
 
     @Query("DELETE FROM note_photos WHERE noteId = :noteId")
     suspend fun deletePhotosByNoteId(noteId: Long)
-
-    @Query("DELETE FROM note_photos")
-    suspend fun deleteAllPhotos()
 
     @Transaction
     suspend fun insertNoteWithPhotos(note: NoteEntity, photos: List<NotePhotoEntity>): Long {

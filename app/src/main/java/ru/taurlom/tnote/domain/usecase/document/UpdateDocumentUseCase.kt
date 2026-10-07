@@ -1,17 +1,24 @@
 package ru.taurlom.tnote.domain.usecase.document
 
-import android.net.Uri
 import kotlinx.coroutines.flow.first
-import ru.taurlom.tnote.data.local.DocumentPhotoSaver
+import ru.taurlom.tnote.di.DocumentPhotos
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.domain.repository.DocumentRepository
+import ru.taurlom.tnote.domain.repository.PhotoStorage
 import javax.inject.Inject
 
-class UpdateDocumentUseCase @Inject constructor(private val repository: DocumentRepository, private val photoSaver: DocumentPhotoSaver) {
-    suspend operator fun invoke(document: Document, newPhotoUris: List<Uri> = emptyList(), removedPhotoPaths: List<String> = emptyList()) {
+class UpdateDocumentUseCase @Inject constructor(
+    private val repository: DocumentRepository,
+    @DocumentPhotos private val photoStorage: PhotoStorage,
+) {
+    suspend operator fun invoke(
+        document: Document,
+        newPhotoUris: List<String> = emptyList(),
+        removedPhotoPaths: List<String> = emptyList(),
+    ) {
         // Файл ложится на диск до записи в базу: теперь это обязательный
         // порядок — база может сослаться только на существующий файл.
-        val newPaths = photoSaver.savePhotos(newPhotoUris)
+        val newPaths = photoStorage.savePhotos(newPhotoUris)
 
         // Как в renamePhotoPath: список фото берём из свежего снапшота базы,
         // из UI применяем только заголовок и описание — параллельный кроп
@@ -30,7 +37,7 @@ class UpdateDocumentUseCase @Inject constructor(private val repository: Document
 
         // Удаляем файлы только после коммита базы и только те, на которые
         // не осталось ссылок (вдруг их параллельно вернул другой редактор).
-        photoSaver.deletePhotos(removedPhotoPaths.filterNot { it in updatedPaths })
+        photoStorage.deletePhotos(removedPhotoPaths.filterNot { it in updatedPaths })
     }
 
     /**
@@ -44,6 +51,6 @@ class UpdateDocumentUseCase @Inject constructor(private val repository: Document
             photoPaths = fresh.photoPaths.map { if (it == oldPath) newPath else it },
         )
         repository.update(updated)
-        photoSaver.deletePhotos(listOf(oldPath))
+        photoStorage.deletePhotos(listOf(oldPath))
     }
 }

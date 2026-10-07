@@ -121,9 +121,9 @@ fun DocumentDetailScreen(onBackClick: () -> Unit, viewModel: DocumentDetailViewM
             )
 
             if (document.photoPaths.isNotEmpty()) {
-                // ������ �� ��� ������� ���� � ���; ���� �����������
-                // �������������, ��������� ���� ��������� ������ �� �������
-                // �� ��� ������.
+                // Плитка по два крупных фото в ряд; ряды формируются
+                // автоматически, одиночное фото последней строки не тянется
+                // на всю ширину.
                 document.photoPaths.chunked(2).forEachIndexed { rowIndex, rowPaths ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -141,8 +141,8 @@ fun DocumentDetailScreen(onBackClick: () -> Unit, viewModel: DocumentDetailViewM
                             )
                         }
                         if (rowPaths.size == 1) {
-                            // ������ ������ ������, ����� ��������� ����
-                            // ��������� ������ �������� ���������� ������.
+                            // Пустая правая ячейка, чтобы одиночное фото
+                            // последней строки осталось половинной ширины.
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }

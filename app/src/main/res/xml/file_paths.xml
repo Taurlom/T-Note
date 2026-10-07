@@ -9,4 +9,7 @@
     <files-path
         name="document_photos"
         path="document_photos/" />
+    <files-path
+        name="note_photos"
+        path="note_photos/" />
 </paths>

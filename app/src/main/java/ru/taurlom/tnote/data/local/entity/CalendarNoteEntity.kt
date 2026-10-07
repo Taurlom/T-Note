@@ -6,9 +6,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "calendar_notes")
 data class CalendarNoteEntity(
     /**
-     * ISO-���� �YYYY-MM-DD� � ��������� ����: ���� ������� �� ����.
-     * ����-increment id ����� ��� ��������: ������ ���������� ���������
-     * ����� ��� ������ ���������� (����� �������� �����).
+     * ISO-дата «YYYY-MM-DD» — первичный ключ: одна заметка на день.
+     * Авто-increment id здесь был ловушкой: каждое сохранение вставляло
+     * новый ряд вместо обновления (дубли копились вечно).
      */
     @PrimaryKey
     val eventDate: String,

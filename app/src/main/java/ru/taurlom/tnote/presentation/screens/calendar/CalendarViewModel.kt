@@ -155,11 +155,9 @@ class CalendarViewModel @Inject constructor(
         viewModelScope.launch {
             val trimmed = draft.title.trim()
             if (trimmed.isBlank()) return@launch
-            val dateEvents = _uiState.value.events[date].orEmpty()
-            val nextPosition = (dateEvents.maxOfOrNull { it.position } ?: -1) + 1
-            addEventUseCase(
-                draft.copy(date = date, title = trimmed, position = nextPosition),
-            )
+            // position заполнит AddScheduledEventUseCase: позиция считается
+            // по базе, а не по снапшоту UI (гонка двух быстрых добавлений).
+            addEventUseCase(draft.copy(date = date, title = trimmed))
         }
     }
 

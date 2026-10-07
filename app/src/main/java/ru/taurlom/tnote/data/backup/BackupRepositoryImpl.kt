@@ -5,6 +5,8 @@ import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -68,7 +70,19 @@ class BackupRepositoryImpl @Inject constructor(
     private val noteRepository: NoteRepository,
 ) : BackupRepository {
 
-    override suspend fun exportBackup(target: Uri): BackupSummary = withContext(Dispatchers.IO) {
+    /**
+     * Экспорт и импорт не должны идти параллельно: оба работают с одними
+     * и теми же файлами (база, каталоги фото, tempDir). UI уже страхует
+     * флагом isBusy, но повторный вызов возможен и помимо UI — data-слой
+     * обязан держать взаимное исключение сам.
+     */
+    private val ioMutex = Mutex()
+
+    override suspend fun exportBackup(target: Uri): BackupSummary = ioMutex.withLock {
+        exportBackupInternal(target)
+    }
+
+    private suspend fun exportBackupInternal(target: Uri): BackupSummary = withContext(Dispatchers.IO) {
         checkpointWal()
 
         // Самопроверка: каждый путь фото (документов и заметок) из базы
@@ -149,7 +163,11 @@ class BackupRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun importBackup(source: Uri): BackupSummary = withContext(Dispatchers.IO) {
+    override suspend fun importBackup(source: Uri): BackupSummary = ioMutex.withLock {
+        importBackupInternal(source)
+    }
+
+    private suspend fun importBackupInternal(source: Uri): BackupSummary = withContext(Dispatchers.IO) {
         val tempDir = File(context.cacheDir, IMPORT_TEMP_DIR)
             .apply {
                 deleteRecursively()
@@ -404,9 +422,17 @@ class BackupRepositoryImpl @Inject constructor(
         return out.toByteArray()
     }
 
-    /** Перенос в пределах внутреннего хранилища: rename, при отказе — копия. */
+    /**
+     * Перенос в пределах внутреннего хранилища: rename, при отказе — копия.
+     * Копия возможна только для файла: [File.copyTo] каталога создаёт пустой
+     * каталог без содержимого — молчаливая потеря всех фото недопустима,
+     * поэтому для каталога отказ rename = падение, и «транзакция» подмены
+     * откатывает уже сделанное (см. вызовы swap).
+     */
     private fun move(source: File, target: File) {
-        if (!source.renameTo(target)) source.copyTo(target, overwrite = true)
+        if (source.renameTo(target)) return
+        check(!source.isDirectory) { "Не удалось перенести каталог ${source.path}" }
+        source.copyTo(target, overwrite = true)
     }
 
     private fun photosDir(): File = File(context.filesDir, PHOTOS_DIR)
@@ -418,11 +444,21 @@ class BackupRepositoryImpl @Inject constructor(
         "$prefix/${file.relativeTo(dir).path}" !in referenced
     }
 
-    /** Сливает WAL-журнал в основной файл базы, чтобы копия была полной. */
+    /**
+     * Сливает WAL-журнал в основной файл базы, чтобы копия была полной.
+     * Первая колонка результата — busy: журнал не удалось слить целиком
+     * (параллельное чтение/запись). Без проверки копия уехала бы без свежих
+     * страниц, поэтому после нескольких попыток честно падаем: неполная
+     * копия хуже отказа.
+     */
     private fun checkpointWal() {
-        database.openHelper.writableDatabase
-            .query("PRAGMA wal_checkpoint(TRUNCATE)")
-            .use { it.moveToFirst() }
+        repeat(MAX_WAL_CHECKPOINT_ATTEMPTS) {
+            val busy = database.openHelper.writableDatabase
+                .query("PRAGMA wal_checkpoint(TRUNCATE)")
+                .use { cursor -> cursor.moveToFirst() && cursor.getInt(0) != 0 }
+            if (!busy) return
+        }
+        error("WAL-checkpoint не завершился: журнал занят другим соединением")
     }
 
     private suspend fun manifestJson(photoCount: Int, notePhotoCount: Int, missing: List<String>, orphans: Int): JSONObject {
@@ -502,6 +538,7 @@ class BackupRepositoryImpl @Inject constructor(
         const val MAX_ENTRY_BYTES = 256L shl 20 // 256 МБ на запись
         const val MAX_TOTAL_BYTES = 2048L shl 20 // 2 ГБ на архив
         const val MAX_ENTRIES = 100_000
+        const val MAX_WAL_CHECKPOINT_ATTEMPTS = 3 // попыток слить WAL, прежде чем признать журнал занятым
         const val IO_BUFFER_BYTES = 64 * 1024
 
         const val IMPORT_OLD_SUFFIX = ".import-old"

@@ -72,13 +72,15 @@ class NoteDetailViewModel @Inject constructor(
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
+            // Domain работает с URI строками, не зная android.net.Uri.
+            val uriStrings = newPhotoUris.map(Uri::toString)
             val current = _uiState.value.note
             if (current == null) {
-                addNoteUseCase(Note(title = trimmed, content = content, createdAt = 0L), newPhotoUris)
+                addNoteUseCase(Note(title = trimmed, content = content, createdAt = 0L), uriStrings)
             } else {
                 updateNoteUseCase(
                     current.copy(title = trimmed, content = content),
-                    newPhotoUris = newPhotoUris,
+                    newPhotoUris = uriStrings,
                     removedPhotoPaths = removedPhotoPaths,
                 )
             }

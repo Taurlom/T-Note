@@ -11,10 +11,11 @@ interface ScheduledEventRepository {
 
     suspend fun getById(id: Long): ScheduledEvent?
 
+    /** Максимальная позиция среди событий дня — для вставки «в конец». */
+    suspend fun getMaxPosition(date: String): Int
+
     /** @return id вставленной записи. */
     suspend fun add(event: ScheduledEvent): Long
     suspend fun update(event: ScheduledEvent)
     suspend fun delete(event: ScheduledEvent)
-    suspend fun deleteByDate(date: String)
-    suspend fun clearAll()
 }

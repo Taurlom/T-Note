@@ -1,14 +1,15 @@
 package ru.taurlom.tnote.domain.usecase.note
 
-import ru.taurlom.tnote.data.local.NotePhotoSaver
+import ru.taurlom.tnote.di.NotePhotos
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.repository.NoteRepository
+import ru.taurlom.tnote.domain.repository.PhotoStorage
 import javax.inject.Inject
 
-class DeleteNoteUseCase @Inject constructor(private val repository: NoteRepository, private val photoSaver: NotePhotoSaver) {
-    /** Сначала строка (фото-записи уходят каскадом), потом файлы на диске. */
+class DeleteNoteUseCase @Inject constructor(private val repository: NoteRepository, @NotePhotos private val photoStorage: PhotoStorage) {
+    /** Сначала строка базы (fk-каскад снимет ссылки), затем файлы с диска. */
     suspend operator fun invoke(note: Note) {
         repository.delete(note)
-        photoSaver.deletePhotos(note.photoPaths)
+        photoStorage.deletePhotos(note.photoPaths)
     }
 }

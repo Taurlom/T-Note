@@ -198,7 +198,9 @@ private fun CalendarGrid(
     weekendDates: Set<String>,
     onDayClick: (CalendarDate) -> Unit,
 ) {
-    val today = remember { LocalDate.now() }
+    // Без remember: вызов дёшев, зато «сегодня» не замирает на первой
+    // композиции, если процесс пережил полночь.
+    val today = LocalDate.now()
 
     // Даты и их ISO-ключи пересчитываются только при смене месяца: раньше на
     // каждую перерисовку создавалось ~42 объекта и столько же строк.

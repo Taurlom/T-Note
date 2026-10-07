@@ -28,9 +28,4 @@ class NoteRepositoryImpl @Inject constructor(private val noteDao: NoteDao) : Not
 
     /** Удаление строки каскадом снимает и фото-записи (FK ON DELETE CASCADE). */
     override suspend fun delete(note: Note) = noteDao.delete(note.toEntity())
-
-    override suspend fun deleteAll() {
-        noteDao.deleteAllPhotos()
-        noteDao.deleteAll()
-    }
 }

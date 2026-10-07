@@ -34,3 +34,10 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest
+
+      # Release-сборка без подписи (keystore.properties в CI нет): R8 и
+      # shrinkResources должны ломаться здесь, а не в релизном пайплайне.
+      - name: Assemble release (unsigned)
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleRelease

@@ -57,9 +57,9 @@ fun DocumentInputDialog(
     var title by rememberSaveable { mutableStateOf(document?.title.orEmpty()) }
     var description by rememberSaveable { mutableStateOf(document?.description.orEmpty()) }
 
-    // ���� � ��������� �� saveable: ������ Uri/����� ����������� ��
-    // ���������� Saver, � ������ ������������������ (���� ����������
-    // ������) � �������� ������ ��������������� �����.
+    // Фото в черновике НЕ saveable: списки Uri/путей потребовали бы
+    // кастомного Saver, а потеря переустанавливаема (фото выбираются
+    // заново) — защищаем только невосстановимый текст.
 
     val existingPhotoPaths = remember(document) { document?.photoPaths ?: emptyList() }
     val removedExistingPaths = remember { mutableStateListOf<String>() }
@@ -70,7 +70,7 @@ fun DocumentInputDialog(
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).resolveActivity(context.packageManager) != null
     }
 
-    // ���� � ����� ��� ������ �������; ���������� ���������� �������� ���� ������
+    // Путь к файлу для съёмки камерой; переживает перезапуск процесса ради камеры
     var pendingCaptureUriString by rememberSaveable { mutableStateOf<String?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -251,9 +251,9 @@ private fun CameraPhotoButton(onClick: () -> Unit, modifier: Modifier = Modifier
     )
 }
 
-// IconButton � Material3 ��� ��������� minimumInteractiveComponentSize (48dp)
-// � ������� clip, ������� ������ � ����� ���������� �� ����, ��� �������.
-// ������� Box ��� ����� 40x40 � ������ �����������.
+// IconButton в Material3 сам применяет minimumInteractiveComponentSize (48dp)
+// и круглый clip, поэтому размер и форма получаются не теми, что просишь.
+// Обычный Box даёт ровно 40x40 с нужным скруглением.
 @Composable
 private fun PhotoActionButton(@DrawableRes iconRes: Int, contentDescription: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(

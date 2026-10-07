@@ -20,6 +20,8 @@ class ScheduledEventRepositoryImpl @Inject constructor(private val eventDao: Sch
 
     override suspend fun getById(id: Long): ScheduledEvent? = eventDao.getByIdOnce(id)?.toDomain()
 
+    override suspend fun getMaxPosition(date: String): Int = eventDao.getMaxPosition(date)
+
     override suspend fun add(event: ScheduledEvent): Long = eventDao.insert(event.toEntity())
 
     override suspend fun update(event: ScheduledEvent) {
@@ -41,13 +43,5 @@ class ScheduledEventRepositoryImpl @Inject constructor(private val eventDao: Sch
 
     override suspend fun delete(event: ScheduledEvent) {
         eventDao.delete(event.toEntity())
-    }
-
-    override suspend fun deleteByDate(date: String) {
-        eventDao.deleteByDate(date)
-    }
-
-    override suspend fun clearAll() {
-        eventDao.deleteAll()
     }
 }

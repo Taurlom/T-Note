@@ -103,14 +103,15 @@ class TasksViewModel @Inject constructor(
         when (event) {
             is TasksEvent.OnAddTask -> {
                 viewModelScope.launch {
-                    val nextPosition = (_uiState.value.tasks.maxOfOrNull { it.position } ?: -1) + 1
+                    // createdAt и position заполнит AddTaskUseCase: позиция
+                    // считается по базе, а не по снапшоту UI — иначе два
+                    // быстрых добавления подряд получали одинаковый position.
                     addTaskUseCase(
                         Task(
                             title = event.title.trim(),
                             description = event.description.trim(),
                             categoryId = categoryId,
                             createdAt = 0L,
-                            position = nextPosition,
                         ),
                     )
                 }

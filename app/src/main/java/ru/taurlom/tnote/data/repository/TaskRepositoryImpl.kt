@@ -22,7 +22,5 @@ class TaskRepositoryImpl @Inject constructor(private val dao: TaskDao) : TaskRep
 
     override suspend fun delete(task: Task) = dao.delete(task.toEntity())
 
-    override suspend fun updatePositions(tasks: List<Task>) {
-        tasks.forEach { dao.update(it.toEntity()) }
-    }
+    override suspend fun updatePositions(tasks: List<Task>) = dao.updatePositions(tasks.map { it.toEntity() })
 }

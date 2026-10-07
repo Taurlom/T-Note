@@ -24,6 +24,9 @@ interface ScheduledEventDao {
     @Query("SELECT * FROM scheduled_events WHERE id = :id")
     suspend fun getByIdOnce(id: Long): ScheduledEventEntity?
 
+    @Query("SELECT COALESCE(MAX(position), -1) FROM scheduled_events WHERE eventDate = :date")
+    suspend fun getMaxPosition(date: String): Int
+
     @Query("DELETE FROM scheduled_events WHERE eventDate = :date")
     suspend fun deleteByDate(date: String)
 

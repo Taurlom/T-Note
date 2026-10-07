@@ -1,22 +1,27 @@
 package ru.taurlom.tnote.domain.usecase.document
 
-import android.net.Uri
-import ru.taurlom.tnote.data.local.DocumentPhotoSaver
+import ru.taurlom.tnote.di.DocumentPhotos
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.domain.repository.DocumentRepository
+import ru.taurlom.tnote.domain.repository.PhotoStorage
 import java.time.Clock
 import javax.inject.Inject
 
 class AddDocumentUseCase @Inject constructor(
     private val repository: DocumentRepository,
-    private val photoSaver: DocumentPhotoSaver,
+    @DocumentPhotos private val photoStorage: PhotoStorage,
     private val clock: Clock,
 ) {
-    suspend operator fun invoke(document: Document, photoUris: List<Uri> = emptyList()): Long {
-        val savedPaths = photoSaver.savePhotos(photoUris)
+    /**
+     * Позиция — из базы (max + 1), а не из снапшота UI; файлы фото ложатся
+     * до записи: база ссылается только на существующее.
+     */
+    suspend operator fun invoke(document: Document, photoUris: List<String> = emptyList()): Long {
+        val savedPaths = photoStorage.savePhotos(photoUris)
         return repository.insert(
             document.copy(
                 createdAt = clock.millis(),
+                position = repository.getMaxPosition() + 1,
                 photoPaths = document.photoPaths + savedPaths,
             ),
         )

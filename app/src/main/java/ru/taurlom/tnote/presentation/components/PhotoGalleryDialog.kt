@@ -54,15 +54,18 @@ fun PhotoGalleryDialog(
     val scope = rememberCoroutineScope()
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var showCropDialog by remember { mutableStateOf(false) }
-    var currentPhotoPath by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+
+    // Текущее фото — производное от страницы пейджера, а не отдельный
+    // state: запись в state прямо в теле композиции гоняла лишний проход
+    // рекомпозиции на каждый свайп. getOrNull — страховка от уменьшения
+    // списка, пока диалог открыт.
+    val currentPhotoPath = photoPaths.getOrNull(pagerState.currentPage).orEmpty()
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        currentPhotoPath = photoPaths[pagerState.currentPage]
-
         Scaffold(
             containerColor = Color.Black,
             topBar = {

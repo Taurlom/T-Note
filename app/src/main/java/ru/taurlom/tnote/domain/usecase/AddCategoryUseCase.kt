@@ -5,5 +5,12 @@ import ru.taurlom.tnote.domain.repository.CategoryRepository
 import javax.inject.Inject
 
 class AddCategoryUseCase @Inject constructor(private val repository: CategoryRepository) {
-    suspend operator fun invoke(category: Category): Long = repository.insert(category)
+
+    /**
+     * Позиция — из базы (max + 1 среди активных), а не из снапшота UI:
+     * иначе два быстрых добавления подряд получали одинаковый position.
+     */
+    suspend operator fun invoke(category: Category): Long = repository.insert(
+        category.copy(position = repository.getMaxActivePosition() + 1),
+    )
 }

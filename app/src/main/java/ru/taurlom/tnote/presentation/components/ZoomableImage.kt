@@ -1,6 +1,9 @@
 package ru.taurlom.tnote.presentation.components
 
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -12,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
@@ -31,14 +35,30 @@ internal fun ZoomableImage(model: Any, contentDescription: String?, refreshKey: 
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale = (scale * zoom).coerceIn(1f, maxScale)
-                    if (scale > 1f) {
-                        offsetX += pan.x
-                        offsetY += pan.y
-                    } else {
-                        offsetX = 0f
-                        offsetY = 0f
+                // Свой цикл вместо detectTransformGestures: тот потребляет все
+                // драги безусловно, и HorizontalPager галереи не получал свой
+                // свайп. Потребляем только то, что используем: pinch-зум и
+                // панорамирование увеличенного фото; однопальцевый драг при
+                // scale == 1 остаётся родителю (листание галереи).
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.changes.none { it.pressed }) break
+                        val zoom = event.calculateZoom()
+                        val pan = event.calculatePan()
+                        val newScale = (scale * zoom).coerceIn(1f, maxScale)
+                        if (zoom != 1f || newScale > 1f) {
+                            scale = newScale
+                            if (newScale > 1f) {
+                                offsetX += pan.x
+                                offsetY += pan.y
+                            } else {
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                            event.changes.forEach { if (it.positionChanged()) it.consume() }
+                        }
                     }
                 }
             },

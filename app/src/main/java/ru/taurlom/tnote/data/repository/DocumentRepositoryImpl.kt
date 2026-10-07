@@ -35,6 +35,4 @@ class DocumentRepositoryImpl @Inject constructor(private val dao: DocumentDao) :
     }
 
     override suspend fun delete(document: Document) = dao.delete(document.toEntity())
-
-    override suspend fun deleteAll() = dao.deleteAll()
 }
