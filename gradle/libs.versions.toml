@@ -10,7 +10,7 @@ kotlin = "2.4.20"
 # KSP версионируется независимо от Kotlin (схема <kotlin>-<ksp> упразднена).
 ksp = "2.3.12"
 compose-bom = "2025.02.00"
-core-ktx = "1.12.0"
+core-ktx = "1.19.1"
 core-splashscreen = "1.2.0"
 lifecycle = "2.7.0"
 activity-compose = "1.8.2"
