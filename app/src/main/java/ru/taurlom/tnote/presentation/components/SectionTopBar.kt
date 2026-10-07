@@ -18,8 +18,10 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * Импорт `.tnote` — действие уровня приложения (диалог подтверждения живёт в
  * AppNavigation), поэтому кнопка доступна, каким бы первым раздел ни оказался.
  *
- * [onSearchClick] открывает режим поиска раздела (см. [SearchTopBar]);
- * кнопка 🔍 есть в обоих вариантах шапки.
+ * [onSearchClick] открывает режим поиска раздела (см. [SearchTopBar]) —
+ * кнопка 🔍 показывается только если колбэк передан. В календаре поиска пока
+ * нет (кандидат на будущее: фильтр событий/заметок по тексту), поэтому он
+ * колбэк не передаёт и иконку не получает.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,19 +30,21 @@ fun SectionTopBar(
     showBrandHeader: Boolean,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     onImportLists: () -> Unit = {},
-    onSearchClick: () -> Unit = {},
+    onSearchClick: (() -> Unit)? = null,
 ) {
     if (showBrandHeader) {
         // Название раздела у первого не показываем: бренд-шапка — это
         // логотип и «T-Note», имя раздела своё у обычной шапки.
         AppBrandHeader(
             actions = {
-                IconButton(onClick = onSearchClick) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_search),
-                        contentDescription = stringResource(R.string.search),
-                        tint = AppTheme.colors.brandTitle,
-                    )
+                if (onSearchClick != null) {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_search),
+                            contentDescription = stringResource(R.string.search),
+                            tint = AppTheme.colors.brandTitle,
+                        )
+                    }
                 }
                 IconButton(onClick = onImportLists) {
                     Icon(
@@ -56,11 +60,13 @@ fun SectionTopBar(
             title = title,
             scrollBehavior = scrollBehavior,
             actions = {
-                IconButton(onClick = onSearchClick) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_search),
-                        contentDescription = stringResource(R.string.search),
-                    )
+                if (onSearchClick != null) {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_search),
+                            contentDescription = stringResource(R.string.search),
+                        )
+                    }
                 }
             },
         )
