@@ -13,6 +13,8 @@ class CategoryRepositoryImpl @Inject constructor(private val dao: CategoryDao) :
 
     override fun getAll(): Flow<List<Category>> = dao.getAll().map { list -> list.map { it.toDomain() } }
 
+    override fun getArchived(): Flow<List<Category>> = dao.getArchived().map { list -> list.map { it.toDomain() } }
+
     override suspend fun insert(category: Category): Long = dao.insert(category.toEntity())
 
     override suspend fun update(category: Category) = dao.update(category.toEntity())
@@ -22,4 +24,8 @@ class CategoryRepositoryImpl @Inject constructor(private val dao: CategoryDao) :
     override suspend fun updatePositions(categories: List<Category>) {
         categories.forEach { dao.update(it.toEntity()) }
     }
+
+    override suspend fun archive(categoryId: Long) = dao.archive(categoryId)
+
+    override suspend fun restore(categoryId: Long) = dao.restore(categoryId)
 }

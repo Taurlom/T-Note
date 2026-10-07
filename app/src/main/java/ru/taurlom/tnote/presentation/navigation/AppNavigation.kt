@@ -48,6 +48,7 @@ import ru.taurlom.tnote.presentation.components.SharedListImportDialog
 import ru.taurlom.tnote.presentation.components.SharedTextSaveDialog
 import ru.taurlom.tnote.presentation.screens.calendar.CalendarScreen
 import ru.taurlom.tnote.presentation.screens.calendar.CalendarViewModel
+import ru.taurlom.tnote.presentation.screens.categories.ArchiveScreen
 import ru.taurlom.tnote.presentation.screens.categories.CategoriesEvent
 import ru.taurlom.tnote.presentation.screens.categories.CategoriesScreen
 import ru.taurlom.tnote.presentation.screens.categories.CategoriesViewModel
@@ -69,6 +70,7 @@ object Routes {
     const val TASKS = "tasks/{categoryId}"
     const val DOCUMENT_DETAIL = "documentDetail/{documentId}"
     const val NOTE_DETAIL = "noteDetail/{noteId}"
+    const val ARCHIVE = "archive"
 
     fun tasks(categoryId: Long): String = "tasks/$categoryId"
     fun documentDetail(documentId: Long): String = "documentDetail/$documentId"
@@ -236,6 +238,9 @@ fun AppNavigation(
                 onNoteClick = { noteId ->
                     navController.navigate(Routes.noteDetail(noteId))
                 },
+                onArchiveClick = {
+                    navController.navigate(Routes.ARCHIVE)
+                },
                 openCalendarRequest = openCalendarRequest,
             )
         }
@@ -274,6 +279,17 @@ fun AppNavigation(
             } else {
                 LaunchedEffect(Unit) { navController.popBackStack() }
             }
+        }
+        composable(
+            route = Routes.ARCHIVE,
+            enterTransition = { detailEnter },
+            exitTransition = { detailExit },
+            popEnterTransition = { detailPopEnter },
+            popExitTransition = { detailPopExit },
+        ) {
+            ArchiveScreen(
+                onBackClick = { navController.popBackStack() },
+            )
         }
         composable(
             route = Routes.NOTE_DETAIL,
@@ -353,6 +369,7 @@ private fun MainTabsScreen(
     onCategoryClick: (Long) -> Unit,
     onDocumentClick: (Long) -> Unit,
     onNoteClick: (Long) -> Unit,
+    onArchiveClick: () -> Unit,
     openCalendarRequest: Int = 0,
 ) {
     // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
@@ -423,6 +440,7 @@ private fun MainTabsScreen(
                     onCategoryClick = onCategoryClick,
                     showBrandHeader = page == 0,
                     onImportLists = onImportLists,
+                    onArchiveClick = onArchiveClick,
                     viewModel = categoriesViewModel,
                 )
                 BottomNavItem.Calendar -> CalendarScreen(

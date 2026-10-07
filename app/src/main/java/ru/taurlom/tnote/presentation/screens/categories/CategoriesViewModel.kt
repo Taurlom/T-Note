@@ -13,10 +13,11 @@ import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.Category
 import ru.taurlom.tnote.domain.repository.ListShareRepository
 import ru.taurlom.tnote.domain.usecase.AddCategoryUseCase
-import ru.taurlom.tnote.domain.usecase.DeleteCategoryUseCase
+import ru.taurlom.tnote.domain.usecase.ArchiveCategoryUseCase
 import ru.taurlom.tnote.domain.usecase.GetCategoriesUseCase
 import ru.taurlom.tnote.domain.usecase.ImportSharedListUseCase
 import ru.taurlom.tnote.domain.usecase.ReorderCategoriesUseCase
+import ru.taurlom.tnote.domain.usecase.RestoreCategoryUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateCategoryUseCase
 import javax.inject.Inject
 
@@ -25,7 +26,8 @@ class CategoriesViewModel @Inject constructor(
     private val getCategoriesUseCase: GetCategoriesUseCase,
     private val addCategoryUseCase: AddCategoryUseCase,
     private val updateCategoryUseCase: UpdateCategoryUseCase,
-    private val deleteCategoryUseCase: DeleteCategoryUseCase,
+    private val archiveCategoryUseCase: ArchiveCategoryUseCase,
+    private val restoreCategoryUseCase: RestoreCategoryUseCase,
     private val reorderCategoriesUseCase: ReorderCategoriesUseCase,
     private val listShareRepository: ListShareRepository,
     private val importSharedListUseCase: ImportSharedListUseCase,
@@ -68,9 +70,14 @@ class CategoriesViewModel @Inject constructor(
                     updateCategoryUseCase(event.category)
                 }
             }
-            is CategoriesEvent.OnDeleteCategory -> {
+            is CategoriesEvent.OnArchiveCategory -> {
                 viewModelScope.launch {
-                    deleteCategoryUseCase(event.category)
+                    archiveCategoryUseCase(event.category)
+                }
+            }
+            is CategoriesEvent.OnRestoreCategory -> {
+                viewModelScope.launch {
+                    restoreCategoryUseCase(event.category)
                 }
             }
             is CategoriesEvent.OnReorderCategories -> {

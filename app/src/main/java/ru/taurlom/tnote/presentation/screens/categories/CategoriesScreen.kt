@@ -10,28 +10,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Category
 import ru.taurlom.tnote.presentation.components.AppFab
 import ru.taurlom.tnote.presentation.components.CategoryCard
 import ru.taurlom.tnote.presentation.components.CategoryInputDialog
-import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
 import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.SectionTopBar
@@ -44,14 +49,32 @@ fun CategoriesScreen(
     onCategoryClick: (Long) -> Unit,
     showBrandHeader: Boolean,
     onImportLists: () -> Unit,
+    onArchiveClick: () -> Unit,
     viewModel: CategoriesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var categoryToEdit by remember { mutableStateOf<Category?>(null) }
-    var categoryToDelete by remember { mutableStateOf<Category?>(null) }
+
+    // Снекбар «перемещён в архив / Отменить»: архивация обратима, поэтому
+    // без диалога подтверждения — Undo возвращает список на место.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onArchiveCategory: (Category) -> Unit = { category ->
+        scope.launch {
+            viewModel.onEvent(CategoriesEvent.OnArchiveCategory(category))
+            val result = snackbarHostState.showSnackbar(
+                message = context.getString(R.string.category_archived, category.name),
+                actionLabel = context.getString(R.string.undo),
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.onEvent(CategoriesEvent.OnRestoreCategory(category))
+            }
+        }
+    }
 
     val search = rememberSearchState()
     val query = search.query
@@ -69,6 +92,7 @@ fun CategoriesScreen(
         // Нижний бар лежит под пейджером в MainTabsScreen, его отступ уже
         // учтён. Статус-баром занимается шапка.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (search.active) {
                 SearchTopBar(
@@ -86,6 +110,7 @@ fun CategoriesScreen(
                     scrollBehavior = scrollBehavior,
                     onImportLists = onImportLists,
                     onSearchClick = search::open,
+                    onArchiveClick = onArchiveClick,
                 )
             }
         },
@@ -129,7 +154,9 @@ fun CategoriesScreen(
                         category = category,
                         onClick = { onCategoryClick(category.id) },
                         onEdit = { categoryToEdit = category },
-                        onDelete = { categoryToDelete = category },
+                        // Корзина теперь архивирует: удаление навсегда
+                        // переехало на экран архива (меню ⋮).
+                        onDelete = { onArchiveCategory(category) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -156,18 +183,6 @@ fun CategoriesScreen(
                     CategoriesEvent.OnEditCategory(category.copy(name = name, color = color)),
                 )
                 categoryToEdit = null
-            },
-        )
-    }
-
-    categoryToDelete?.let { category ->
-        ConfirmDeleteDialog(
-            title = stringResource(R.string.delete),
-            text = stringResource(R.string.delete_category_confirm, category.name),
-            onDismiss = { categoryToDelete = null },
-            onConfirm = {
-                viewModel.onEvent(CategoriesEvent.OnDeleteCategory(category))
-                categoryToDelete = null
             },
         )
     }

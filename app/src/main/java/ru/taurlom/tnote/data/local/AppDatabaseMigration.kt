@@ -14,6 +14,21 @@ object AppDatabaseMigration {
     const val MIN_SUPPORTED_VERSION = 5
 
     /**
+     * Архив категорий: флаг archived. Аддитивная миграция — существующие
+     * списки остаются активными (0). DEFAULT 0 совпадает с
+     * @ColumnInfo(defaultValue = "0") у CategoryEntity, иначе валидация
+     * схемы Room после миграции упадёт.
+     */
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE categories " +
+                    "ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+            )
+        }
+    }
+
+    /**
      * Фото заметок: таблица note_photos по образцу document_photos.
      * Аддитивная миграция — существующие данные не затрагиваются.
      */

@@ -77,6 +77,59 @@ fun CategoryCard(category: Category, onClick: () -> Unit, onEdit: () -> Unit, on
     }
 }
 
+/**
+ * Карточка списка в архиве: тот же визуал, что у [CategoryCard], но вместо
+ * «изменить/удалить» — «вернуть из архива» и «удалить навсегда».
+ */
+@Composable
+fun ArchiveCategoryCard(category: Category, onRestore: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .background(Color(category.color).copy(alpha = 0.15f))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(Color(category.color)),
+            )
+            Text(
+                text = category.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Row {
+            IconButton(onClick = onRestore) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_unarchive),
+                    contentDescription = stringResource(R.string.restore),
+                    tint = AppTheme.colors.actionIcon,
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(R.string.delete_forever),
+                    tint = AppTheme.colors.actionIcon,
+                )
+            }
+        }
+    }
+}
+
 // ── Previews ──
 
 private val previewCategory = Category(
@@ -107,6 +160,18 @@ private fun CategoryCardBluePreview() {
             category = previewCategory.copy(name = "Работа", color = 0xFF42A5F5),
             onClick = {},
             onEdit = {},
+            onDelete = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Архив")
+@Composable
+private fun ArchiveCategoryCardPreview() {
+    TNoteTheme {
+        ArchiveCategoryCard(
+            category = previewCategory.copy(name = "Старый список"),
+            onRestore = {},
             onDelete = {},
         )
     }
