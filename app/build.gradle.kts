@@ -20,26 +20,16 @@ val keystoreProperties = Properties().apply {
 // смене версии и не регрессирует на переходе MAJOR (2.0.0 → 20000).
 // Исторический минимум — 241: до 1.14.0 включительно действовала формула
 // MAJOR*100 + MINOR*10 + PATCH (1.14.0 = 240 ушла в RuStore на модерацию).
-val appVersionName = "1.17.0"
+val appVersionName = "1.18.0"
 val appVersionCode = appVersionName.split(".").map(String::toInt)
     .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
 
 android {
-    namespace = "com.example.timemanager"
+    namespace = "ru.taurlom.tnote"
     compileSdk = 36
 
     defaultConfig {
-        // Идентификатор в магазинах и на устройстве. Отличается от namespace:
-        // код остаётся в com.example.timemanager, а пакет публикации —
-        // ru.taurlom.tnote (префикс com.example зарезервирован Google Play).
-        // -PlegacyPackage собирает прежний пакет для тех, кто уже пользуется
-        // приложением: им обновляться поверх, без миграции (см. CHANGELOG 1.11.1).
-        applicationId =
-            if (project.hasProperty("legacyPackage")) {
-                "com.example.timemanager"
-            } else {
-                "ru.taurlom.tnote"
-            }
+        applicationId = "ru.taurlom.tnote"
         minSdk = 24
         targetSdk = 36
         // Версия задаётся один раз — в appVersionName/appVersionCode выше
@@ -88,9 +78,7 @@ android {
             // Отладочные сборки подписываем релизным ключом: для Android
             // debug- и release-сборки становятся «одним приложением» и
             // обновляют друг друга без переустановки. Флаг -PkeepDebugSigning
-            // оставляет обычный отладочный ключ — он нужен для переходного
-            // debug-билда с экспортом резервных копий, который ставится поверх
-            // уже установленных приложений, подписанных старым debug-ключом.
+            // оставляет обычный отладочный ключ.
             if (!project.hasProperty("keepDebugSigning")) {
                 signingConfigs.findByName("release")?.let { signingConfig = it }
             }

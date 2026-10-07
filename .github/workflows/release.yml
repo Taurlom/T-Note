@@ -28,9 +28,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Тесты до сборки: релиз не публикуется, если логика сломана
-      # (раньше пайплайн сразу собирал APK — регрессию замечали бы
-      # только пользователи).
+      # Тесты до сборки: релиз не публикуется, если логика сломана.
       - name: Run unit tests
         run: |
           chmod +x gradlew
@@ -56,34 +54,21 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
-      - name: Assemble signed release APKs (store + legacy package)
+      - name: Assemble signed release APK
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk store.apk
-          # mapping.txt (деобфускация стектрейсов R8) весит ~40 МБ — жмём в gzip.
-          gzip -9 -c app/build/outputs/mapping/release/mapping.txt > mapping-store.txt.gz
-          # Второй прогон с прежним пакетом: для уже установленных копий,
-          # чтобы никому не приходилось принудительно мигрировать.
-          # clean между прогонами: инкрементальные кэши KSP/Room не должны
-          # видеть смену applicationId в том же workspace.
-          ./gradlew --no-daemon :app:clean
-          ./gradlew --no-daemon :app:assembleRelease -PlegacyPackage
-          cp app/build/outputs/apk/release/app-release.apk legacy.apk
-          gzip -9 -c app/build/outputs/mapping/release/mapping.txt > mapping-legacy.txt.gz
+          cp app/build/outputs/apk/release/app-release.apk apk.apk
+          gzip -9 -c app/build/outputs/mapping/release/mapping.txt > mapping.txt.gz
 
       - name: Prepare artifacts
         id: apk
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          STORE="TNote-${VERSION}-store.apk"
-          LEGACY="TNote-${VERSION}-legacy.apk"
-          cp store.apk "$STORE"
-          cp legacy.apk "$LEGACY"
-          sha256sum "$STORE" | cut -d' ' -f1 > "${STORE}.sha256"
-          sha256sum "$LEGACY" | cut -d' ' -f1 > "${LEGACY}.sha256"
-          echo "store=$STORE" >> "$GITHUB_OUTPUT"
-          echo "legacy=$LEGACY" >> "$GITHUB_OUTPUT"
+          APK="TNote-${VERSION}.apk"
+          cp apk.apk "$APK"
+          sha256sum "$APK" | cut -d' ' -f1 > "${APK}.sha256"
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Extract changelog section
@@ -94,17 +79,6 @@ jobs:
           if [ ! -s release-notes.md ]; then
             printf '## %s\n\nСм. CHANGELOG.md\n' "${GITHUB_REF_NAME}" > release-notes.md
           fi
-          cat >> release-notes.md <<'EOF'
-
-          ---
-          **Какой файл выбрать**
-          - `*-store.apk` — пакет `ru.taurlom.tnote`: новая установка и версии из магазинов.
-          - `*-legacy.apk` — пакет `com.example.timemanager`: для тех, у кого T-Note уже
-            установлен, обновится поверх без переноса данных.
-          - Переезд между пакетами (по желанию, один раз): в старом приложении
-            «Настройки → Сохранить копию», установить store-версию,
-            «Настройки → Восстановить из копии». Дальше обновления прилетают из магазина.
-          EOF
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
@@ -113,10 +87,7 @@ jobs:
           name: T-Note ${{ steps.apk.outputs.version }}
           body_path: release-notes.md
           files: |
-            ${{ steps.apk.outputs.store }}
-            ${{ steps.apk.outputs.store }}.sha256
-            ${{ steps.apk.outputs.legacy }}
-            ${{ steps.apk.outputs.legacy }}.sha256
-            mapping-store.txt.gz
-            mapping-legacy.txt.gz
+            ${{ steps.apk.outputs.apk }}
+            ${{ steps.apk.outputs.apk }}.sha256
+            mapping.txt.gz
           make_latest: true
