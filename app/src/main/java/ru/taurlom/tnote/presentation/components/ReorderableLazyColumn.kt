@@ -41,6 +41,11 @@ fun <T> ReorderableLazyColumn(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    /**
+     * false — long-press-drag отключён (например, в режиме поиска:
+     * перетаскивание отфильтрованного списка сломало бы позиции).
+     */
+    reorderEnabled: Boolean = true,
     itemContent: @Composable LazyItemScope.(T, Boolean) -> Unit,
 ) {
     val lazyListState = rememberLazyListState()
@@ -76,64 +81,70 @@ fun <T> ReorderableLazyColumn(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = {
-                                draggingItemIndex = currentIndex
-                                draggingOffset = 0f
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                draggingOffset += dragAmount.y
+                    .then(
+                        if (reorderEnabled) {
+                            Modifier.pointerInput(Unit) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        draggingItemIndex = currentIndex
+                                        draggingOffset = 0f
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        draggingOffset += dragAmount.y
 
-                                val activeIndex = draggingItemIndex
-                                if (activeIndex == -1) return@detectDragGesturesAfterLongPress
+                                        val activeIndex = draggingItemIndex
+                                        if (activeIndex == -1) return@detectDragGesturesAfterLongPress
 
-                                val layoutInfo = lazyListState.layoutInfo
-                                val startOffset = layoutInfo.visibleItemsInfo
-                                    .find { it.index == activeIndex }
-                                    ?.offset ?: return@detectDragGesturesAfterLongPress
-                                val currentOffset = startOffset + draggingOffset
+                                        val layoutInfo = lazyListState.layoutInfo
+                                        val startOffset = layoutInfo.visibleItemsInfo
+                                            .find { it.index == activeIndex }
+                                            ?.offset ?: return@detectDragGesturesAfterLongPress
+                                        val currentOffset = startOffset + draggingOffset
 
-                                val targetItem = layoutInfo.visibleItemsInfo
-                                    .firstOrNull { target ->
-                                        target.index != activeIndex &&
-                                            currentOffset.toInt() in target.offset until target.offset + target.size
-                                    }
+                                        val targetItem = layoutInfo.visibleItemsInfo
+                                            .firstOrNull { target ->
+                                                target.index != activeIndex &&
+                                                    currentOffset.toInt() in target.offset until target.offset + target.size
+                                            }
 
-                                if (targetItem != null && targetItem.index < currentItems.size) {
-                                    currentItems = currentItems.toMutableList().apply {
-                                        move(activeIndex, targetItem.index)
-                                    }
-                                    draggingItemIndex = targetItem.index
-                                    val newStartOffset = layoutInfo.visibleItemsInfo
-                                        .find { it.index == targetItem.index }
-                                        ?.offset ?: startOffset
-                                    draggingOffset = currentOffset - newStartOffset
-                                }
-                            },
-                            onDragEnd = {
-                                // Порядок зафиксирован: короткая вибрация
-                                // закрывает жест, когда палец уже не
-                                // на экране. Только если перенос был —
-                                // long-press без перемещения не должен
-                                // «звенеть» на отпускание.
-                                if (currentItems != latestItems) {
-                                    haptics.performHapticFeedback(
-                                        HapticFeedbackType.LongPress,
-                                    )
-                                }
-                                onReorder(currentItems)
-                                draggingItemIndex = -1
-                                draggingOffset = 0f
-                            },
-                            onDragCancel = {
-                                currentItems = latestItems
-                                draggingItemIndex = -1
-                                draggingOffset = 0f
-                            },
-                        )
-                    }
+                                        if (targetItem != null && targetItem.index < currentItems.size) {
+                                            currentItems = currentItems.toMutableList().apply {
+                                                move(activeIndex, targetItem.index)
+                                            }
+                                            draggingItemIndex = targetItem.index
+                                            val newStartOffset = layoutInfo.visibleItemsInfo
+                                                .find { it.index == targetItem.index }
+                                                ?.offset ?: startOffset
+                                            draggingOffset = currentOffset - newStartOffset
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        // Порядок зафиксирован: короткая вибрация
+                                        // закрывает жест, когда палец уже не
+                                        // на экране. Только если перенос был —
+                                        // long-press без перемещения не должен
+                                        // «звенеть» на отпускание.
+                                        if (currentItems != latestItems) {
+                                            haptics.performHapticFeedback(
+                                                HapticFeedbackType.LongPress,
+                                            )
+                                        }
+                                        onReorder(currentItems)
+                                        draggingItemIndex = -1
+                                        draggingOffset = 0f
+                                    },
+                                    onDragCancel = {
+                                        currentItems = latestItems
+                                        draggingItemIndex = -1
+                                        draggingOffset = 0f
+                                    },
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    )
                     .then(
                         if (isDragging) {
                             Modifier

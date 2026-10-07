@@ -31,7 +31,10 @@ import ru.taurlom.tnote.presentation.components.AppFab
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.NoteItem
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
+import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.SectionTopBar
+import ru.taurlom.tnote.presentation.components.rememberSearchState
+import ru.taurlom.tnote.presentation.components.searchMatch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +49,14 @@ fun NotesScreen(
 
     var noteToDelete by remember { mutableStateOf<Note?>(null) }
 
+    val search = rememberSearchState()
+    val query = search.query
+    // Фильтрация в памяти: заметок в личном блокноте немного, запрос
+    // реактивный — при изменении заметки во время поиска список обновится.
+    val visibleNotes = remember(uiState.notes, query) {
+        uiState.notes.filter { searchMatch(query, it.title, it.content) }
+    }
+
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -53,20 +64,33 @@ fun NotesScreen(
         // Нижний бар лежит под пейджером в MainTabsScreen — его не учитываем.
         contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
         topBar = {
-            SectionTopBar(
-                title = stringResource(R.string.notes_title),
-                showBrandHeader = showBrandHeader,
-                scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists,
-            )
+            if (search.active) {
+                SearchTopBar(
+                    query = query,
+                    onQueryChange = search::onQueryChange,
+                    onClose = search::close,
+                    placeholder = stringResource(R.string.search_notes_hint),
+                )
+            } else {
+                SectionTopBar(
+                    title = stringResource(R.string.notes_title),
+                    showBrandHeader = showBrandHeader,
+                    scrollBehavior = scrollBehavior,
+                    onImportLists = onImportLists,
+                    onSearchClick = search::open,
+                )
+            }
         },
         floatingActionButton = {
-            // Новая заметка — тот же экран деталей в режиме редактирования
-            // (id 0), длинный текст в диалоге тесно.
-            AppFab(
-                onClick = { onNoteClick(NEW_NOTE_ID) },
-                contentDescriptionRes = R.string.add_note,
-            )
+            // В режиме поиска новая заметка не нужна — FAB мешает результатам.
+            if (!search.active) {
+                // Новая заметка — тот же экран деталей в режиме редактирования
+                // (id 0), длинный текст в диалоге тесно.
+                AppFab(
+                    onClick = { onNoteClick(NEW_NOTE_ID) },
+                    contentDescriptionRes = R.string.add_note,
+                )
+            }
         },
     ) { padding ->
         Box(
@@ -74,20 +98,25 @@ fun NotesScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            if (uiState.notes.isEmpty()) {
+            if (visibleNotes.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.no_notes),
+                    text = stringResource(
+                        if (query.isNotBlank()) R.string.no_search_results else R.string.no_notes,
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
-                    items = uiState.notes,
+                    items = visibleNotes,
                     key = { it.id },
                     onReorder = { viewModel.onEvent(NotesEvent.OnReorderNotes(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
+                    // Drag-and-drop только в полном списке: перетаскивание
+                    // отфильтрованного сломало бы позиции остальных заметок.
+                    reorderEnabled = !search.active,
                     modifier = Modifier.fillMaxSize(),
                 ) { note, _ ->
                     NoteItem(

@@ -17,6 +17,9 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  *
  * Импорт `.tnote` — действие уровня приложения (диалог подтверждения живёт в
  * AppNavigation), поэтому кнопка доступна, каким бы первым раздел ни оказался.
+ *
+ * [onSearchClick] открывает режим поиска раздела (см. [SearchTopBar]);
+ * кнопка 🔍 есть в обоих вариантах шапки.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,12 +28,20 @@ fun SectionTopBar(
     showBrandHeader: Boolean,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     onImportLists: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
 ) {
     if (showBrandHeader) {
         // Название раздела у первого не показываем: бренд-шапка — это
         // логотип и «T-Note», имя раздела своё у обычной шапки.
         AppBrandHeader(
             actions = {
+                IconButton(onClick = onSearchClick) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_search),
+                        contentDescription = stringResource(R.string.search),
+                        tint = AppTheme.colors.brandTitle,
+                    )
+                }
                 IconButton(onClick = onImportLists) {
                     Icon(
                         painter = painterResource(R.drawable.ic_file_download),
@@ -44,6 +55,14 @@ fun SectionTopBar(
         AppTopBar(
             title = title,
             scrollBehavior = scrollBehavior,
+            actions = {
+                IconButton(onClick = onSearchClick) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_search),
+                        contentDescription = stringResource(R.string.search),
+                    )
+                }
+            },
         )
     }
 }

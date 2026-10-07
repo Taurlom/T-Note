@@ -40,8 +40,11 @@ import ru.taurlom.tnote.presentation.components.AppFab
 import ru.taurlom.tnote.presentation.components.AppTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
+import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.TaskInputDialog
 import ru.taurlom.tnote.presentation.components.TaskItem
+import ru.taurlom.tnote.presentation.components.rememberSearchState
+import ru.taurlom.tnote.presentation.components.searchMatch
 import ru.taurlom.tnote.presentation.util.shareList
 import ru.taurlom.tnote.presentation.util.shareListFile
 
@@ -62,38 +65,64 @@ fun TasksScreen(categoryId: Long, onBackClick: () -> Unit, viewModel: TasksViewM
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
     var taskToDelete by remember { mutableStateOf<Task?>(null) }
 
+    val search = rememberSearchState()
+    val query = search.query
+    val visibleTasks = remember(uiState.tasks, query) {
+        uiState.tasks.filter { searchMatch(query, it.title, it.description) }
+    }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            AppTopBar(
-                title = uiState.category?.name ?: stringResource(R.string.tasks_title),
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.back),
-                        )
-                    }
-                },
-                actions = {
-                    // Список ещё грузится (category == null) — делиться нечем.
-                    if (uiState.category != null) {
-                        IconButton(onClick = { showShareDialog = true }) {
+            if (search.active) {
+                // В режиме поиска системная «Назад» закрывает поиск
+                // (BackHandler внутри SearchTopBar), не экран списка.
+                SearchTopBar(
+                    query = query,
+                    onQueryChange = search::onQueryChange,
+                    onClose = search::close,
+                    placeholder = stringResource(R.string.search_tasks_hint),
+                )
+            } else {
+                AppTopBar(
+                    title = uiState.category?.name ?: stringResource(R.string.tasks_title),
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_share),
-                                contentDescription = stringResource(R.string.share_list),
+                                painter = painterResource(R.drawable.ic_arrow_back),
+                                contentDescription = stringResource(R.string.back),
                             )
                         }
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
+                    },
+                    actions = {
+                        IconButton(onClick = search::open) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_search),
+                                contentDescription = stringResource(R.string.search),
+                            )
+                        }
+                        // Список ещё грузится (category == null) — делиться нечем.
+                        if (uiState.category != null) {
+                            IconButton(onClick = { showShareDialog = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_share),
+                                    contentDescription = stringResource(R.string.share_list),
+                                )
+                            }
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
         floatingActionButton = {
-            AppFab(
-                onClick = { showAddDialog = true },
-                contentDescriptionRes = R.string.add_task,
-            )
+            // В режиме поиска новая запись не нужна — FAB мешает результатам.
+            if (!search.active) {
+                AppFab(
+                    onClick = { showAddDialog = true },
+                    contentDescriptionRes = R.string.add_task,
+                )
+            }
         },
     ) { padding ->
         Box(
@@ -101,20 +130,25 @@ fun TasksScreen(categoryId: Long, onBackClick: () -> Unit, viewModel: TasksViewM
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            if (uiState.tasks.isEmpty()) {
+            if (visibleTasks.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.no_tasks),
+                    text = stringResource(
+                        if (query.isNotBlank()) R.string.no_search_results else R.string.no_tasks,
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.Center),
                 )
             } else {
                 ReorderableLazyColumn(
-                    items = uiState.tasks,
+                    items = visibleTasks,
                     key = { it.id },
                     onReorder = { viewModel.onEvent(TasksEvent.OnReorderTasks(it)) },
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
+                    // Drag-and-drop только в полном списке: перетаскивание
+                    // отфильтрованного сломало бы позиции остальных записей.
+                    reorderEnabled = !search.active,
                     modifier = Modifier.fillMaxSize(),
                 ) { task, _ ->
                     TaskItem(
