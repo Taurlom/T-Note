@@ -20,13 +20,16 @@ val keystoreProperties = Properties().apply {
 // смене версии и не регрессирует на переходе MAJOR (2.0.0 → 20000).
 // Исторический минимум — 241: до 1.14.0 включительно действовала формула
 // MAJOR*100 + MINOR*10 + PATCH (1.14.0 = 240 ушла в RuStore на модерацию).
-val appVersionName = "1.20.1"
+val appVersionName = "1.21.0"
 val appVersionCode = appVersionName.split(".").map(String::toInt)
     .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
 
 android {
     namespace = "ru.taurlom.tnote"
-    compileSdk = 36
+    // 37: Compose 1.12 (compose-bom 2026.09.00, нужен richeditor) собран против
+    // android-37 — иначе AAR-проверка зависимостей не пускает сборку.
+    // targetSdk намеренно не трогаем: он включает новое поведение рантайма.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "ru.taurlom.tnote"
@@ -158,6 +161,10 @@ dependencies {
     implementation(libs.work.runtime.ktx)
 
     implementation(libs.coil.compose)
+    // WYSIWYG-редактор заметок: форматирование выделения и картинки в тексте,
+    // ввод/вывод markdown — формат хранения в базе не меняется. Требует
+    // свежий Compose (см. таблицу совместимости библиотеки).
+    implementation(libs.richeditor.compose)
     implementation(libs.core.splashscreen)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

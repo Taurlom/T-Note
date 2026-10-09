@@ -148,6 +148,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             showRestartDialog = showRestartDialog,
             onPendingImportUriChange = { pendingImportUri = it },
             restartApp = { restartApp(context) },
+            contentPadding = padding,
         )
     }
 }

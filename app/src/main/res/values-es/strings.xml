@@ -63,7 +63,9 @@
     <string name="note_format_heading">Encabezado</string>
     <string name="note_format_list">Lista</string>
     <string name="note_format_link">Enlace</string>
-    <string name="markdown_link_placeholder">texto</string>
+    <string name="note_link_dialog_title">Enlace</string>
+    <string name="note_link_url_label">URL del enlace</string>
+    <string name="note_photo">Foto en la nota</string>
     <string name="create">Crear</string>
 
     <!-- Copias de seguridad -->

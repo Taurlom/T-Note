@@ -63,7 +63,9 @@
     <string name="note_format_heading">Heading</string>
     <string name="note_format_list">List</string>
     <string name="note_format_link">Link</string>
-    <string name="markdown_link_placeholder">text</string>
+    <string name="note_link_dialog_title">Link</string>
+    <string name="note_link_url_label">Link URL</string>
+    <string name="note_photo">Photo in note</string>
     <string name="create">Create</string>
 
     <!-- Backup -->

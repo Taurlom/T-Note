@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +52,9 @@ import java.util.Locale
  * Содержимое экрана настроек: все секции собраны в одном скроллящемся
  * Column, чтобы SettingsScreen сосредоточился на скоупе состояний
  * и запускаторах активностей.
+ *
+ * @param contentPadding отступы от Scaffold (высота верхней панели):
+ * без них первый элемент экрана уезжает под закреплённый TopAppBar.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,10 +74,12 @@ internal fun SettingsContent(
     showRestartDialog: Boolean,
     onPendingImportUriChange: (Uri?) -> Unit,
     restartApp: () -> Unit,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(contentPadding)
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
     ) {

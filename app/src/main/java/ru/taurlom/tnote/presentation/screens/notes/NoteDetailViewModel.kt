@@ -59,14 +59,14 @@ class NoteDetailViewModel @Inject constructor(
 
     /**
      * Сохранение: пустой заголовок не пишем, [onSaved] — только после записи.
-     * Новые URI фото копирует и связывает с заметкой use-case; удалённые
-     * пути передаются ему же — файлы снимает после коммита базы.
+     * [content] — markdown из редактора: позиции фото — ссылки `![](path)`
+     * в тексте, новые фото сидят в нём content:// URI из [newPhotoUris].
+     * Перепись ссылок на файлы и чистка исчезнувших — на use-case.
      */
     fun save(
         title: String,
         content: String,
         newPhotoUris: List<Uri> = emptyList(),
-        removedPhotoPaths: List<String> = emptyList(),
         onSaved: () -> Unit = {},
     ) {
         val trimmed = title.trim()
@@ -81,7 +81,6 @@ class NoteDetailViewModel @Inject constructor(
                 updateNoteUseCase(
                     current.copy(title = trimmed, content = content),
                     newPhotoUris = uriStrings,
-                    removedPhotoPaths = removedPhotoPaths,
                 )
             }
             _uiState.update { it.copy(isEditing = false) }

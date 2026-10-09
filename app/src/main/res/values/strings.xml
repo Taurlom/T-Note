@@ -77,7 +77,9 @@
     <string name="note_format_heading">Заголовок</string>
     <string name="note_format_list">Список</string>
     <string name="note_format_link">Ссылка</string>
-    <string name="markdown_link_placeholder">текст</string>
+    <string name="note_link_dialog_title">Ссылка</string>
+    <string name="note_link_url_label">Адрес ссылки</string>
+    <string name="note_photo">Фото в заметке</string>
     <string name="create">Создать</string>
 
     <!-- Резервные копии -->
