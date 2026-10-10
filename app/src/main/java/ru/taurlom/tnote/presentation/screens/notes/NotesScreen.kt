@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.Note
+import ru.taurlom.tnote.domain.util.NoteTags
 import ru.taurlom.tnote.presentation.components.AppFab
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.NoteItem
@@ -34,7 +35,6 @@ import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
 import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.SectionTopBar
 import ru.taurlom.tnote.presentation.components.rememberSearchState
-import ru.taurlom.tnote.presentation.components.searchMatch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,8 +53,9 @@ fun NotesScreen(
     val query = search.query
     // Фильтрация в памяти: заметок в личном блокноте немного, запрос
     // реактивный — при изменении заметки во время поиска список обновится.
+    // Запрос «#тег» ищет строго по целому тегу (NoteTags.matches).
     val visibleNotes = remember(uiState.notes, query) {
-        uiState.notes.filter { searchMatch(query, it.title, it.content) }
+        uiState.notes.filter { NoteTags.matches(it, query) }
     }
 
     Scaffold(

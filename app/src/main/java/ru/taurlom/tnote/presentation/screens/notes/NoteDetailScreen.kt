@@ -73,11 +73,13 @@ import com.mohamedrejeb.richeditor.ui.material3.OutlinedRichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.util.NoteImageRefs
+import ru.taurlom.tnote.domain.util.NoteTags
 import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.AppTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.PhotoGalleryDialog
 import ru.taurlom.tnote.presentation.components.RemovablePhotoTile
+import ru.taurlom.tnote.presentation.components.TagBadges
 import ru.taurlom.tnote.presentation.components.ZoomableImage
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.util.Markdown
@@ -101,8 +103,9 @@ private const val NOTE_IMAGE_MAX_PX = 1600
  * Telegram). Изображения — ссылки `![](path)` прямо в тексте: в редакторе они
  * выглядят символом-заглушкой (compose-rich-editor не рендерит картинки
  * внутри поля ввода, трек #322), поэтому под полем показана лента миниатюр;
- * в просмотре рендерятся картинкой. Новая заметка (id 0) открывается сразу
- * в редакторе.
+ * в просмотре рендерятся картинкой. Теги: в редакторе — отдельное поле
+ * «через запятую» ([NoteTags.fromInput]), в просмотре — бейджи под текстом
+ * ([TagBadges]). Новая заметка (id 0) открывается сразу в редакторе.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalRichTextApi::class)
 @Composable
@@ -122,6 +125,10 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
     // затирал бы несохранённый ввод снапшотом из базы.
     val editorState = rememberRichTextState()
     var editTitle by rememberSaveable { mutableStateOf("") }
+    // Теги — буфер строки «через запятую»: список пересобирается
+    // NoteTags.fromInput при сохранении, поэтому поворот экрана
+    // сохраняет ввод как есть.
+    var editTags by rememberSaveable { mutableStateOf("") }
     // Uri — Parcelable, поэтому список тоже переживает пересоздание.
     val pendingPhotoUris = rememberSaveable { mutableStateListOf<Uri>() }
     var editBuffersLoaded by rememberSaveable { mutableStateOf(false) }
@@ -138,6 +145,7 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
     LaunchedEffect(uiState.isEditing) {
         if (uiState.isEditing && !editBuffersLoaded) {
             editTitle = note?.title.orEmpty()
+            editTags = NoteTags.toInput(note?.tags.orEmpty())
             // isolateImageRefs: старые заметки могли сохранить картинку
             // склеенной с текстом абзаца — в редакторе такая строка ломает
             // позиционирование курсора, нормализуем до отдельных абзацев.
@@ -186,6 +194,7 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
         viewModel.save(
             title = editTitle,
             content = markdown,
+            tags = NoteTags.fromInput(editTags),
             // Отправляем в хранилище только те pending-URI, чьи ссылки остались
             // в тексте: удалённую в редакторе картинку копировать не нужно.
             newPhotoUris = pendingPhotoUris.filter { it.toString() in referenced },
@@ -353,6 +362,17 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                         }
                     }
                 }
+                // Теги — отдельным полем «через запятую», как в просмотре
+                // бейджи внизу: метаданные не мешают тексту редактора.
+                AppTextField(
+                    value = editTags,
+                    onValueChange = { editTags = it },
+                    label = stringResource(R.string.note_tags_label),
+                    placeholder = stringResource(R.string.note_tags_hint),
+                    singleLine = true,
+                    onDarkBackground = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             note != null -> {
@@ -381,6 +401,10 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                             )
                         }
                     }
+                    // Теги — бейджами под текстом (в редакторе — поле
+                    // «через запятую»); тап по ним ничего не запускает,
+                    // поиск по тегу — из списка заметок (#тег).
+                    TagBadges(tags = note.tags)
                     Text(
                         text = stringResource(R.string.created_at, note.createdAt.formatDate()),
                         style = MaterialTheme.typography.labelMedium,

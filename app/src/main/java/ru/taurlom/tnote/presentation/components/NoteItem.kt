@@ -2,11 +2,13 @@ package ru.taurlom.tnote.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +64,17 @@ fun NoteItem(note: Note, onClick: () -> Unit, onDelete: () -> Unit, modifier: Mo
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (note.tags.isNotEmpty()) {
+                // Одна строка со свайпом: бейджи не спорят с превью текста.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                ) {
+                    note.tags.forEach { tag -> TagChip(tag) }
+                }
+            }
             if (note.photoPaths.isNotEmpty()) {
                 // Счётчик вложений, как у документов.
                 Text(
@@ -90,6 +103,7 @@ private val previewNote = Note(
     content = "Продумать архитектуру **модулей** и нарисовать схему.",
     createdAt = 0L,
     position = 0,
+    tags = listOf("проект", "в работе"),
 )
 
 @Preview(showBackground = true, name = "С текстом")

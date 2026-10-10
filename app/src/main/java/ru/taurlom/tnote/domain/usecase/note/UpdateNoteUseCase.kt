@@ -11,12 +11,13 @@ class UpdateNoteUseCase @Inject constructor(private val repository: NoteReposito
     /**
      * Тот же безопасный порядок, что у документов после фикса гонок:
      * новые файлы — до записи, удаление старых — только после коммита базы.
-     * Поля заголовка/текста берёт редактор, остальное (position, createdAt) —
-     * свежий снапшот базы.
      *
      * Позиции фото — из ссылок в тексте: ссылки на content:// переписываются
      * на сохранённые пути, фото, исчезнувшее из текста, считается удалённым
      * и снимается с диска после коммита.
+     *
+     * Поля заголовка/текста/тегов берёт редактор, остальное (position,
+     * createdAt) — свежий снапшот базы.
      */
     suspend operator fun invoke(note: Note, newPhotoUris: List<String> = emptyList()) {
         val replacements = newPhotoUris.mapNotNull { uri ->
@@ -31,6 +32,8 @@ class UpdateNoteUseCase @Inject constructor(private val repository: NoteReposito
                 title = note.title,
                 content = content,
                 photoPaths = referenced,
+                // Теги — из редактора (у свежего снапшота старые).
+                tags = note.tags,
             ),
         )
         photoStorage.deletePhotos(removedPaths)

@@ -62,10 +62,13 @@ class NoteDetailViewModel @Inject constructor(
      * [content] — markdown из редактора: позиции фото — ссылки `![](path)`
      * в тексте, новые фото сидят в нём content:// URI из [newPhotoUris].
      * Перепись ссылок на файлы и чистка исчезнувших — на use-case.
+     * [tags] — уже нормализованный список (NoteTags.fromInput из строки
+     * редактора).
      */
     fun save(
         title: String,
         content: String,
+        tags: List<String> = emptyList(),
         newPhotoUris: List<Uri> = emptyList(),
         onSaved: () -> Unit = {},
     ) {
@@ -76,10 +79,13 @@ class NoteDetailViewModel @Inject constructor(
             val uriStrings = newPhotoUris.map(Uri::toString)
             val current = _uiState.value.note
             if (current == null) {
-                addNoteUseCase(Note(title = trimmed, content = content, createdAt = 0L), uriStrings)
+                addNoteUseCase(
+                    Note(title = trimmed, content = content, createdAt = 0L, tags = tags),
+                    uriStrings,
+                )
             } else {
                 updateNoteUseCase(
-                    current.copy(title = trimmed, content = content),
+                    current.copy(title = trimmed, content = content, tags = tags),
                     newPhotoUris = uriStrings,
                 )
             }

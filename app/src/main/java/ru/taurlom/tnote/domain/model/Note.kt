@@ -20,4 +20,10 @@ data class Note(
     val position: Int = 0,
     /** Фото заметки (относительные пути в filesDir/note_photos) в порядке ссылок текста. */
     val photoPaths: List<String> = emptyList(),
+    /**
+     * Теги заметки (без `#`, порядок ввода): в просмотре — бейджи,
+     * в поиске — запрос `#тег` матчит строго по целому тегу.
+     * Нормализация — [ru.taurlom.tnote.domain.util.NoteTags].
+     */
+    val tags: List<String> = emptyList(),
 )

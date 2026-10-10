@@ -13,4 +13,7 @@ data class NoteEntity(
     val createdAt: Long,
     @ColumnInfo(defaultValue = "0")
     val position: Int = 0,
+    /** Теги через перевод строки (см. NoteTags); DEFAULT '' — миграция 17→18. */
+    @ColumnInfo(defaultValue = "")
+    val tags: String = "",
 )

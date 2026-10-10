@@ -14,6 +14,20 @@ object AppDatabaseMigration {
     const val MIN_SUPPORTED_VERSION = 5
 
     /**
+     * Теги заметок: колонка notes.tags. Аддитивная миграция — существующие
+     * заметки получают пустой тег-лист, данные не затрагиваются. DEFAULT ''
+     * совпадает с @ColumnInfo(defaultValue = "") у NoteEntity, иначе
+     * валидация схемы Room после миграции упадёт.
+     */
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT ''",
+            )
+        }
+    }
+
+    /**
      * Архив категорий: флаг archived. Аддитивная миграция — существующие
      * списки остаются активными (0). DEFAULT 0 совпадает с
      * @ColumnInfo(defaultValue = "0") у CategoryEntity, иначе валидация

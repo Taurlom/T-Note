@@ -25,7 +25,7 @@
     <string name="restore">Вернуть</string>
     <string name="delete_forever">Удалить навсегда</string>
     <string name="search">Поиск</string>
-    <string name="search_notes_hint">Поиск заметок</string>
+    <string name="search_notes_hint">Поиск заметок или #тег</string>
     <string name="search_documents_hint">Поиск документов</string>
     <string name="search_tasks_hint">Поиск записей</string>
     <string name="search_categories_hint">Поиск списков</string>
@@ -73,6 +73,8 @@
     <string name="delete_note_confirm">Удалить заметку «%1$s»?</string>
     <string name="note_title_label">Заголовок</string>
     <string name="note_content_label">Текст заметки</string>
+    <string name="note_tags_label">Теги</string>
+    <string name="note_tags_hint">Через запятую: рецепт, идеи</string>
     <string name="note_format_bold">Полужирный текст</string>
     <string name="note_format_heading">Заголовок</string>
     <string name="note_format_list">Список</string>
