@@ -41,7 +41,6 @@ import ru.taurlom.tnote.presentation.components.rememberSearchState
 fun NotesScreen(
     onNoteClick: (Long) -> Unit,
     showBrandHeader: Boolean,
-    onImportLists: () -> Unit,
     viewModel: NotesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -77,7 +76,6 @@ fun NotesScreen(
                     title = stringResource(R.string.notes_title),
                     showBrandHeader = showBrandHeader,
                     scrollBehavior = scrollBehavior,
-                    onImportLists = onImportLists,
                     onSearchClick = search::open,
                 )
             }

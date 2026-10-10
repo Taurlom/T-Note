@@ -50,7 +50,7 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarScreen(showBrandHeader: Boolean, onImportLists: () -> Unit, viewModel: CalendarViewModel = hiltViewModel()) {
+fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDate by remember { mutableStateOf<CalendarDate?>(null) }
@@ -67,7 +67,6 @@ fun CalendarScreen(showBrandHeader: Boolean, onImportLists: () -> Unit, viewMode
                 title = stringResource(R.string.calendar_title),
                 showBrandHeader = showBrandHeader,
                 scrollBehavior = scrollBehavior,
-                onImportLists = onImportLists,
             )
         },
     ) { padding ->

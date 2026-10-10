@@ -43,7 +43,6 @@ import ru.taurlom.tnote.presentation.components.searchMatch
 fun DocumentsScreen(
     onDocumentClick: (Long) -> Unit,
     showBrandHeader: Boolean,
-    onImportLists: () -> Unit,
     viewModel: DocumentsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -78,7 +77,6 @@ fun DocumentsScreen(
                     title = stringResource(R.string.documents_title),
                     showBrandHeader = showBrandHeader,
                     scrollBehavior = scrollBehavior,
-                    onImportLists = onImportLists,
                     onSearchClick = search::open,
                 )
             }

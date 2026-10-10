@@ -25,9 +25,10 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * с логотипом и названием; у остальных — обычный [AppTopBar] с названием.
  *
  * Вторичные действия раздела живут в меню ⋮ ([SectionMenu]), чтобы не плодить
- * иконки в шапке: «Загрузить список» (импорт `.tnote` — действие уровня
- * приложения, диалог подтверждения живёт в AppNavigation) есть всегда,
- * «Архив» — только у раздела «Списки» ([onArchiveClick]).
+ * иконки в шапке: «Загрузить список» (импорт `.tnote`) — только у раздела
+ * «Списки» ([onImportLists], диалог подтверждения живёт в AppNavigation),
+ * «Архив» — тоже только у «Списков» ([onArchiveClick]). Если не передано
+ * ни одного действия, меню ⋮ не показывается вовсе.
  *
  * [onSearchClick] открывает режим поиска раздела (см. [SearchTopBar]) —
  * кнопка 🔍 показывается только если колбэк передан. В календаре поиска пока
@@ -40,10 +41,19 @@ fun SectionTopBar(
     title: String,
     showBrandHeader: Boolean,
     scrollBehavior: TopAppBarScrollBehavior? = null,
-    onImportLists: () -> Unit = {},
+    onImportLists: (() -> Unit)? = null,
     onSearchClick: (() -> Unit)? = null,
     onArchiveClick: (() -> Unit)? = null,
 ) {
+    val menuActions: @Composable () -> Unit = {
+        if (onImportLists != null || onArchiveClick != null) {
+            SectionMenu(
+                onImportLists = onImportLists,
+                onArchiveClick = onArchiveClick,
+                iconTint = if (showBrandHeader) AppTheme.colors.brandTitle else null,
+            )
+        }
+    }
     if (showBrandHeader) {
         // Название раздела у первого не показываем: бренд-шапка — это
         // логотип и «T-Note», имя раздела своё у обычной шапки.
@@ -58,11 +68,7 @@ fun SectionTopBar(
                         )
                     }
                 }
-                SectionMenu(
-                    onImportLists = onImportLists,
-                    onArchiveClick = onArchiveClick,
-                    iconTint = AppTheme.colors.brandTitle,
-                )
+                menuActions()
             },
         )
     } else {
@@ -78,17 +84,15 @@ fun SectionTopBar(
                         )
                     }
                 }
-                SectionMenu(
-                    onImportLists = onImportLists,
-                    onArchiveClick = onArchiveClick,
-                )
+                menuActions()
             },
         )
     }
 }
 
 /**
- * Меню ⋮ раздела: «Загрузить список» всегда, «Архив» — если передан колбэк.
+ * Меню ⋮ раздела: «Загрузить список» и «Архив» — по переданным колбэкам
+ * (показывается только то, на что есть действие).
  *
  * Кнопка и [DropdownMenu] обёрнуты в [Box]: попап позиционируется по узлу
  * меню, а узел нулевого размера без обёртки вставал в начало родительского
@@ -98,7 +102,7 @@ fun SectionTopBar(
  * выпадающий список в палитре приложения приравнен к диалогам.
  */
 @Composable
-private fun SectionMenu(onImportLists: () -> Unit, onArchiveClick: (() -> Unit)?, iconTint: Color? = null) {
+private fun SectionMenu(onImportLists: (() -> Unit)?, onArchiveClick: (() -> Unit)?, iconTint: Color? = null) {
     var expanded by remember { mutableStateOf(false) }
     val itemColors = MenuDefaults.itemColors(
         textColor = AppTheme.colors.dialogContent,
@@ -117,20 +121,22 @@ private fun SectionMenu(onImportLists: () -> Unit, onArchiveClick: (() -> Unit)?
             onDismissRequest = { expanded = false },
             containerColor = AppTheme.colors.dialogContainer,
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.load_list)) },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_file_download),
-                        contentDescription = null,
-                    )
-                },
-                colors = itemColors,
-                onClick = {
-                    expanded = false
-                    onImportLists()
-                },
-            )
+            if (onImportLists != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.load_list)) },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_file_download),
+                            contentDescription = null,
+                        )
+                    },
+                    colors = itemColors,
+                    onClick = {
+                        expanded = false
+                        onImportLists()
+                    },
+                )
+            }
             if (onArchiveClick != null) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.archive_title)) },

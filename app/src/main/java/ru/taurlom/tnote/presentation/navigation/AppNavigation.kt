@@ -374,9 +374,8 @@ private fun MainTabsScreen(
 ) {
     // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
     // всегда отдают наш MIME при «Открыть с помощью». Ланчер живёт здесь, а
-    // не в разделе: бренд-шапка с кнопкой импорта достаётся первому по
-    // настройке разделу, каким бы он ни оказался. Диалог подтверждения
-    // показывает AppNavigation.
+    // не в разделе: обработка результата (диалог подтверждения) тоже
+    // AppNavigation. Кнопка импорта — только в разделе «Списки».
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -445,19 +444,16 @@ private fun MainTabsScreen(
                 )
                 BottomNavItem.Calendar -> CalendarScreen(
                     showBrandHeader = page == 0,
-                    onImportLists = onImportLists,
                     viewModel = calendarViewModel,
                 )
                 BottomNavItem.Documents -> DocumentsScreen(
                     onDocumentClick = onDocumentClick,
                     showBrandHeader = page == 0,
-                    onImportLists = onImportLists,
                     viewModel = documentsViewModel,
                 )
                 BottomNavItem.Notes -> NotesScreen(
                     onNoteClick = onNoteClick,
                     showBrandHeader = page == 0,
-                    onImportLists = onImportLists,
                     viewModel = notesViewModel,
                 )
                 BottomNavItem.Settings -> SettingsScreen(viewModel = settingsViewModel)
