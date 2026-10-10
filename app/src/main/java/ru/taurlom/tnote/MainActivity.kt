@@ -5,7 +5,11 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -13,9 +17,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -24,6 +29,7 @@ import ru.taurlom.tnote.domain.model.SharedText
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.presentation.navigation.AppNavigation
+import ru.taurlom.tnote.presentation.screens.settings.SettingsViewModel
 import ru.taurlom.tnote.presentation.splash.SplashScreen
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
 import ru.taurlom.tnote.presentation.theme.fontFamily
@@ -34,6 +40,11 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    // Тот же экземпляр, что получит AppNavigation (hiltViewModel с owner =
+    // activity): заставка ждёт его sectionsLoaded — когда разделы прочитаны
+    // из DataStore, под заставкой уже нарисован интерфейс.
+    private val settingsViewModel: SettingsViewModel by viewModels()
 
     // Compose-состояние вне composition: пишет его onNewIntent, читает AppNavigation.
     private val pendingShareUri = mutableStateOf<Uri?>(null)
@@ -53,6 +64,15 @@ class MainActivity : AppCompatActivity() {
          * случился открытым.
          */
         const val EXTRA_OPEN_CALENDAR = "open_calendar"
+
+        /** Минимальное время заставки — «мигнуть брендом» (мс). */
+        private const val SPLASH_MIN_MILLIS = 500L
+
+        /** Длительность фейда заставки (мс). */
+        private const val SPLASH_FADE_MILLIS = 250
+
+        /** Запас на кадр после фейда, прежде чем снять оверлей (мс). */
+        private const val SPLASH_FADE_TAIL_MILLIS = 60
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,14 +88,34 @@ class MainActivity : AppCompatActivity() {
                 .collectAsState(initial = AppFont.PT_SANS)
             val selectedTheme by settingsRepository.selectedTheme
                 .collectAsState(initial = ThemeKind.DARK)
+            val settingsState by settingsViewModel.uiState.collectAsState()
 
-            var showSplash by remember { mutableStateOf(true) }
-
+            // Заставка — оверлей поверх уже композирующегося приложения:
+            // ViewModels, Room и DataStore прогреваются ПОД ней (а не после,
+            // как раньше), поэтому к моменту, когда заставка гаснет, разделы
+            // уже на экране — без пустого промежутка. Держим её, пока
+            // разделы не прочитаны (sectionsLoaded), но не меньше
+            // SPLASH_MIN_MILLIS — «мигнуть брендом, а не задерживать вход».
+            // Состояние saveable: поворот экрана не перезапускает таймеры.
+            var splashMinTimePassed by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(Unit) {
-                // Короткая пауза: сплэш должен мигнуть брендом, а не
-                // задерживать вход в приложение.
-                delay(500)
-                showSplash = false
+                delay(SPLASH_MIN_MILLIS)
+                splashMinTimePassed = true
+            }
+            val splashDone = splashMinTimePassed && settingsState.sectionsLoaded
+            var splashVisible by rememberSaveable { mutableStateOf(true) }
+            val splashAlpha by animateFloatAsState(
+                targetValue = if (splashDone) 0f else 1f,
+                animationSpec = tween(SPLASH_FADE_MILLIS),
+                label = "splashAlpha",
+            )
+            LaunchedEffect(splashDone) {
+                if (splashDone && splashVisible) {
+                    // Оверлей снимаем после доигрывания фейда (запас на кадр):
+                    // до этого он лежит с alpha 0 и не мешает экрану.
+                    delay((SPLASH_FADE_MILLIS + SPLASH_FADE_TAIL_MILLIS).toLong())
+                    splashVisible = false
+                }
             }
 
             TNoteTheme(
@@ -86,9 +126,7 @@ class MainActivity : AppCompatActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    if (showSplash) {
-                        SplashScreen()
-                    } else {
+                    Box(modifier = Modifier.fillMaxSize()) {
                         AppNavigation(
                             pendingShareUri = pendingShareUri.value,
                             onPendingShareUriHandled = { pendingShareUri.value = null },
@@ -97,6 +135,9 @@ class MainActivity : AppCompatActivity() {
                             pendingOpenCalendar = pendingOpenCalendar.value,
                             onPendingOpenCalendarHandled = { pendingOpenCalendar.value = false },
                         )
+                        if (splashVisible) {
+                            SplashScreen(modifier = Modifier.alpha(splashAlpha))
+                        }
                     }
                 }
             }

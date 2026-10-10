@@ -22,8 +22,11 @@ import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.theme.AppTheme
 
 /**
- * Заставка рисует тот же логотип, что и системный сплэш-экран, — поэтому
- * первый кадр обязан совпадать с системным: тот же размер и центр экрана.
+ * Заставка-оверлей рисует тот же логотип, что и системный сплэш-экран,
+ * поверх прогревающегося приложения (MainActivity): первый кадр обязан
+ * совпадать с системным — тот же размер и центр экрана. Держится, пока
+ * разделы не готовы, и мягко гаснет (alpha) — содержимое под ней уже
+ * на месте, поэтому пустого экрана между заставкой и списками нет.
  *
  * Система (Android 12+) показывает adaptive-icon `splash_logo` в боксе
  * ~288dp, арт в нём занимает 66% холста ≈ 190dp. Без явного размера PNG
@@ -34,7 +37,7 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
 private val SplashLogoSize = 190.dp
 
 @Composable
-fun SplashScreen() {
+fun SplashScreen(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "")
 
     val angle by transition.animateFloat(
@@ -51,7 +54,7 @@ fun SplashScreen() {
     )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(AppTheme.colors.launchBackground),
         contentAlignment = Alignment.Center,
