@@ -95,9 +95,13 @@ internal fun rotateViaExifTag(file: File): Boolean {
         ExifInterface.ORIENTATION_UNDEFINED,
         ExifInterface.ORIENTATION_NORMAL,
         -> ExifInterface.ORIENTATION_ROTATE_90
+
         ExifInterface.ORIENTATION_ROTATE_90 -> ExifInterface.ORIENTATION_ROTATE_180
+
         ExifInterface.ORIENTATION_ROTATE_180 -> ExifInterface.ORIENTATION_ROTATE_270
+
         ExifInterface.ORIENTATION_ROTATE_270 -> ExifInterface.ORIENTATION_NORMAL
+
         else -> return false
     }
     return runCatching {
@@ -136,12 +140,14 @@ internal fun decodeRegionCrop(path: String, selection: CropRect, photo: SampledP
             (nb * sw).roundToInt(),
             ((1f - nl) * sh).roundToInt(),
         )
+
         ExifInterface.ORIENTATION_ROTATE_180 -> Rect(
             ((1f - nr) * sw).roundToInt(),
             ((1f - nb) * sh).roundToInt(),
             ((1f - nl) * sw).roundToInt(),
             ((1f - nt) * sh).roundToInt(),
         )
+
         // показ = raw, повёрнутый на 270° по часовой: x = (1−v)·W, y = u·H
         ExifInterface.ORIENTATION_ROTATE_270 -> Rect(
             ((1f - nb) * sw).roundToInt(),
@@ -149,12 +155,14 @@ internal fun decodeRegionCrop(path: String, selection: CropRect, photo: SampledP
             ((1f - nt) * sw).roundToInt(),
             (nr * sh).roundToInt(),
         )
+
         ExifInterface.ORIENTATION_NORMAL, ExifInterface.ORIENTATION_UNDEFINED -> Rect(
             (nl * sw).roundToInt(),
             (nt * sh).roundToInt(),
             (nr * sw).roundToInt(),
             (nb * sh).roundToInt(),
         )
+
         // Зеркальные варианты: эта математика осей не годится — откат на копию.
         else -> return null
     }

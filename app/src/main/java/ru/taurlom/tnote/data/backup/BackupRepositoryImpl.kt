@@ -223,6 +223,7 @@ class BackupRepositoryImpl @Inject constructor(
                         val name = entry.name.trimStart('/')
                         when {
                             entry.isDirectory -> Unit
+
                             name == MANIFEST_ENTRY -> {
                                 // Манифест мал, но и его читаем с потолком:
                                 // архив не доверяем, а readBytes() позволил
@@ -233,11 +234,13 @@ class BackupRepositoryImpl @Inject constructor(
                                     JSONObject(bytes.toByteArray().decodeToString())
                                 }.getOrNull()
                             }
+
                             name.startsWith("$DATABASE_DIR/") &&
                                 File(name).name == AppDatabase.DB_NAME ->
                                 // Стриминг на диск, без readBytes(): база
                                 // не обязана влезать в память процесса.
                                 dbOut.outputStream().buffered().use { copyEntry(it) }
+
                             name.startsWith("$PHOTOS_DIR/") &&
                                 File(name).name.isNotEmpty() -> {
                                 // Фото хранятся плоско; вложенность на всякий
@@ -249,6 +252,7 @@ class BackupRepositoryImpl @Inject constructor(
                                 file.outputStream().buffered().use { copyEntry(it) }
                                 restoredPhotos++
                             }
+
                             name.startsWith("$NOTE_PHOTOS_DIR/") &&
                                 File(name).name.isNotEmpty() -> {
                                 val file = File(
@@ -282,8 +286,10 @@ class BackupRepositoryImpl @Inject constructor(
                     // Room никогда не пишет user_version = 0: файл битый
                     // или базой T-Note не является.
                     throw BackupImportException.InvalidDatabase
+
                 backupSchema > currentSchema ->
                     throw BackupImportException.NewerSchema(backupSchema, currentSchema)
+
                 backupSchema < AppDatabaseMigration.MIN_SUPPORTED_VERSION ->
                     // Цепочка миграций начинается с этой версии: более
                     // старую базу поднять нечем (destructive fallback
@@ -327,6 +333,7 @@ class BackupRepositoryImpl @Inject constructor(
                         check(old.renameTo(target)) {
                             "Не удалось восстановить ${old.path} после прошлого импорта"
                         }
+
                     old.exists() -> old.deleteRecursively()
                 }
                 val hadTarget = target.exists()

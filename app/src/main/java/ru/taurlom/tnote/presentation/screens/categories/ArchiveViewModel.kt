@@ -37,6 +37,7 @@ class ArchiveViewModel @Inject constructor(
             is ArchiveEvent.OnRestore -> viewModelScope.launch {
                 restoreCategoryUseCase(event.category)
             }
+
             is ArchiveEvent.OnDeleteForever -> viewModelScope.launch {
                 deleteCategoryUseCase(event.category)
             }

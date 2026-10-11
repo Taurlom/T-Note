@@ -53,6 +53,7 @@ class CategoriesViewModel @Inject constructor(
             is CategoriesEvent.OnCategoryClick -> {
                 // handled in UI layer
             }
+
             is CategoriesEvent.OnAddCategory -> {
                 viewModelScope.launch {
                     // position заполнит AddCategoryUseCase: позиция считается
@@ -65,21 +66,25 @@ class CategoriesViewModel @Inject constructor(
                     )
                 }
             }
+
             is CategoriesEvent.OnEditCategory -> {
                 viewModelScope.launch {
                     updateCategoryUseCase(event.category)
                 }
             }
+
             is CategoriesEvent.OnArchiveCategory -> {
                 viewModelScope.launch {
                     archiveCategoryUseCase(event.category)
                 }
             }
+
             is CategoriesEvent.OnRestoreCategory -> {
                 viewModelScope.launch {
                     restoreCategoryUseCase(event.category)
                 }
             }
+
             is CategoriesEvent.OnReorderCategories -> {
                 viewModelScope.launch {
                     val reordered = event.categories.mapIndexed { index, category ->
@@ -88,6 +93,7 @@ class CategoriesViewModel @Inject constructor(
                     reorderCategoriesUseCase(reordered)
                 }
             }
+
             is CategoriesEvent.OnReadSharedList -> {
                 viewModelScope.launch {
                     val shared = runCatching {
@@ -102,6 +108,7 @@ class CategoriesViewModel @Inject constructor(
                     }
                 }
             }
+
             is CategoriesEvent.OnConfirmImportSharedList -> {
                 viewModelScope.launch {
                     val shared = _uiState.value.incomingShare ?: return@launch
@@ -124,9 +131,11 @@ class CategoriesViewModel @Inject constructor(
                     }
                 }
             }
+
             is CategoriesEvent.OnDismissImportSharedList -> {
                 _uiState.update { it.copy(incomingShare = null) }
             }
+
             is CategoriesEvent.OnShareFeedbackShown -> {
                 _uiState.update { it.copy(shareFeedback = null) }
             }

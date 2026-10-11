@@ -55,6 +55,7 @@ class DocumentsViewModel @Inject constructor(
                     )
                 }
             }
+
             is DocumentsEvent.OnEditDocument -> {
                 viewModelScope.launch {
                     updateDocumentUseCase(
@@ -64,11 +65,13 @@ class DocumentsViewModel @Inject constructor(
                     )
                 }
             }
+
             is DocumentsEvent.OnDeleteDocument -> {
                 viewModelScope.launch {
                     deleteDocumentUseCase(event.document)
                 }
             }
+
             is DocumentsEvent.OnReorderDocuments -> {
                 viewModelScope.launch {
                     reorderDocumentsUseCase(

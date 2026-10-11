@@ -116,26 +116,31 @@ class TasksViewModel @Inject constructor(
                     )
                 }
             }
+
             is TasksEvent.OnEditTask -> {
                 viewModelScope.launch {
                     updateTaskUseCase(event.task)
                 }
             }
+
             is TasksEvent.OnCopyTask -> {
                 viewModelScope.launch {
                     copyTaskToCategoryUseCase(event.task, event.targetCategoryId)
                 }
             }
+
             is TasksEvent.OnDeleteTask -> {
                 viewModelScope.launch {
                     deleteTaskUseCase(event.task)
                 }
             }
+
             is TasksEvent.OnToggleTaskCompletion -> {
                 viewModelScope.launch {
                     updateTaskUseCase(event.task.copy(isCompleted = !event.task.isCompleted))
                 }
             }
+
             is TasksEvent.OnReorderTasks -> {
                 viewModelScope.launch {
                     val reordered = event.tasks.mapIndexed { index, task ->

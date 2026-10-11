@@ -171,10 +171,12 @@ internal fun Cropper(
                             }
                             mode = when {
                                 corner != null && (corner.second - start).getDistance() <= slop -> corner.first
+
                                 start.x >= view.left &&
                                     start.x <= view.right &&
                                     start.y >= view.top &&
                                     start.y <= view.bottom -> CropDragMode.Move
+
                                 else -> CropDragMode.None
                             }
                         },
@@ -186,29 +188,34 @@ internal fun Cropper(
                             val imgH = bmp.height.toFloat()
                             selection = when (mode) {
                                 CropDragMode.None -> sel
+
                                 CropDragMode.Move -> {
                                     val newLeft = (sel.left + dx).coerceIn(0f, (imgW - sel.width).coerceAtLeast(0f))
                                     val newTop = (sel.top + dy).coerceIn(0f, (imgH - sel.height).coerceAtLeast(0f))
                                     CropRect(newLeft, newTop, newLeft + sel.width, newTop + sel.height)
                                 }
+
                                 CropDragMode.TopLeft -> CropRect(
                                     (sel.left + dx).coerceIn(0f, sel.right - CROP_MIN_SELECTION_PX),
                                     (sel.top + dy).coerceIn(0f, sel.bottom - CROP_MIN_SELECTION_PX),
                                     sel.right,
                                     sel.bottom,
                                 )
+
                                 CropDragMode.TopRight -> CropRect(
                                     sel.left,
                                     (sel.top + dy).coerceIn(0f, sel.bottom - CROP_MIN_SELECTION_PX),
                                     (sel.right + dx).coerceIn(sel.left + CROP_MIN_SELECTION_PX, imgW),
                                     sel.bottom,
                                 )
+
                                 CropDragMode.BottomLeft -> CropRect(
                                     (sel.left + dx).coerceIn(0f, sel.right - CROP_MIN_SELECTION_PX),
                                     sel.top,
                                     sel.right,
                                     (sel.bottom + dy).coerceIn(sel.top + CROP_MIN_SELECTION_PX, imgH),
                                 )
+
                                 CropDragMode.BottomRight -> CropRect(
                                     sel.left,
                                     sel.top,

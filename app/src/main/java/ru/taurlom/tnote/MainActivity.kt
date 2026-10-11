@@ -178,6 +178,7 @@ class MainActivity : AppCompatActivity() {
         when (intent?.action) {
             Intent.ACTION_VIEW ->
                 intent.data?.let { pendingShareUri.value = it }
+
             Intent.ACTION_SEND -> {
                 // Текст из «Поделиться» (text/plain): браузер кладёт название
                 // страницы в EXTRA_SUBJECT, выделение или ссылку — в EXTRA_TEXT.

@@ -87,6 +87,7 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
                             when {
                                 draggedPx < -monthSwipeDistancePx ->
                                     viewModel.onEvent(CalendarEvent.NextMonth)
+
                                 draggedPx > monthSwipeDistancePx ->
                                     viewModel.onEvent(CalendarEvent.PreviousMonth)
                             }
@@ -222,9 +223,11 @@ private fun CalendarGrid(
             when {
                 recurring.size >= 2 ->
                     date to (R.drawable.ic_event_chronic to ScheduledEvent.DEFAULT_COLOR)
+
                 recurring.size == 1 -> recurring[0].let {
                     date to (it.icon.drawableRes to it.colorArgb)
                 }
+
                 else -> null
             }
         }.toMap()

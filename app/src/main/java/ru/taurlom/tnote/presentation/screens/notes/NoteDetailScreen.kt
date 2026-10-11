@@ -211,6 +211,7 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                     uiState.isEditing -> stringResource(
                         if (viewModel.isNew) R.string.add_note else R.string.edit_note,
                     )
+
                     else -> note?.title ?: stringResource(R.string.note_detail)
                 },
                 scrollBehavior = scrollBehavior,

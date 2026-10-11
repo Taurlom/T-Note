@@ -219,18 +219,22 @@ class SettingsViewModel @Inject constructor(
      */
     private fun failure(e: Exception): BackupResult.Failed = when (e) {
         is BackupImportException.NotABackup -> BackupResult.Failed.NotABackup
+
         // Формат архива и схема БД новее — одно и то же действие для
         // пользователя: обновить приложение и повторить.
         is BackupImportException.UnsupportedFormat,
         is BackupImportException.NewerSchema,
         -> BackupResult.Failed.NewerVersion
+
         // Нет базы, файл не SQLite, схема старше цепочки миграций —
         // копия не восстановится в этой версии, чем именно — неважно.
         is BackupImportException.NoDatabase,
         is BackupImportException.InvalidDatabase,
         is BackupImportException.UnsupportedSchema,
         -> BackupResult.Failed.Unreadable
+
         is BackupImportException.TooLarge -> BackupResult.Failed.TooLarge
+
         else -> BackupResult.Failed.Error(e.message)
     }
 

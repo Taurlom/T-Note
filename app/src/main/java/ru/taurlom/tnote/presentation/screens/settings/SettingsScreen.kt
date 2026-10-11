@@ -84,6 +84,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 },
                 Toast.LENGTH_LONG,
             ).show()
+
             is BackupResult.Imported -> {
                 showRestartDialog = true
                 Toast.makeText(
@@ -96,16 +97,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     Toast.LENGTH_LONG,
                 ).show()
             }
+
             is BackupResult.Failed -> {
                 val message = when (result) {
                     BackupResult.Failed.NotABackup ->
                         context.getString(R.string.backup_error_not_a_backup)
+
                     BackupResult.Failed.NewerVersion ->
                         context.getString(R.string.backup_error_newer_version)
+
                     BackupResult.Failed.Unreadable ->
                         context.getString(R.string.backup_error_unreadable)
+
                     BackupResult.Failed.TooLarge ->
                         context.getString(R.string.backup_error_too_large)
+
                     is BackupResult.Failed.Error ->
                         result.detail ?: context.getString(R.string.backup_error_unknown)
                 }
@@ -115,6 +121,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     Toast.LENGTH_LONG,
                 ).show()
             }
+
             null -> return@LaunchedEffect
         }
         viewModel.backupResultShown()

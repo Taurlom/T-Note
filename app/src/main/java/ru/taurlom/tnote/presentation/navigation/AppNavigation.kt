@@ -181,11 +181,13 @@ fun AppNavigation(
                 context.getString(R.string.shared_list_added, feedback.listName),
                 Toast.LENGTH_SHORT,
             ).show()
+
             ShareFeedback.Failed -> Toast.makeText(
                 context,
                 R.string.shared_list_error,
                 Toast.LENGTH_LONG,
             ).show()
+
             null -> return@LaunchedEffect
         }
         categoriesViewModel.onEvent(CategoriesEvent.OnShareFeedbackShown)
@@ -199,11 +201,13 @@ fun AppNavigation(
                 context.getString(R.string.shared_text_added, feedback.noteTitle),
                 Toast.LENGTH_SHORT,
             ).show()
+
             NotesFeedback.Failed -> Toast.makeText(
                 context,
                 R.string.shared_text_error,
                 Toast.LENGTH_LONG,
             ).show()
+
             null -> return@LaunchedEffect
         }
         notesViewModel.onEvent(NotesEvent.OnSharedTextFeedbackShown)
@@ -442,20 +446,24 @@ private fun MainTabsScreen(
                     onArchiveClick = onArchiveClick,
                     viewModel = categoriesViewModel,
                 )
+
                 BottomNavItem.Calendar -> CalendarScreen(
                     showBrandHeader = page == 0,
                     viewModel = calendarViewModel,
                 )
+
                 BottomNavItem.Documents -> DocumentsScreen(
                     onDocumentClick = onDocumentClick,
                     showBrandHeader = page == 0,
                     viewModel = documentsViewModel,
                 )
+
                 BottomNavItem.Notes -> NotesScreen(
                     onNoteClick = onNoteClick,
                     showBrandHeader = page == 0,
                     viewModel = notesViewModel,
                 )
+
                 BottomNavItem.Settings -> SettingsScreen(viewModel = settingsViewModel)
             }
         }

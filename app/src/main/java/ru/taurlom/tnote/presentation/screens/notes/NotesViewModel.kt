@@ -39,14 +39,17 @@ class NotesViewModel @Inject constructor(
             is NotesEvent.OnDeleteNote -> viewModelScope.launch {
                 deleteNoteUseCase(event.note)
             }
+
             is NotesEvent.OnReorderNotes -> viewModelScope.launch {
                 reorderNotesUseCase(
                     event.notes.mapIndexed { index, note -> note.copy(position = index) },
                 )
             }
+
             is NotesEvent.OnSharedTextReceived -> _uiState.update {
                 it.copy(incomingSharedText = event.shared)
             }
+
             is NotesEvent.OnConfirmSaveSharedText -> viewModelScope.launch {
                 // Зеркало импорта .tnote: пришло — держим в состоянии, факт
                 // сохранения — одноразовым фидбеком для тоста.
@@ -70,9 +73,11 @@ class NotesViewModel @Inject constructor(
                     }
                 }
             }
+
             is NotesEvent.OnDismissSaveSharedText -> _uiState.update {
                 it.copy(incomingSharedText = null)
             }
+
             is NotesEvent.OnSharedTextFeedbackShown -> _uiState.update {
                 it.copy(saveFeedback = null)
             }
