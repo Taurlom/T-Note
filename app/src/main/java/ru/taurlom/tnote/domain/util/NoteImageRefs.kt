@@ -19,8 +19,7 @@ object NoteImageRefs {
     private val imageRef = Regex("""(!\[[^\]]*\]\()([^)\s]+)(\))""")
 
     /** Пути/URI всех изображений текста в порядке их появления. */
-    fun extractAll(markdown: String): List<String> =
-        imageRef.findAll(markdown).map { it.groupValues[2] }.toList()
+    fun extractAll(markdown: String): List<String> = imageRef.findAll(markdown).map { it.groupValues[2] }.toList()
 
     /** Подменяет URL ссылок по карте «старый → новый», текст и alt не трогает. */
     fun replace(markdown: String, replacements: Map<String, String>): String {
@@ -72,6 +71,5 @@ object NoteImageRefs {
      * с картинками, поэтому текст парсится без них, а картинки вставляются
      * по одной на место токенов (см. setMarkdownWithImages).
      */
-    fun tokenizeImageRefs(markdown: String, token: String): String =
-        imageRef.replace(markdown) { token }
+    fun tokenizeImageRefs(markdown: String, token: String): String = imageRef.replace(markdown) { token }
 }

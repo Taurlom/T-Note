@@ -505,10 +505,7 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
  */
 @OptIn(ExperimentalRichTextApi::class)
 @Composable
-private fun NoteRichText(
-    content: String,
-    onImageClick: (Int) -> Unit,
-) {
+private fun NoteRichText(content: String, onImageClick: (Int) -> Unit) {
     val context = LocalContext.current
     val imagePaths = remember(content) { NoteImageRefs.extractAll(content) }
     val imageLoader = remember(context, imagePaths) {

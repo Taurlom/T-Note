@@ -38,11 +38,7 @@ import ru.taurlom.tnote.presentation.components.rememberSearchState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen(
-    onNoteClick: (Long) -> Unit,
-    showBrandHeader: Boolean,
-    viewModel: NotesViewModel = hiltViewModel(),
-) {
+fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel: NotesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 

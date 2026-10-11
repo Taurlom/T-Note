@@ -40,11 +40,7 @@ import ru.taurlom.tnote.presentation.components.searchMatch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DocumentsScreen(
-    onDocumentClick: (Long) -> Unit,
-    showBrandHeader: Boolean,
-    viewModel: DocumentsViewModel = hiltViewModel(),
-) {
+fun DocumentsScreen(onDocumentClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel: DocumentsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 

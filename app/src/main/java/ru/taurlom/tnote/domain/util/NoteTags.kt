@@ -30,8 +30,7 @@ object NoteTags {
      * ввода при сохранении пересобирается из полученного списка
      * (см. [toInput]), поэтому «лишние» пробелы и дубли не накапливаются.
      */
-    fun fromInput(input: String): List<String> =
-        normalize(input.split(INPUT_DELIMITERS))
+    fun fromInput(input: String): List<String> = normalize(input.split(INPUT_DELIMITERS))
 
     /** Строка для поля ввода редактора: теги через запятую. */
     fun toInput(tags: List<String>): String = tags.joinToString(", ")
@@ -52,12 +51,10 @@ object NoteTags {
     }
 
     /** Колонка Entity: теги через перевод строки. */
-    fun toStored(tags: List<String>): String =
-        normalize(tags).joinToString(STORAGE_SEPARATOR.toString())
+    fun toStored(tags: List<String>): String = normalize(tags).joinToString(STORAGE_SEPARATOR.toString())
 
     /** Список из колонки Entity. */
-    fun parseStored(stored: String): List<String> =
-        normalize(stored.split(STORAGE_SEPARATOR))
+    fun parseStored(stored: String): List<String> = normalize(stored.split(STORAGE_SEPARATOR))
 
     /**
      * Подходит ли заметка под поисковый запрос. Запрос с `#` — поиск
