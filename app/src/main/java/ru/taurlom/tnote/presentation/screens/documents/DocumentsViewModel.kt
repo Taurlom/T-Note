@@ -10,12 +10,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.usecase.document.AddDocumentUseCase
 import ru.taurlom.tnote.domain.usecase.document.DeleteDocumentUseCase
 import ru.taurlom.tnote.domain.usecase.document.GetDocumentsUseCase
 import ru.taurlom.tnote.domain.usecase.document.ReorderDocumentsUseCase
 import ru.taurlom.tnote.domain.usecase.document.UpdateDocumentUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
 @HiltViewModel
@@ -45,7 +45,7 @@ class DocumentsViewModel @Inject constructor(
     fun onEvent(event: DocumentsEvent) {
         when (event) {
             is DocumentsEvent.OnAddDocument -> {
-                viewModelScope.launch {
+                launchCatching {
                     // createdAt, позицию (по базе, не по снапшоту UI) и пути
                     // новых фото заполнит AddDocumentUseCase.
                     addDocumentUseCase(
@@ -57,7 +57,7 @@ class DocumentsViewModel @Inject constructor(
             }
 
             is DocumentsEvent.OnEditDocument -> {
-                viewModelScope.launch {
+                launchCatching {
                     updateDocumentUseCase(
                         document = event.document,
                         newPhotoUris = event.newPhotoUris.map(Uri::toString),
@@ -67,13 +67,13 @@ class DocumentsViewModel @Inject constructor(
             }
 
             is DocumentsEvent.OnDeleteDocument -> {
-                viewModelScope.launch {
+                launchCatching {
                     deleteDocumentUseCase(event.document)
                 }
             }
 
             is DocumentsEvent.OnReorderDocuments -> {
-                viewModelScope.launch {
+                launchCatching {
                     reorderDocumentsUseCase(
                         event.documents.mapIndexed { index, document ->
                             document.copy(position = index)

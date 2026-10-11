@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.SharedList
 import ru.taurlom.tnote.domain.model.SharedTask
 import ru.taurlom.tnote.domain.model.Task
@@ -24,6 +23,7 @@ import ru.taurlom.tnote.domain.usecase.GetCategoryByIdUseCase
 import ru.taurlom.tnote.domain.usecase.GetTasksByCategoryUseCase
 import ru.taurlom.tnote.domain.usecase.ReorderTasksUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateTaskUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
 @HiltViewModel
@@ -102,7 +102,7 @@ class TasksViewModel @Inject constructor(
     fun onEvent(event: TasksEvent) {
         when (event) {
             is TasksEvent.OnAddTask -> {
-                viewModelScope.launch {
+                launchCatching {
                     // createdAt и position заполнит AddTaskUseCase: позиция
                     // считается по базе, а не по снапшоту UI — иначе два
                     // быстрых добавления подряд получали одинаковый position.
@@ -118,31 +118,31 @@ class TasksViewModel @Inject constructor(
             }
 
             is TasksEvent.OnEditTask -> {
-                viewModelScope.launch {
+                launchCatching {
                     updateTaskUseCase(event.task)
                 }
             }
 
             is TasksEvent.OnCopyTask -> {
-                viewModelScope.launch {
+                launchCatching {
                     copyTaskToCategoryUseCase(event.task, event.targetCategoryId)
                 }
             }
 
             is TasksEvent.OnDeleteTask -> {
-                viewModelScope.launch {
+                launchCatching {
                     deleteTaskUseCase(event.task)
                 }
             }
 
             is TasksEvent.OnToggleTaskCompletion -> {
-                viewModelScope.launch {
+                launchCatching {
                     updateTaskUseCase(event.task.copy(isCompleted = !event.task.isCompleted))
                 }
             }
 
             is TasksEvent.OnReorderTasks -> {
-                viewModelScope.launch {
+                launchCatching {
                     val reordered = event.tasks.mapIndexed { index, task ->
                         task.copy(position = index)
                     }

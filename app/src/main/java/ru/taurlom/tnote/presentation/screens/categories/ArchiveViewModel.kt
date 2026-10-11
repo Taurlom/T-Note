@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.Category
 import ru.taurlom.tnote.domain.usecase.DeleteCategoryUseCase
 import ru.taurlom.tnote.domain.usecase.GetArchivedCategoriesUseCase
 import ru.taurlom.tnote.domain.usecase.RestoreCategoryUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
 @HiltViewModel
@@ -34,11 +34,11 @@ class ArchiveViewModel @Inject constructor(
 
     fun onEvent(event: ArchiveEvent) {
         when (event) {
-            is ArchiveEvent.OnRestore -> viewModelScope.launch {
+            is ArchiveEvent.OnRestore -> launchCatching {
                 restoreCategoryUseCase(event.category)
             }
 
-            is ArchiveEvent.OnDeleteForever -> viewModelScope.launch {
+            is ArchiveEvent.OnDeleteForever -> launchCatching {
                 deleteCategoryUseCase(event.category)
             }
         }

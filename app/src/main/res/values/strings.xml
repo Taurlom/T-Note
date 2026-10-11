@@ -76,6 +76,7 @@
     <string name="note_tags_label">Теги</string>
     <string name="note_tags_hint">Через запятую: рецепт, идеи</string>
     <string name="note_format_bold">Полужирный текст</string>
+    <string name="note_format_italic">Курсив</string>
     <string name="note_format_heading">Заголовок</string>
     <string name="note_format_list">Список</string>
     <string name="note_format_link">Ссылка</string>
@@ -214,6 +215,8 @@
     <string name="weekday_fri">Пт</string>
     <string name="weekday_sat">Сб</string>
     <string name="weekday_sun">Вс</string>
+    <!-- Единый snackbar отказа действия (AppErrorBus): без деталей, они в логе. -->
+    <string name="action_failed">Не удалось выполнить действие</string>
 
 </resources>
 

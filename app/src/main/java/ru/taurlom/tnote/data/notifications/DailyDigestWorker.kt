@@ -1,6 +1,7 @@
 package ru.taurlom.tnote.data.notifications
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.hilt.android.EntryPointAccessors
@@ -34,12 +35,14 @@ class DailyDigestWorker(appContext: Context, params: WorkerParameters) : Corouti
             return Result.success()
         }
         try {
+            val clock = dependencies.clock()
             val minutes = dependencies.settingsRepository().reminderTimeMinutes.first()
             // Задача стартовала раньше нового времени (время перенесли
             // позже уже после постановки): не постим, только перепланируем-
             // ся в конце.
-            if (DailyDigestSchedule.isDigestTimeReached(ZonedDateTime.now(), minutes)) {
-                val events = dependencies.eventsForDate()(LocalDate.now())
+            if (DailyDigestSchedule.isDigestTimeReached(ZonedDateTime.now(clock), minutes)) {
+                val today = LocalDate.now(clock)
+                val events = dependencies.eventsForDate()(today, today)
                 // Пустой день — тишина: сводка не спамит, но цепочка ниже
                 // продолжается на завтра.
                 if (events.isNotEmpty()) {
@@ -53,9 +56,15 @@ class DailyDigestWorker(appContext: Context, params: WorkerParameters) : Corouti
         } catch (e: Exception) {
             // Сводка — не критичная функция: ошибка чтения настроек или
             // базы не должна ронять цепочку, следующая задача ставится
-            // ниже как ни в чём не бывало.
+            // ниже как ни в чём не бывало. Но молчать нельзя: без лога
+            // «напоминания не приходят» не диагностируется.
+            Log.e(TAG, "Сводка дня не отработала", e)
         }
         dependencies.scheduleNextDigest()(ReminderScheduler.Mode.AFTER_CURRENT)
         return Result.success()
+    }
+
+    private companion object {
+        const val TAG = "DailyDigestWorker"
     }
 }

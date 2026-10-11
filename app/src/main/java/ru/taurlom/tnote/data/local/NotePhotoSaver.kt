@@ -28,7 +28,9 @@ class NotePhotoSaver @Inject constructor(@ApplicationContext private val context
     }
 
     override suspend fun deletePhotos(relativePaths: List<String>) = withContext(Dispatchers.IO) {
-        relativePaths.forEach { File(context.filesDir, it).delete() }
+        // Пути — из БД, а она может прийти из чужого бэкапа: удаляем
+        // только внутри filesDir (см. FilesDirGuard).
+        relativePaths.forEach { context.deleteFileInsideFilesDir(it) }
     }
 
     private fun savePhotoBlocking(sourceUri: String): String? {
@@ -41,6 +43,11 @@ class NotePhotoSaver @Inject constructor(@ApplicationContext private val context
             input.use { src -> destFile.outputStream().use { dst -> src.copyTo(dst) } }
             "$PHOTOS_DIR/$fileName"
         } catch (e: IOException) {
+            destFile.delete()
+            null
+        } catch (e: SecurityException) {
+            // Разрешение на content:// отозвано (приложение перезапущено
+            // между выбором фото и сохранением): теряем фото, но не падаем.
             destFile.delete()
             null
         }

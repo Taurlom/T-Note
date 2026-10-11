@@ -173,6 +173,9 @@ fun DocumentDetailScreen(onBackClick: () -> Unit, viewModel: DocumentDetailViewM
             text = stringResource(R.string.delete_document_confirm, document.title),
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
+                // Диалог закрываем сразу: он не должен ждать записи в базу,
+                // иначе быстрый двойной тап приводит к повторному onDeleted().
+                showDeleteDialog = false
                 viewModel.deleteDocument(onDeleted = onBackClick)
             },
         )

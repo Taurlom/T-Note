@@ -6,6 +6,7 @@ import dagger.hilt.components.SingletonComponent
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.domain.usecase.GetEventsForDateUseCase
 import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
+import java.time.Clock
 
 /**
  * Доступ к графу Hilt из воркера. WorkManager создаёт воркеров своей
@@ -22,4 +23,7 @@ interface DailyDigestDependencies {
     fun eventsForDate(): GetEventsForDateUseCase
     fun scheduleNextDigest(): ScheduleNextDailyDigestUseCase
     fun notifier(): DailyDigestNotifier
+
+    /** Время — только через инъектируемые часы (см. ClockModule). */
+    fun clock(): Clock
 }

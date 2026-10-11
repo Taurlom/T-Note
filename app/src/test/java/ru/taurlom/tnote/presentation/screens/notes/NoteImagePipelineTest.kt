@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.screens.notes
 
+import androidx.compose.ui.text.font.FontStyle
 import com.mohamedrejeb.richeditor.model.RichTextState
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -175,5 +176,37 @@ class NoteImagePipelineTest {
         val state = RichTextState()
         setMarkdownWithImages(state, "Просто текст")
         assertTrue(state.annotatedString.text == "Просто текст")
+    }
+
+    @Test
+    fun `курсив переживает полный цикл сохранения`() {
+        val editor = RichTextState()
+        editor.setMarkdown("Обычный и *курсивный* текст")
+
+        // Маркер курсива разобран парсером: звёздочек в тексте быть не должно.
+        assertTrue(
+            "маркер курсива не разобран: ${editor.annotatedString.text}",
+            !editor.annotatedString.text.contains('*'),
+        )
+        assertTrue(
+            "курсивный спан не применён",
+            editor.annotatedString.spanStyles.any { it.item.fontStyle == FontStyle.Italic },
+        )
+
+        val saved = editor.toMarkdown()
+        assertTrue(
+            "курсив потерялся при сериализации: $saved",
+            saved.contains("*курсивный*"),
+        )
+    }
+
+    @Test
+    fun `жирный и курсив вместе переживают сохранение`() {
+        val editor = RichTextState()
+        editor.setMarkdown("**жирный** и *курсив*")
+
+        val saved = editor.toMarkdown()
+        assertTrue("жирный потерялся: $saved", saved.contains("жирный"))
+        assertTrue("курсив потерялся: $saved", saved.contains("*курсив*"))
     }
 }

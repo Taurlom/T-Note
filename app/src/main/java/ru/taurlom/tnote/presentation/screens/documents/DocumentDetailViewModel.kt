@@ -10,14 +10,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.domain.usecase.document.DeleteDocumentUseCase
 import ru.taurlom.tnote.domain.usecase.document.GetDocumentByIdUseCase
 import ru.taurlom.tnote.domain.usecase.document.UpdateDocumentUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
-data class DocumentDetailUiState(val document: Document? = null, val isLoading: Boolean = true)
+data class DocumentDetailUiState(
+    val document: Document? = null,
+    val isLoading: Boolean = true,
+    // Флаг выполняющегося удаления: пока true, повторный вызов игнорируется
+    // (защита от двойного тапа по «Удалить» до рекомпозиции диалога).
+    val isDeleting: Boolean = false,
+)
 
 @HiltViewModel
 class DocumentDetailViewModel @Inject constructor(
@@ -46,14 +52,26 @@ class DocumentDetailViewModel @Inject constructor(
 
     fun deleteDocument(onDeleted: () -> Unit) {
         val document = _uiState.value.document ?: return
-        viewModelScope.launch {
-            deleteDocumentUseCase(document)
+        // Диалог закрывается синхронно, но очень быстрый двойной тап может
+        // пройти до рекомпозиции — второй вызов отсекается флагом, иначе
+        // onDeleted() (popBackStack) выполнится дважды.
+        if (_uiState.value.isDeleting) return
+        _uiState.update { it.copy(isDeleting = true) }
+        launchCatching {
+            try {
+                deleteDocumentUseCase(document)
+            } finally {
+                // При отказе флаг снимаем — иначе повторное удаление было
+                // бы заблокировано. onDeleted() в этом случае не зовём:
+                // пользователь остаётся на экране и может повторить.
+                _uiState.update { it.copy(isDeleting = false) }
+            }
             onDeleted()
         }
     }
 
     fun updatePhotoPath(oldPath: String, newPath: String) {
-        viewModelScope.launch {
+        launchCatching {
             // Свежее чтение из базы внутри use-case: снапшот uiState мог
             // отстать и перезаписать список фото без новых путей.
             updateDocumentUseCase.renamePhotoPath(documentId, oldPath, newPath)

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -144,6 +145,13 @@ internal fun BoxScope.NoteSelectionToolbar(
                 active = state.currentSpanStyle.fontWeight == FontWeight.Bold,
             ) {
                 state.toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold))
+            }
+            FormatButton(
+                icon = R.drawable.ic_format_italic,
+                contentDescription = stringResource(R.string.note_format_italic),
+                active = state.currentSpanStyle.fontStyle == FontStyle.Italic,
+            ) {
+                state.toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic))
             }
             FormatButton(
                 icon = R.drawable.ic_title,

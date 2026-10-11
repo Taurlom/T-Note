@@ -62,6 +62,7 @@
     <string name="note_tags_label">Etiquetas</string>
     <string name="note_tags_hint">Separadas por comas: receta, ideas</string>
     <string name="note_format_bold">Texto en negrita</string>
+    <string name="note_format_italic">Cursiva</string>
     <string name="note_format_heading">Encabezado</string>
     <string name="note_format_list">Lista</string>
     <string name="note_format_link">Enlace</string>
@@ -212,4 +213,5 @@
     <string name="weekday_fri">Vi</string>
     <string name="weekday_sat">Sá</string>
     <string name="weekday_sun">Do</string>
+    <string name="action_failed">No se pudo completar la acción</string>
 </resources>

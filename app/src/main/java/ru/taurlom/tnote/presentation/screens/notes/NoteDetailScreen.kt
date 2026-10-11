@@ -233,7 +233,10 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                 },
                 actions = {
                     if (uiState.isEditing) {
-                        IconButton(enabled = editTitle.isNotBlank(), onClick = { save() }) {
+                        IconButton(
+                            enabled = editTitle.isNotBlank() && !uiState.isSaving,
+                            onClick = { save() },
+                        ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_check),
                                 contentDescription = stringResource(R.string.save),
@@ -492,6 +495,9 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
             text = stringResource(R.string.delete_note_confirm, note.title),
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
+                // Диалог закрываем сразу: он не должен ждать записи в базу,
+                // иначе быстрый двойной тап приводит к повторному onDeleted().
+                showDeleteDialog = false
                 viewModel.deleteNote(onDeleted = onBackClick)
             },
         )

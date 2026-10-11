@@ -4,6 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import ru.taurlom.tnote.R
@@ -12,6 +13,8 @@ import ru.taurlom.tnote.domain.model.AppFont
 val PtSansFontFamily = FontFamily(
     Font(R.font.pt_sans_regular, FontWeight.Normal),
     Font(R.font.pt_sans_bold, FontWeight.Bold),
+    Font(R.font.pt_sans_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.pt_sans_bold_italic, FontWeight.Bold, FontStyle.Italic),
 )
 
 val RobotoFontFamily = FontFamily(
@@ -24,22 +27,30 @@ val InterFontFamily = FontFamily(
     Font(R.font.inter_medium, FontWeight.Medium),
     Font(R.font.inter_semibold, FontWeight.SemiBold),
     Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.inter_bold_italic, FontWeight.Bold, FontStyle.Italic),
 )
 
 val NunitoFontFamily = FontFamily(
     Font(R.font.nunito_regular, FontWeight.Normal),
     Font(R.font.nunito_semibold, FontWeight.SemiBold),
     Font(R.font.nunito_bold, FontWeight.Bold),
+    Font(R.font.nunito_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.nunito_bold_italic, FontWeight.Bold, FontStyle.Italic),
 )
 
 val OpenSansFontFamily = FontFamily(
     Font(R.font.open_sans_regular, FontWeight.Normal),
     Font(R.font.open_sans_bold, FontWeight.Bold),
+    // У Open Sans нет bold_italic — курсив есть только для обычного начертания.
+    Font(R.font.open_sans_italic, FontWeight.Normal, FontStyle.Italic),
 )
 
 val JonovaFontFamily = FontFamily(
     Font(R.font.jonova_regular, FontWeight.Normal),
     Font(R.font.jonova_bold, FontWeight.Bold),
+    Font(R.font.jonova_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.jonova_bold_italic, FontWeight.Bold, FontStyle.Italic),
 )
 
 val MazzardFontFamily = FontFamily(
@@ -51,6 +62,8 @@ val MazzardFontFamily = FontFamily(
 val LatoFontFamily = FontFamily(
     Font(R.font.lato_regular, FontWeight.Normal),
     Font(R.font.lato_bold, FontWeight.Bold),
+    Font(R.font.lato_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.lato_bold_italic, FontWeight.Bold, FontStyle.Italic),
 )
 
 val LobsterFontFamily = FontFamily(
@@ -59,6 +72,8 @@ val LobsterFontFamily = FontFamily(
 
 val RubikFontFamily = FontFamily(
     Font(R.font.rubik, FontWeight.Normal),
+    // У Rubik нет bold — только обычное начертание и курсив.
+    Font(R.font.rubik_italic, FontWeight.Normal, FontStyle.Italic),
 )
 
 /**

@@ -1,6 +1,7 @@
 package ru.taurlom.tnote.data.backup
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -43,17 +44,21 @@ import java.util.zip.ZipOutputStream
  * Интеграционные тесты резервных копий на JVM (Robolectric): реальный
  * контекст (filesDir/cacheDir/ContentResolver), реальный Room-инстанс
  * как «живая» база и фейки трёх доменных репозиториев на их интерфейсах.
- * Байты базы — рукотворные SQLite-заголовки: репозиторию файл базы
- * непрозрачен, валидация заголовка уже покрыта SQLiteHeaderTest.
+ * Байты базы — НАСТОЯЩИЕ SQLite-файлы, создаваемые движком в cacheDir:
+ * импорт прогоняет по копии PRAGMA integrity_check, и заглушка из
+ * одного 100-байтового заголовка его не пройдёт. Различие «живой» и
+ * «копии» (нужно, чтобы откат нельзя было принять за совпадение)
+ * пишется в PRAGMA application_id.
  *
  * Имена записей архива, суффиксы подмены (.import-old/.import-new) и
  * имя временного каталога захардкожены как литералы: это формат
  * хранения, переживающий перезапуски процесса, — тест обязан его
  * застолбить, а не подстраиваться за константами реализации.
  *
- * Проверяются четыре правила из шапки BackupRepositoryImpl:
- * лимиты распаковки (zip-бомба), проверка ДО подмены (версия схемы),
- * транзакция подмены с откатом, удаление недописанного экспорта.
+ * Проверяются пять правил из шапки BackupRepositoryImpl:
+ * лимиты распаковки (zip-бомба), проверки ДО подмены (версия схемы,
+ * целостность страниц), транзакция подмены с откатом, удаление
+ * недописанного экспорта.
  */
 @RunWith(RobolectricTestRunner::class)
 class BackupRepositoryImplTest {
@@ -257,6 +262,24 @@ class BackupRepositoryImplTest {
             runBlocking { repository.importBackup(source) }
         }
         assertEquals(before, liveSnapshot())
+    }
+
+    @Test
+    fun `database with intact header but corrupted pages is rejected`() {
+        seedLiveState()
+        val before = liveSnapshot()
+        val corrupted = sqliteBytes(currentSchema, "corrupted")
+        // Магия и user_version (первые 100 байт) не тронуты: заголовочные
+        // проверки проходят. Мусор — в b-tree заголовке первой страницы
+        // (начинается со смещения 100): валидны только типы 2/5/10/13.
+        for (i in 100 until 116) corrupted[i] = 0x7F
+        val source = backupZip(MANIFEST to manifest(), DB_ENTRY to corrupted)
+
+        failsWith<BackupImportException.InvalidDatabase> {
+            runBlocking { repository.importBackup(source) }
+        }
+        assertEquals(before, liveSnapshot())
+        assertNoSwapLeftovers()
     }
 
     @Test
@@ -543,17 +566,26 @@ class BackupRepositoryImplTest {
         notePhotos.forEach { (name, content) -> File(notePhotosDir(), name).writeText(content) }
     }
 
-    /** SQLite-файл-заглушка: валидный заголовок + различимый маркер. */
+    /**
+     * Настоящий SQLite-файл: [version] пишется в PRAGMA user_version
+     * (там Room хранит версию схемы), [marker] — в application_id,
+     * чтобы «живая» база и «копия» различались побайтово. Заглушка
+     * из одного заголовка не подходит: импорт прогоняет по копии
+     * PRAGMA integrity_check.
+     */
     private fun sqliteBytes(version: Int, marker: String): ByteArray {
-        // Формат продублирован из SQLiteHeaderTest: смещения известны
-        // формату, а не реализации.
-        val header = ByteArray(100)
-        "SQLite format 3\u0000".toByteArray().copyInto(header)
-        header[60] = (version ushr 24).toByte()
-        header[61] = (version ushr 16).toByte()
-        header[62] = (version ushr 8).toByte()
-        header[63] = version.toByte()
-        return header + marker.toByteArray()
+        val file = File(context.cacheDir, "fixture-$version-$marker.db")
+        file.delete()
+        File(file.path + "-journal").delete()
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+            db.version = version
+            db.execSQL("PRAGMA application_id = ${marker.hashCode()}")
+            // Таблица с данными: файл — рабочая база со страницами,
+            // а не пустая оболочка из одного заголовка.
+            db.execSQL("CREATE TABLE fixture (id INTEGER PRIMARY KEY, note TEXT)")
+            db.execSQL("INSERT INTO fixture (note) VALUES ('$marker')")
+        }
+        return file.readBytes()
     }
 
     /** Копия с валидным манифестом; тема и шрифт отличимы от дефолтных. */

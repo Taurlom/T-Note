@@ -14,15 +14,20 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -30,6 +35,7 @@ import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.SharedText
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.SettingsRepository
+import ru.taurlom.tnote.presentation.error.AppErrorBus
 import ru.taurlom.tnote.presentation.navigation.AppNavigation
 import ru.taurlom.tnote.presentation.screens.settings.SettingsViewModel
 import ru.taurlom.tnote.presentation.splash.SplashScreen
@@ -153,6 +159,20 @@ class MainActivity : AppCompatActivity() {
                             onPendingSharedTextHandled = { pendingSharedText.value = null },
                             pendingOpenCalendar = pendingOpenCalendar.value,
                             onPendingOpenCalendarHandled = { pendingOpenCalendar.value = false },
+                        )
+                        // Единый канал ошибок действий (AppErrorBus): отказ
+                        // записи и т.п. — snackbar вместо краша. Действия
+                        // со своей реакцией (бэкап, шэring) сюда не приходят.
+                        val snackbarHostState = remember { SnackbarHostState() }
+                        val actionFailedText = stringResource(R.string.action_failed)
+                        LaunchedEffect(Unit) {
+                            AppErrorBus.events.collect {
+                                snackbarHostState.showSnackbar(actionFailedText)
+                            }
+                        }
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.align(Alignment.BottomCenter),
                         )
                         if (splashVisible) {
                             SplashScreen(modifier = Modifier.alpha(splashAlpha))

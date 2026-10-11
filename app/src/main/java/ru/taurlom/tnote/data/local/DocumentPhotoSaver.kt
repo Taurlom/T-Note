@@ -30,9 +30,9 @@ class DocumentPhotoSaver @Inject constructor(@ApplicationContext private val con
     }
 
     override suspend fun deletePhotos(relativePaths: List<String>) = withContext(Dispatchers.IO) {
-        relativePaths.forEach {
-            File(context.filesDir, it).delete()
-        }
+        // Пути — из БД, а она может прийти из чужого бэкапа: удаляем
+        // только внутри filesDir (см. FilesDirGuard).
+        relativePaths.forEach { context.deleteFileInsideFilesDir(it) }
     }
 
     private fun savePhotoBlocking(sourceUri: String): String? {
@@ -41,14 +41,18 @@ class DocumentPhotoSaver @Inject constructor(@ApplicationContext private val con
         val destFile = File(photosDir, fileName)
 
         // openInputStream возвращает null, когда URI «умер» (разрешение истекло
-        // после возвращения из камеры) — лучше потерять одно фото, чем оставить
-        // в базе ссылку на несуществующий файл. Прерванную копию убираем,
+        // после возвращения из камеры), и бросает SecurityException, когда оно
+        // отозвано, — лучше потерять одно фото, чем оставить в базе ссылку на
+        // несуществующий файл или уронить сохранение. Прерванную копию убираем,
         // чтобы не плодить сирот на диске.
         return try {
             val input = context.contentResolver.openInputStream(sourceUri.toUri()) ?: return null
             input.use { src -> destFile.outputStream().use { dst -> src.copyTo(dst) } }
             "${PHOTOS_DIR}/$fileName"
         } catch (e: IOException) {
+            destFile.delete()
+            null
+        } catch (e: SecurityException) {
             destFile.delete()
             null
         }

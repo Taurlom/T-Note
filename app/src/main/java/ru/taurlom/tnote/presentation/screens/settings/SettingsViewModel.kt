@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
@@ -21,6 +20,7 @@ import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.domain.usecase.ClearCalendarUseCase
 import ru.taurlom.tnote.domain.usecase.SetReminderTimeUseCase
 import ru.taurlom.tnote.domain.usecase.SetRemindersEnabledUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
 @HiltViewModel
@@ -102,7 +102,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Тема применяется сразу, без кнопки «Применить»: она видна мгновенно. */
     fun applyTheme(theme: ThemeKind) {
-        viewModelScope.launch {
+        launchCatching {
             settingsRepository.setSelectedTheme(theme)
         }
     }
@@ -124,40 +124,40 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun applyFont(font: AppFont) {
-        viewModelScope.launch {
+        launchCatching {
             settingsRepository.setSelectedFont(font)
         }
     }
 
     /** Порядок и видимость разделов применяются сразу, как тема. */
     fun updateSections(sections: List<String>) {
-        viewModelScope.launch {
+        launchCatching {
             settingsRepository.setVisibleSections(sections)
         }
     }
 
     /** Тумблер напоминаний: включение заводит цепочку, выключение гасит. */
     fun applyRemindersEnabled(enabled: Boolean) {
-        viewModelScope.launch {
+        launchCatching {
             setRemindersEnabledUseCase(enabled)
         }
     }
 
     /** Смена времени сводки: расписание перестраивается сразу. */
     fun applyReminderTime(minutes: Int) {
-        viewModelScope.launch {
+        launchCatching {
             setReminderTimeUseCase(minutes)
         }
     }
 
     fun clearCalendar() {
-        viewModelScope.launch {
+        launchCatching {
             clearCalendarUseCase()
         }
     }
 
     fun exportBackup(target: Uri) {
-        viewModelScope.launch {
+        launchCatching {
             runBackup {
                 val summary = backupRepository.exportBackup(target)
                 BackupResult.Exported(
@@ -169,7 +169,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun importBackup(source: Uri) {
-        viewModelScope.launch {
+        launchCatching {
             runBackup {
                 val summary = backupRepository.importBackup(source)
                 BackupResult.Imported(
@@ -182,7 +182,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Читаем шапку копии до подтверждения: пользователь видит, что восстанавливает. */
     fun describeImport(source: Uri) {
-        viewModelScope.launch {
+        launchCatching {
             try {
                 val description = backupRepository.describeBackup(source)
                 if (description == null) {

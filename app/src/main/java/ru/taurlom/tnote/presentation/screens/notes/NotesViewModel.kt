@@ -9,12 +9,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
 import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
 import ru.taurlom.tnote.domain.usecase.note.GetNotesUseCase
 import ru.taurlom.tnote.domain.usecase.note.ReorderNotesUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
 @HiltViewModel
@@ -36,11 +36,11 @@ class NotesViewModel @Inject constructor(
 
     fun onEvent(event: NotesEvent) {
         when (event) {
-            is NotesEvent.OnDeleteNote -> viewModelScope.launch {
+            is NotesEvent.OnDeleteNote -> launchCatching {
                 deleteNoteUseCase(event.note)
             }
 
-            is NotesEvent.OnReorderNotes -> viewModelScope.launch {
+            is NotesEvent.OnReorderNotes -> launchCatching {
                 reorderNotesUseCase(
                     event.notes.mapIndexed { index, note -> note.copy(position = index) },
                 )
@@ -50,10 +50,10 @@ class NotesViewModel @Inject constructor(
                 it.copy(incomingSharedText = event.shared)
             }
 
-            is NotesEvent.OnConfirmSaveSharedText -> viewModelScope.launch {
+            is NotesEvent.OnConfirmSaveSharedText -> launchCatching {
                 // Зеркало импорта .tnote: пришло — держим в состоянии, факт
                 // сохранения — одноразовым фидбеком для тоста.
-                val shared = _uiState.value.incomingSharedText ?: return@launch
+                val shared = _uiState.value.incomingSharedText ?: return@launchCatching
                 val title = shared.draftTitle()
                 runCatching {
                     addNoteUseCase(Note(title = title, content = shared.text, createdAt = 0L))

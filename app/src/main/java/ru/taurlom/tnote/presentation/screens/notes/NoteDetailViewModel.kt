@@ -11,15 +11,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
 import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
 import ru.taurlom.tnote.domain.usecase.note.GetNoteByIdUseCase
 import ru.taurlom.tnote.domain.usecase.note.UpdateNoteUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
-data class NoteDetailUiState(val note: Note? = null, val isLoading: Boolean = true, val isEditing: Boolean = false)
+data class NoteDetailUiState(
+    val note: Note? = null,
+    val isLoading: Boolean = true,
+    val isEditing: Boolean = false,
+    // Флаги выполняющейся записи: пока true, повторный вызов игнорируется.
+    // Защита от двойного тапа по «Сохранить»/«Удалить» до того, как UI
+    // успеет отреагировать на первое нажатие.
+    val isSaving: Boolean = false,
+    val isDeleting: Boolean = false,
+)
 
 @HiltViewModel
 class NoteDetailViewModel @Inject constructor(
@@ -74,20 +83,31 @@ class NoteDetailViewModel @Inject constructor(
     ) {
         val trimmed = title.trim()
         if (trimmed.isEmpty()) return
-        viewModelScope.launch {
+        // Двойной тап до перекомпозиции: второй вызов видит isSaving = true
+        // и выходит, иначе оба увидят note == null и добавят заметку дважды.
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(isSaving = true) }
+        launchCatching {
             // Domain работает с URI строками, не зная android.net.Uri.
             val uriStrings = newPhotoUris.map(Uri::toString)
             val current = _uiState.value.note
-            if (current == null) {
-                addNoteUseCase(
-                    Note(title = trimmed, content = content, createdAt = 0L, tags = tags),
-                    uriStrings,
-                )
-            } else {
-                updateNoteUseCase(
-                    current.copy(title = trimmed, content = content, tags = tags),
-                    newPhotoUris = uriStrings,
-                )
+            try {
+                if (current == null) {
+                    addNoteUseCase(
+                        Note(title = trimmed, content = content, createdAt = 0L, tags = tags),
+                        uriStrings,
+                    )
+                } else {
+                    updateNoteUseCase(
+                        current.copy(title = trimmed, content = content, tags = tags),
+                        newPhotoUris = uriStrings,
+                    )
+                }
+            } finally {
+                // Даже при отказе флаг снимаем: иначе «Сохранить» осталось
+                // бы заблокированным до ухода с экрана, повторить попытку
+                // нельзя.
+                _uiState.update { it.copy(isSaving = false) }
             }
             _uiState.update { it.copy(isEditing = false) }
             onSaved()
@@ -96,8 +116,20 @@ class NoteDetailViewModel @Inject constructor(
 
     fun deleteNote(onDeleted: () -> Unit) {
         val note = _uiState.value.note ?: return
-        viewModelScope.launch {
-            deleteNoteUseCase(note)
+        // Диалог закрывается синхронно, но очень быстрый двойной тап может
+        // пройти до рекомпозиции — второй вызов отсекается флагом, иначе
+        // onDeleted() (popBackStack) выполнится дважды.
+        if (_uiState.value.isDeleting) return
+        _uiState.update { it.copy(isDeleting = true) }
+        launchCatching {
+            try {
+                deleteNoteUseCase(note)
+            } finally {
+                // При отказе флаг снимаем — иначе повторное удаление было
+                // бы заблокировано. onDeleted() в этом случае не зовём:
+                // пользователь остаётся на экране и может повторить.
+                _uiState.update { it.copy(isDeleting = false) }
+            }
             onDeleted()
         }
     }

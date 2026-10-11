@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.Category
 import ru.taurlom.tnote.domain.repository.ListShareRepository
 import ru.taurlom.tnote.domain.usecase.AddCategoryUseCase
@@ -19,6 +18,7 @@ import ru.taurlom.tnote.domain.usecase.ImportSharedListUseCase
 import ru.taurlom.tnote.domain.usecase.ReorderCategoriesUseCase
 import ru.taurlom.tnote.domain.usecase.RestoreCategoryUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateCategoryUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
 @HiltViewModel
@@ -55,7 +55,7 @@ class CategoriesViewModel @Inject constructor(
             }
 
             is CategoriesEvent.OnAddCategory -> {
-                viewModelScope.launch {
+                launchCatching {
                     // position заполнит AddCategoryUseCase: позиция считается
                     // по базе, а не по снапшоту UI (гонка двух быстрых добавлений).
                     addCategoryUseCase(
@@ -68,25 +68,25 @@ class CategoriesViewModel @Inject constructor(
             }
 
             is CategoriesEvent.OnEditCategory -> {
-                viewModelScope.launch {
+                launchCatching {
                     updateCategoryUseCase(event.category)
                 }
             }
 
             is CategoriesEvent.OnArchiveCategory -> {
-                viewModelScope.launch {
+                launchCatching {
                     archiveCategoryUseCase(event.category)
                 }
             }
 
             is CategoriesEvent.OnRestoreCategory -> {
-                viewModelScope.launch {
+                launchCatching {
                     restoreCategoryUseCase(event.category)
                 }
             }
 
             is CategoriesEvent.OnReorderCategories -> {
-                viewModelScope.launch {
+                launchCatching {
                     val reordered = event.categories.mapIndexed { index, category ->
                         category.copy(position = index)
                     }
@@ -95,7 +95,7 @@ class CategoriesViewModel @Inject constructor(
             }
 
             is CategoriesEvent.OnReadSharedList -> {
-                viewModelScope.launch {
+                launchCatching {
                     val shared = runCatching {
                         listShareRepository.importFromFile(event.uri)
                     }.getOrNull()
@@ -110,8 +110,8 @@ class CategoriesViewModel @Inject constructor(
             }
 
             is CategoriesEvent.OnConfirmImportSharedList -> {
-                viewModelScope.launch {
-                    val shared = _uiState.value.incomingShare ?: return@launch
+                launchCatching {
+                    val shared = _uiState.value.incomingShare ?: return@launchCatching
                     runCatching {
                         importSharedListUseCase(shared)
                     }.onSuccess {

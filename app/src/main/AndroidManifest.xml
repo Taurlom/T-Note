@@ -14,11 +14,13 @@
         </intent>
     </queries>
 
+    <!-- Системный бэкап выключен намеренно: данные (база, фото, DataStore)
+         всё равно не влезали бы в лимит Auto Backup, а полупустая копия
+         вводила бы в заблуждение. Свой полный экспорт/импорт — в настройках
+         (BackupRepositoryImpl, формат .tnote). -->
     <application
         android:name=".TimeManagerApplication"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"

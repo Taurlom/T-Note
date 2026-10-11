@@ -36,6 +36,28 @@ class MarkdownTest {
         assertEquals("один два…", preview)
     }
 
+    @Test
+    fun `preview strips italic markers`() {
+        val preview = Markdown.preview(
+            "Список *ингредиенты* и _подготовка_",
+            maxLength = 120,
+        )
+        assertEquals("Список ингредиенты и подготовка", preview)
+    }
+
+    @Test
+    fun `preview keeps bold intact when stripping italic`() {
+        // Одиночные звёздочки курсива не должны сматывать `**жирный**`.
+        val preview = Markdown.preview("это **жирный** и *курсив*", maxLength = 120)
+        assertEquals("это жирный и курсив", preview)
+    }
+
+    @Test
+    fun `preview does not eat unmatched asterisks`() {
+        val preview = Markdown.preview("2 * 3 = 6", maxLength = 120)
+        assertEquals("2 * 3 = 6", preview)
+    }
+
     // ---------- isOpenableLink ----------
 
     @Test

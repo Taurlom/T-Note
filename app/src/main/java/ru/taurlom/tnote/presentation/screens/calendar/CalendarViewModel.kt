@@ -11,10 +11,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.CalendarNote
+import ru.taurlom.tnote.domain.model.EventExpander
 import ru.taurlom.tnote.domain.model.ScheduledEvent
-import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.domain.usecase.AddScheduledEventUseCase
 import ru.taurlom.tnote.domain.usecase.DeleteCalendarDayUseCase
 import ru.taurlom.tnote.domain.usecase.DeleteScheduledEventUseCase
@@ -25,6 +24,7 @@ import ru.taurlom.tnote.domain.usecase.GetScheduledEventsByMonthUseCase
 import ru.taurlom.tnote.domain.usecase.GetWeekendDatesUseCase
 import ru.taurlom.tnote.domain.usecase.SaveCalendarNoteUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateScheduledEventUseCase
+import ru.taurlom.tnote.presentation.error.launchCatching
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -65,58 +65,22 @@ class CalendarViewModel @Inject constructor(
             CalendarUiState(
                 yearMonth = yearMonth,
                 notes = notes.associateBy { it.date },
-                events = expandEventsForMonth(monthEvents, birthdays, repeating, yearMonth),
+                // Разворот вхождений — EventExpander: те же правила живут
+                // и в сводке дня (GetEventsForDateUseCase), двух копий
+                // закона не держим.
+                events = EventExpander.forMonth(
+                    monthEvents = monthEvents,
+                    birthdays = birthdays,
+                    repeating = repeating,
+                    year = yearMonth.year,
+                    month = yearMonth.month,
+                    today = LocalDate.now(),
+                ),
                 weekendDates = weekendDates,
             )
         }
             .onEach { state -> _uiState.value = state }
             .launchIn(viewModelScope)
-    }
-
-    /**
-     * Группирует события по дням отображаемого месяца: обычные берутся как есть,
-     * каждый день рождения разворачивается в дату-вхождение текущего года,
-     * а повторяющиеся события — во все свои вхождения этого месяца.
-     */
-    private fun expandEventsForMonth(
-        monthEvents: List<ScheduledEvent>,
-        birthdays: List<ScheduledEvent>,
-        repeating: List<ScheduledEvent>,
-        yearMonth: CalendarYearMonth,
-    ): Map<String, List<ScheduledEvent>> {
-        val displayYear = yearMonth.year
-        // Вхождения повторяющихся событий генерируются ниже целиком,
-        // включая якорное — иначе оно задублировалось бы из месячного запроса.
-        val byDate = monthEvents
-            .filterNot { it.type == ScheduledEventType.REPEATING }
-            .groupByTo(LinkedHashMap()) { it.date }
-        birthdays.forEach { birthday ->
-            val anchor = birthday.dateOrNull() ?: return@forEach
-            // Вхождение за якорный год уже пришло из месячного запроса.
-            if (anchor.year == displayYear) return@forEach
-            val (month, day) = ScheduledEvent.effectiveBirthdayDate(anchor, displayYear)
-            val key = String.format(LOCALE, "%04d-%02d-%02d", displayYear, month, day)
-            byDate.getOrPut(key) { mutableListOf() } += birthday.copy(date = key)
-        }
-        val today = LocalDate.now()
-        val first = LocalDate.of(displayYear, yearMonth.month, 1)
-        val lastExclusive = first.plusMonths(1)
-        repeating.forEach { event ->
-            val anchor = event.dateOrNull() ?: return@forEach
-            var cursor = maxOf(anchor, first)
-            while (cursor.isBefore(lastExclusive)) {
-                if (event.occursOn(cursor) &&
-                    !(event.hidePastOccurrences && cursor.isBefore(today))
-                ) {
-                    val key = cursor.toString()
-                    byDate.getOrPut(key) { mutableListOf() } += event.copy(date = key)
-                }
-                cursor = cursor.plusDays(1)
-            }
-        }
-        return byDate.mapValues { (_, events) ->
-            events.sortedWith(compareBy({ it.position }, { it.id }))
-        }
     }
 
     fun onEvent(event: CalendarEvent) {
@@ -137,24 +101,24 @@ class CalendarViewModel @Inject constructor(
     }
 
     private fun saveNote(date: String, text: String) {
-        viewModelScope.launch {
+        launchCatching {
             val trimmed = text.trim()
             // Пустая заметка не создаётся: для очистки дня есть «Удалить».
-            if (trimmed.isEmpty()) return@launch
+            if (trimmed.isEmpty()) return@launchCatching
             saveNoteUseCase(CalendarNote(date = date, text = trimmed))
         }
     }
 
     private fun deleteDay(date: String) {
-        viewModelScope.launch {
+        launchCatching {
             deleteDayUseCase(date)
         }
     }
 
     private fun addEvent(date: String, draft: ScheduledEvent) {
-        viewModelScope.launch {
+        launchCatching {
             val trimmed = draft.title.trim()
-            if (trimmed.isBlank()) return@launch
+            if (trimmed.isBlank()) return@launchCatching
             // position заполнит AddScheduledEventUseCase: позиция считается
             // по базе, а не по снапшоту UI (гонка двух быстрых добавлений).
             addEventUseCase(draft.copy(date = date, title = trimmed))
@@ -162,22 +126,17 @@ class CalendarViewModel @Inject constructor(
     }
 
     private fun updateEvent(event: ScheduledEvent) {
-        viewModelScope.launch {
+        launchCatching {
             val trimmed = event.title.trim()
-            if (trimmed.isBlank()) return@launch
+            if (trimmed.isBlank()) return@launchCatching
             val updated = event.copy(title = trimmed)
             updateEventUseCase(updated)
         }
     }
 
     private fun deleteEvent(event: ScheduledEvent) {
-        viewModelScope.launch {
+        launchCatching {
             deleteEventUseCase(event)
         }
-    }
-
-    private companion object {
-        // Формат ISO-даты не должен зависеть от локали устройства (DefaultLocale).
-        val LOCALE: java.util.Locale = java.util.Locale.US
     }
 }

@@ -1,6 +1,8 @@
 package ru.taurlom.tnote.data.backup
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -45,21 +47,30 @@ import javax.inject.Singleton
  * note_photos/…              — фотографии заметок (filesDir/note_photos)
  * ```
  *
- * Надёжность — четыре правила:
+ * Надёжность — пять правил:
  * 1. Распаковка только в cacheDir и с потолками на объём и число
  *    записей: zip-бомба не может занять диск гигабайтами.
  * 2. Копия проверяется целиком ДО касания живых данных: формат,
- *    SQLite-заголовок, версия схемы. Копия от более новой версии
- *    приложения отклоняется здесь, а не роняет Room при первом же
- *    открытии — когда старые данные уже потеряны.
+ *    SQLite-заголовок, версия схемы и целостность страниц
+ *    (PRAGMA integrity_check): валидные первые 100 байт ещё не
+ *    означают читаемость остального файла. Копия от более новой
+ *    версии приложения отклоняется здесь, а не роняет Room при
+ *    первом же открытии — когда старые данные уже потеряны.
  * 3. Подмена — «транзакция» из атомарных переименований: живое
  *    отодвигается, новое ставится на место, старое стирается только
  *    после полного успеха. Сбой любого шага откатывает сделанное.
  * 4. Неудавшийся экспорт удаляет недописанный файл: обрезок архива
  *    не должен выглядеть со стороны годной копией.
+ * 5. Экспорт копирует файл базы под «замком писателя» (BEGIN
+ *    IMMEDIATE): ни DAO-запись, ни авто-checkpoint SQLite не может
+ *    переписать файл на середине стрима — копия не бывает «рваной».
  *
- * Room и DataStore держат старые файлы открытыми, поэтому после
- * импорта приложение перезапускают (см. SettingsScreen).
+ * Перед подменой живое подключение Room закрывается: файлы базы
+ * переименовываются без открытых дескрипторов, а первое обращение
+ * после импорта открывает уже новую базу — записи не улетают в
+ * отодвинутый файл. Приложение всё равно перезапускают (см.
+ * SettingsScreen): проще всего пересозданием процесса сбрасывается
+ * закэшированное состояние — InvalidationTracker, ViewModel'и.
  */
 @Singleton
 class BackupRepositoryImpl @Inject constructor(
@@ -110,7 +121,13 @@ class BackupRepositoryImpl @Inject constructor(
 
                     val dbFile = context.getDatabasePath(AppDatabase.DB_NAME)
                     if (dbFile.exists()) {
-                        zip.writeFile("$DATABASE_DIR/${dbFile.name}", dbFile)
+                        // Файл базы стримится под «замком писателя»:
+                        // иначе авто-checkpoint SQLite мог бы переписать
+                        // его посреди копирования — копия получилась бы
+                        // «рваной», хотя заголовок остался бы валидным.
+                        withWriterLock {
+                            zip.writeFile("$DATABASE_DIR/${dbFile.name}", dbFile)
+                        }
                     }
 
                     photoFiles.forEach { file ->
@@ -300,10 +317,28 @@ class BackupRepositoryImpl @Inject constructor(
                     )
             }
 
+            // Целостность копии: валидный заголовок — это лишь первые
+            // 100 байт; глубже файл может быть обрезан или испорчен.
+            // Прогоняем штатную проверку самого SQLite по КОПИИ, пока
+            // живые данные нетронуты.
+            if (!isIntactDatabase(dbOut)) {
+                throw BackupImportException.InvalidDatabase
+            }
+
             // ---- «Транзакция» подмены. ----
-            // Сначала сливаем WAL в основной файл: после этого -wal/-shm —
-            // пустые хвосты прежней базы, новой они не нужны.
+            // Сначала сливаем WAL в основной файл: откат подмены
+            // восстанавливает только его, свежие страницы журнала
+            // обязаны уже быть в нём.
             checkpointWal()
+            // Подменять файлы ОТКРЫТОЙ базы нельзя: rename/delete
+            // действуют на пути, а Room продолжал бы писать в прежние
+            // дескрипторы — запись между checkpoint'ом и перезапуском
+            // улетала в *.import-old и стиралась discard()'ом молча.
+            // Закрываем базу до подмены: чистое закрытие последнего
+            // соединения само сливает и убирает WAL (удаления ниже —
+            // подстраховка), а следующее обращение откроет уже новый
+            // файл — окна потери записей не остаётся.
+            database.close()
             val dbFile = context.getDatabasePath(AppDatabase.DB_NAME)
             File(dbFile.path + "-wal").delete()
             File(dbFile.path + "-shm").delete()
@@ -449,6 +484,49 @@ class BackupRepositoryImpl @Inject constructor(
     /** Файлы каталога, на которые нет ссылок в [referenced]. */
     private fun countOrphans(files: List<File>, dir: File, prefix: String, referenced: List<String>): Int = files.count { file ->
         "$prefix/${file.relativeTo(dir).path}" !in referenced
+    }
+
+    /**
+     * Выполняет [block], удерживая «замок писателя» базы: BEGIN
+     * IMMEDIATE берёт reserved-блокировку, и чужие транзакции записи
+     * ждут её снятия (читатели в WAL-режиме не блокируются). Это
+     * гарантирует, что файл базы не изменится, пока его читают
+     * побайтово (экспорт). Изменений внутри транзакции нет — откат
+     * при выходе безвреден и просто освобождает замок.
+     */
+    private fun <T> withWriterLock(block: () -> T): T {
+        val db = database.openHelper.writableDatabase
+        db.beginTransactionNonExclusive()
+        return try {
+            block()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /**
+     * PRAGMA integrity_check по файлу копии: «ok» — единственный
+     * приемлемый ответ; битая или обрезанная страница даёт строки
+     * с описанием повреждений. Файл открывается в режиме записи
+     * (это наш tempDir, мы им владеем): read-only открытие WAL-базы
+     * без -shm на старых версиях SQLite (Android < 9) могло бы не
+     * сработать. Живой базы проверка не касается.
+     */
+    private fun isIntactDatabase(file: File): Boolean {
+        val sqlite = try {
+            SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READWRITE)
+        } catch (e: SQLiteException) {
+            return false
+        }
+        return try {
+            sqlite.rawQuery("PRAGMA integrity_check", null).use { cursor ->
+                cursor.moveToFirst() && cursor.getString(0).equals("ok", ignoreCase = true)
+            }
+        } catch (e: SQLiteException) {
+            false
+        } finally {
+            sqlite.close()
+        }
     }
 
     /**
