@@ -45,7 +45,11 @@ fun SplashScreen(modifier: Modifier = Modifier) {
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 10000,
+                // Оборот за 1,5 с: в окне загрузки (минимум 500 мс плюс
+                // ожидание разделов) движение видно сразу, в отличие от
+                // прежних 10 с — там стрелка первые секунды выглядела
+                // статичной.
+                durationMillis = 1500,
                 easing = LinearEasing,
             ),
             repeatMode = RepeatMode.Restart,

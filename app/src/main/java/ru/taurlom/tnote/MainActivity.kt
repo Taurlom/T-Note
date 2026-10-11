@@ -1,5 +1,7 @@
 package ru.taurlom.tnote
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -68,6 +70,9 @@ class MainActivity : AppCompatActivity() {
         /** Минимальное время заставки — «мигнуть брендом» (мс). */
         private const val SPLASH_MIN_MILLIS = 500L
 
+        /** Фейд системного сплэша поверх нашего оверлея (мс). */
+        private const val SPLASH_SYSTEM_FADE_MILLIS = 200L
+
         /** Длительность фейда заставки (мс). */
         private const val SPLASH_FADE_MILLIS = 250
 
@@ -76,8 +81,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Системный сплэш гаснет не мгновенно, а фейдом поверх нашего
+        // оверлея: два разных рисунка логотипа (системная adaptive-icon
+        // и нативная отрисовка SplashScreen) перекрываются плавно,
+        // вместо рывка на стыке. Снятие обязано быть после анимации —
+        // зарегистрированный листенер забирает ответственность за удаление.
         installSplashScreen().setOnExitAnimationListener { splashView ->
-            splashView.remove()
+            splashView.view
+                .animate()
+                .alpha(0f)
+                .setDuration(SPLASH_SYSTEM_FADE_MILLIS)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        splashView.remove()
+                    }
+                })
+                .start()
         }
 
         super.onCreate(savedInstanceState)
