@@ -63,6 +63,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/x-tnote-list" />
             </intent-filter>
+            <!-- Открытие и приём заметки .tnote — её собственный MIME.
+                 Различение заметки и списка внутри — по магическому полю
+                 JSON (AppNavigation → NotesViewModel.isNoteShareFile). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/x-tnote-note" />
+            </intent-filter>
             <!-- Приём текста из системного «Поделиться» (text/plain): текст
                  из любого приложения превращается в заметку — после
                  подтверждения в диалоге, молчаливых записей приложение не

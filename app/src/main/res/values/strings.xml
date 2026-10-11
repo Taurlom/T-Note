@@ -121,6 +121,14 @@
     <string name="shared_list_added">Список «%1$s» добавлен</string>
     <string name="shared_list_error">Не удалось прочитать: это не файл списка T-Note</string>
 
+    <string name="share_note">Поделиться заметкой</string>
+    <string name="share_note_file_error">Не удалось создать файл заметки</string>
+    <string name="shared_note_import_title">Заметка из файла</string>
+    <string name="shared_note_import_text">Добавить заметку «%1$s»? Текущие данные не изменятся.</string>
+    <string name="shared_note_import_text_photos">Добавить заметку «%1$s» с фото (%2$d)? Текущие данные не изменятся.</string>
+    <string name="shared_note_add_action">Добавить</string>
+    <string name="shared_note_error">Не удалось прочитать: это не файл заметки T-Note</string>
+
     <!-- Приём текста из системного «Поделиться» -->
     <string name="shared_text_import_title">Сохранить в заметки</string>
     <string name="shared_text_import_text">Создать заметку «%1$s»?</string>

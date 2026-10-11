@@ -120,6 +120,14 @@
     <string name="shared_list_added">List \"%1$s\" added</string>
     <string name="shared_list_error">Could not read: this is not a T-Note list file</string>
 
+    <string name="share_note">Share note</string>
+    <string name="share_note_file_error">Could not create the note file</string>
+    <string name="shared_note_import_title">Note from file</string>
+    <string name="shared_note_import_text">Add note \"%1$s\"? Your current data will not change.</string>
+    <string name="shared_note_import_text_photos">Add note \"%1$s\" with %2$d photo(s)? Your current data will not change.</string>
+    <string name="shared_note_add_action">Add</string>
+    <string name="shared_note_error">Could not read: this is not a T-Note note file</string>
+
     <!-- Text received from the system "Share" sheet -->
     <string name="shared_text_import_title">Save to notes</string>
     <string name="shared_text_import_text">Create note \"%1$s\"?</string>

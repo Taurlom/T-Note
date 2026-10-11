@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.screens.notes
 
+import android.net.Uri
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.model.SharedText
 
@@ -20,4 +21,13 @@ sealed class NotesEvent {
 
     /** Тост показан — гасим одноразовый фидбек. */
     data object OnSharedTextFeedbackShown : NotesEvent()
+
+    /** Файл `.tnote` с заметкой: прочитать и показать диалог импорта. */
+    data class OnReadSharedNote(val uri: Uri) : NotesEvent()
+
+    /** Подтверждение в диалоге: добавить заметку из пришедшего файла. */
+    data object OnConfirmImportSharedNote : NotesEvent()
+
+    /** Отмена диалога импорта: ничего не создаётся. */
+    data object OnDismissImportSharedNote : NotesEvent()
 }

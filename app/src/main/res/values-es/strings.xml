@@ -120,6 +120,14 @@
     <string name="shared_list_added">Lista «%1$s» añadida</string>
     <string name="shared_list_error">No se pudo leer: esto no es un archivo de lista de T-Note</string>
 
+    <string name="share_note">Compartir nota</string>
+    <string name="share_note_file_error">No se pudo crear el archivo de la nota</string>
+    <string name="shared_note_import_title">Nota desde archivo</string>
+    <string name="shared_note_import_text">¿Añadir la nota «%1$s»? Tus datos actuales no cambiarán.</string>
+    <string name="shared_note_import_text_photos">¿Añadir la nota «%1$s» con %2$d foto(s)? Tus datos actuales no cambiarán.</string>
+    <string name="shared_note_add_action">Añadir</string>
+    <string name="shared_note_error">No se pudo leer: esto no es un archivo de nota de T-Note</string>
+
     <!-- Texto recibido del "Compartir" del sistema -->
     <string name="shared_text_import_title">Guardar en notas</string>
     <string name="shared_text_import_text">¿Crear la nota «%1$s»?</string>

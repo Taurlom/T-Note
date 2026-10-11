@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import ru.taurlom.tnote.domain.model.Note
+import ru.taurlom.tnote.domain.repository.NoteShareRepository
 import ru.taurlom.tnote.domain.usecase.note.AddNoteUseCase
 import ru.taurlom.tnote.domain.usecase.note.DeleteNoteUseCase
 import ru.taurlom.tnote.domain.usecase.note.GetNoteByIdUseCase
@@ -37,6 +38,7 @@ class NoteDetailViewModel @Inject constructor(
     private val addNoteUseCase: AddNoteUseCase,
     private val updateNoteUseCase: UpdateNoteUseCase,
     private val deleteNoteUseCase: DeleteNoteUseCase,
+    private val noteShareRepository: NoteShareRepository,
 ) : ViewModel() {
 
     private val noteId: Long = checkNotNull(savedStateHandle["noteId"])
@@ -65,6 +67,15 @@ class NoteDetailViewModel @Inject constructor(
     fun startEditing() = _uiState.update { it.copy(isEditing = true) }
 
     fun stopEditing() = _uiState.update { it.copy(isEditing = false) }
+
+    /**
+     * Файл `.tnote` текущей заметки для «Поделиться файлом».
+     * null — заметка ещё не загрузилась или не удалось записать файл.
+     */
+    suspend fun createShareFileUri(): Uri? {
+        val note = _uiState.value.note ?: return null
+        return runCatching { noteShareRepository.exportNote(note) }.getOrNull()
+    }
 
     /**
      * Сохранение: пустой заголовок не пишем, [onSaved] — только после записи.

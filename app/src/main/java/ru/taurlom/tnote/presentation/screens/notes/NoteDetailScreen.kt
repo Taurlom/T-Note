@@ -2,6 +2,7 @@ package ru.taurlom.tnote.presentation.screens.notes
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -39,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,9 +73,12 @@ import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.BasicRichText
 import com.mohamedrejeb.richeditor.ui.material3.OutlinedRichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.util.NoteImageRefs
 import ru.taurlom.tnote.domain.util.NoteTags
+import ru.taurlom.tnote.presentation.components.AppButton
+import ru.taurlom.tnote.presentation.components.AppDialog
 import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.AppTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
@@ -83,6 +88,8 @@ import ru.taurlom.tnote.presentation.components.TagBadges
 import ru.taurlom.tnote.presentation.components.ZoomableImage
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.util.Markdown
+import ru.taurlom.tnote.presentation.util.shareNote
+import ru.taurlom.tnote.presentation.util.shareNoteFile
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -115,6 +122,8 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showShareDialog by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var galleryIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var showLinkDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -244,6 +253,12 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                             )
                         }
                     } else if (note != null) {
+                        IconButton(onClick = { showShareDialog = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_share),
+                                contentDescription = stringResource(R.string.share_note),
+                            )
+                        }
                         IconButton(onClick = { viewModel.startEditing() }) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_edit),
@@ -500,6 +515,47 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                 showDeleteDialog = false
                 viewModel.deleteNote(onDeleted = onBackClick)
             },
+        )
+    }
+
+    // «Поделиться заметкой»: текстом — куда угодно, файлом .tnote —
+    // другому T-Note (зеркало диалога списка в TasksScreen).
+    if (showShareDialog && note != null) {
+        AppDialog(
+            title = stringResource(R.string.share_note),
+            onDismissRequest = { showShareDialog = false },
+            text = {
+                AppButton(
+                    onClick = {
+                        showShareDialog = false
+                        shareNote(context, note)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.share_list_text))
+                }
+                AppButton(
+                    onClick = {
+                        showShareDialog = false
+                        scope.launch {
+                            val uri = viewModel.createShareFileUri()
+                            if (uri != null) {
+                                shareNoteFile(context, uri)
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    R.string.share_note_file_error,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.share_list_file))
+                }
+            },
+            confirmButton = {},
         )
     }
 }

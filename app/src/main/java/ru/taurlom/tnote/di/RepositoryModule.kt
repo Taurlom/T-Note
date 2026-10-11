@@ -16,6 +16,7 @@ import ru.taurlom.tnote.data.repository.ScheduledEventRepositoryImpl
 import ru.taurlom.tnote.data.repository.SettingsRepositoryImpl
 import ru.taurlom.tnote.data.repository.TaskRepositoryImpl
 import ru.taurlom.tnote.data.share.ListShareRepositoryImpl
+import ru.taurlom.tnote.data.share.NoteShareRepositoryImpl
 import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import ru.taurlom.tnote.domain.repository.BackupRepository
 import ru.taurlom.tnote.domain.repository.CalendarRepository
@@ -23,6 +24,7 @@ import ru.taurlom.tnote.domain.repository.CategoryRepository
 import ru.taurlom.tnote.domain.repository.DocumentRepository
 import ru.taurlom.tnote.domain.repository.ListShareRepository
 import ru.taurlom.tnote.domain.repository.NoteRepository
+import ru.taurlom.tnote.domain.repository.NoteShareRepository
 import ru.taurlom.tnote.domain.repository.PhotoStorage
 import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import ru.taurlom.tnote.domain.repository.SettingsRepository
@@ -68,6 +70,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindListShareRepository(impl: ListShareRepositoryImpl): ListShareRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNoteShareRepository(impl: NoteShareRepositoryImpl): NoteShareRepository
 
     // Не репозиторий, но живет рядом: это единственный Binds-модуль
     // проекта, и заводить ради одной связки еще один — шум.

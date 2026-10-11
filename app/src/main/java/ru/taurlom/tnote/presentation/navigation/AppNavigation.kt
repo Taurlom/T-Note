@@ -45,6 +45,7 @@ import ru.taurlom.tnote.presentation.components.BottomNavBar
 import ru.taurlom.tnote.presentation.components.BottomNavItem
 import ru.taurlom.tnote.presentation.components.SectionsDialog
 import ru.taurlom.tnote.presentation.components.SharedListImportDialog
+import ru.taurlom.tnote.presentation.components.SharedNoteImportDialog
 import ru.taurlom.tnote.presentation.components.SharedTextSaveDialog
 import ru.taurlom.tnote.presentation.screens.calendar.CalendarScreen
 import ru.taurlom.tnote.presentation.screens.calendar.CalendarViewModel
@@ -145,9 +146,15 @@ fun AppNavigation(
         BottomNavItem.itemsFor(settingsState.visibleSections)
     }
 
+    // Входящий `.tnote` — заметка или список: формат различаем по первым
+    // байтам (магическое поле JSON), дальше файл забирает свой раздел.
     LaunchedEffect(pendingShareUri) {
         if (pendingShareUri != null) {
-            categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(pendingShareUri))
+            if (notesViewModel.isNoteShareFile(pendingShareUri)) {
+                notesViewModel.onEvent(NotesEvent.OnReadSharedNote(pendingShareUri))
+            } else {
+                categoriesViewModel.onEvent(CategoriesEvent.OnReadSharedList(pendingShareUri))
+            }
             onPendingShareUriHandled()
         }
     }
@@ -205,6 +212,12 @@ fun AppNavigation(
             NotesFeedback.Failed -> Toast.makeText(
                 context,
                 R.string.shared_text_error,
+                Toast.LENGTH_LONG,
+            ).show()
+
+            NotesFeedback.ImportFailed -> Toast.makeText(
+                context,
+                R.string.shared_note_error,
                 Toast.LENGTH_LONG,
             ).show()
 
@@ -336,6 +349,20 @@ fun AppNavigation(
             },
             onDismiss = {
                 notesViewModel.onEvent(NotesEvent.OnDismissSaveSharedText)
+            },
+        )
+    }
+
+    // Диалог импорта заметки из `.tnote`-файла — поверх NavHost по тем же
+    // причинам, что и диалог списка.
+    notesState.incomingSharedNote?.let { shared ->
+        SharedNoteImportDialog(
+            shared = shared,
+            onConfirm = {
+                notesViewModel.onEvent(NotesEvent.OnConfirmImportSharedNote)
+            },
+            onDismiss = {
+                notesViewModel.onEvent(NotesEvent.OnDismissImportSharedNote)
             },
         )
     }

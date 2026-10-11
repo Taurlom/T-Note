@@ -13,9 +13,23 @@ import java.io.File
  * «лучшее усилие», падать здесь незачем.
  */
 internal fun Context.deleteFileInsideFilesDir(relativePath: String) {
+    val file = fileInsideFilesDir(relativePath) ?: return
+    file.delete()
+}
+
+/**
+ * Чтение файла по относительному пути из БД — с той же паранойей, что и
+ * удаление: «../databases/…» не должно утечь в шэринг заметки. Нет файла
+ * или путь вне filesDir — null.
+ */
+internal fun Context.readFileInsideFilesDir(relativePath: String): ByteArray? {
+    val file = fileInsideFilesDir(relativePath) ?: return null
+    return runCatching { file.readBytes() }.getOrNull()
+}
+
+/** Канонизированный файл, гарантированно внутри filesDir, иначе null. */
+private fun Context.fileInsideFilesDir(relativePath: String): File? {
     val root = filesDir.canonicalFile
-    val file = runCatching { File(filesDir, relativePath).canonicalFile }.getOrNull() ?: return
-    if (file.path.startsWith(root.path + File.separator)) {
-        file.delete()
-    }
+    val file = runCatching { File(filesDir, relativePath).canonicalFile }.getOrNull() ?: return null
+    return if (file.path.startsWith(root.path + File.separator)) file else null
 }
