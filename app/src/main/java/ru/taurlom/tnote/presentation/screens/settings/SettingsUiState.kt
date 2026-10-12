@@ -95,4 +95,6 @@ data class SettingsUiState(
      * выглядело бы как самостоятельное переключение.
      */
     val remindersLoaded: Boolean = false,
+    /** Включена ли защита раздела «Документы» разблокировкой телефона. */
+    val documentsLockEnabled: Boolean = false,
 )

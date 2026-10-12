@@ -78,8 +78,11 @@ class SettingsViewModel @Inject constructor(
             ) { remindersEnabled, reminderTime, backup ->
                 Triple(remindersEnabled, reminderTime, backup)
             },
-            selectedLanguage,
-        ) { appearance, reminders, language ->
+            combine(
+                selectedLanguage,
+                settingsRepository.documentsLockEnabled,
+            ) { language, documentsLock -> language to documentsLock },
+        ) { appearance, reminders, (language, documentsLockEnabled) ->
             val (font, theme, sections) = appearance
             val (remindersEnabled, reminderTime, backup) = reminders
             SettingsUiState(
@@ -93,6 +96,7 @@ class SettingsViewModel @Inject constructor(
                 remindersLoaded = true,
                 isBackupBusy = backup.isBusy,
                 backupResult = backup.result,
+                documentsLockEnabled = documentsLockEnabled,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -140,6 +144,17 @@ class SettingsViewModel @Inject constructor(
     fun applyRemindersEnabled(enabled: Boolean) {
         launchCatching {
             setRemindersEnabledUseCase(enabled)
+        }
+    }
+
+    /**
+     * Защита «Документов». Пишется только после системного подтверждения —
+     * его запускает экран (DeviceCredential), здесь — честное сохранение
+     * результата.
+     */
+    fun applyDocumentsLockEnabled(enabled: Boolean) {
+        launchCatching {
+            settingsRepository.setDocumentsLockEnabled(enabled)
         }
     }
 

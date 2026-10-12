@@ -73,6 +73,14 @@
 
     <!-- Copias de seguridad -->
     <string name="backup_section">Copia de seguridad</string>
+
+    <string name="privacy_section">Privacidad</string>
+    <string name="documents_lock_title">Proteger la sección «Documentos»</string>
+    <string name="documents_lock_subtitle">Pedir el desbloqueo del teléfono (código o biometría) al entrar</string>
+    <string name="documents_lock_unavailable">Este teléfono no tiene configurado el bloqueo de pantalla</string>
+    <string name="documents_locked_title">Documentos protegidos</string>
+    <string name="documents_locked_unlock">Desbloquear</string>
+    <string name="documents_lock_prompt_title">Desbloquear documentos</string>
     <string name="backup_export">Guardar copia</string>
     <string name="backup_import">Restaurar desde copia</string>
     <string name="backup_restore">Restaurar</string>

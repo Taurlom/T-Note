@@ -709,6 +709,10 @@ class BackupRepositoryImplTest {
         override val reminderTimeMinutes: Flow<Int> =
             MutableStateFlow(DailyDigestSchedule.DEFAULT_REMINDER_MINUTES)
         override suspend fun setReminderTimeMinutes(minutes: Int) = Unit
+
+        // Защита «Документов» бэкапу тоже не нужна — та же болванка.
+        override val documentsLockEnabled: Flow<Boolean> = MutableStateFlow(false)
+        override suspend fun setDocumentsLockEnabled(enabled: Boolean) = Unit
     }
 
     private class FakeDocumentRepository : DocumentRepository {

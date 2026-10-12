@@ -87,6 +87,14 @@
 
     <!-- Резервные копии -->
     <string name="backup_section">Резервная копия</string>
+
+    <string name="privacy_section">Приватность</string>
+    <string name="documents_lock_title">Защита раздела «Документы»</string>
+    <string name="documents_lock_subtitle">При входе — разблокировка телефона (код или биометрия)</string>
+    <string name="documents_lock_unavailable">На телефоне не настроена блокировка экрана</string>
+    <string name="documents_locked_title">Документы защищены</string>
+    <string name="documents_locked_unlock">Разблокировать</string>
+    <string name="documents_lock_prompt_title">Разблокировка документов</string>
     <string name="backup_export">Сохранить копию</string>
     <string name="backup_import">Восстановить из копии</string>
     <string name="backup_restore">Восстановить</string>

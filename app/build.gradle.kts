@@ -138,6 +138,7 @@ dependencies {
     // vector drawables из набора Material Symbols в res/drawable (ic_*.xml).
 
     implementation(libs.datastore.preferences)
+    implementation(libs.biometric)
     // Чтение/запись EXIF Orientation без декодирования всего JPEG: поворот
     // фото = правка одного тега, а не перекодирование пикселей.
     implementation(libs.exifinterface)

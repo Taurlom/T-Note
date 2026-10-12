@@ -33,4 +33,12 @@ interface SettingsRepository {
      */
     val reminderTimeMinutes: Flow<Int>
     suspend fun setReminderTimeMinutes(minutes: Int)
+
+    /**
+     * Защищён ли раздел «Документы»: при входе спрашивается способ
+     * разблокировки телефона (биометрия или код). Сам код приложение не
+     * хранит — только флаг «спрашивать». По умолчанию — нет.
+     */
+    val documentsLockEnabled: Flow<Boolean>
+    suspend fun setDocumentsLockEnabled(enabled: Boolean)
 }

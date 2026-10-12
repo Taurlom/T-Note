@@ -47,6 +47,8 @@ import ru.taurlom.tnote.presentation.components.SectionsDialog
 import ru.taurlom.tnote.presentation.components.SharedListImportDialog
 import ru.taurlom.tnote.presentation.components.SharedNoteImportDialog
 import ru.taurlom.tnote.presentation.components.SharedTextSaveDialog
+import ru.taurlom.tnote.presentation.lock.DocumentsLockOverlay
+import ru.taurlom.tnote.presentation.lock.SectionLockViewModel
 import ru.taurlom.tnote.presentation.screens.calendar.CalendarScreen
 import ru.taurlom.tnote.presentation.screens.calendar.CalendarViewModel
 import ru.taurlom.tnote.presentation.screens.categories.ArchiveScreen
@@ -139,6 +141,11 @@ fun AppNavigation(
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val sectionsDialogOpen by settingsViewModel.sectionsDialogOpen
         .collectAsStateWithLifecycle()
+
+    // Защита раздела «Документы»: состояние одно на activity (та же VM),
+    // запирание в фоне делает MainActivity.onStop.
+    val sectionLockViewModel: SectionLockViewModel = hiltViewModel(tabViewModelStoreOwner)
+    val documentsLocked by sectionLockViewModel.documentsLocked.collectAsStateWithLifecycle()
 
     // Разделы нижней панели и страниц пейджера: видимость и порядок
     // настраиваются в «Настройках» (SectionsDialog); «Настройки» — всегда в конце.
@@ -246,6 +253,8 @@ fun AppNavigation(
                 documentsViewModel = documentsViewModel,
                 notesViewModel = notesViewModel,
                 settingsViewModel = settingsViewModel,
+                documentsLocked = documentsLocked,
+                onDocumentsUnlocked = sectionLockViewModel::onUnlocked,
                 onCategoryClick = { categoryId ->
                     navController.navigate(Routes.tasks(categoryId))
                 },
@@ -290,9 +299,16 @@ fun AppNavigation(
             popExitTransition = { detailPopExit },
         ) { backStackEntry ->
             if (backStackEntry.arguments?.getLong("documentId") != null) {
-                DocumentDetailScreen(
-                    onBackClick = { navController.popBackStack() },
-                )
+                // Карточка документа под тем же замком, что и раздел:
+                // иначе её можно было бы открыть из под защищённого списка
+                // после возврата из фона.
+                if (documentsLocked) {
+                    DocumentsLockOverlay(onUnlocked = sectionLockViewModel::onUnlocked)
+                } else {
+                    DocumentDetailScreen(
+                        onBackClick = { navController.popBackStack() },
+                    )
+                }
             } else {
                 LaunchedEffect(Unit) { navController.popBackStack() }
             }
@@ -397,6 +413,8 @@ private fun MainTabsScreen(
     documentsViewModel: DocumentsViewModel,
     notesViewModel: NotesViewModel,
     settingsViewModel: SettingsViewModel,
+    documentsLocked: Boolean,
+    onDocumentsUnlocked: () -> Unit,
     onCategoryClick: (Long) -> Unit,
     onDocumentClick: (Long) -> Unit,
     onNoteClick: (Long) -> Unit,
@@ -479,11 +497,18 @@ private fun MainTabsScreen(
                     viewModel = calendarViewModel,
                 )
 
-                BottomNavItem.Documents -> DocumentsScreen(
-                    onDocumentClick = onDocumentClick,
-                    showBrandHeader = page == 0,
-                    viewModel = documentsViewModel,
-                )
+                BottomNavItem.Documents -> if (documentsLocked) {
+                    // Замок вместо содержимого; подтверждение — только
+                    // по кнопке на заглушке, чтобы раздел можно было
+                    // пролистать мимо.
+                    DocumentsLockOverlay(onUnlocked = onDocumentsUnlocked)
+                } else {
+                    DocumentsScreen(
+                        onDocumentClick = onDocumentClick,
+                        showBrandHeader = page == 0,
+                        viewModel = documentsViewModel,
+                    )
+                }
 
                 BottomNavItem.Notes -> NotesScreen(
                     onNoteClick = onNoteClick,

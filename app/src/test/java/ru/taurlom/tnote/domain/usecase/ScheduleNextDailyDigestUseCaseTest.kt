@@ -100,6 +100,8 @@ internal class FakeSettingsRepository(
     override suspend fun setReminderTimeMinutes(minutes: Int) {
         timeMinutes.value = minutes
     }
+    override val documentsLockEnabled: Flow<Boolean> = MutableStateFlow(false)
+    override suspend fun setDocumentsLockEnabled(enabled: Boolean) = Unit
 }
 
 /** Планировщик-самописец: ничего не планирует, только запоминает вызовы. */

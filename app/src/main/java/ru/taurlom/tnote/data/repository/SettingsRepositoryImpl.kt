@@ -27,6 +27,7 @@ class SettingsRepositoryImpl @Inject constructor(private val dataStore: DataStor
     private val sectionsKey = stringPreferencesKey("visible_sections")
     private val remindersEnabledKey = booleanPreferencesKey("reminders_enabled")
     private val reminderTimeMinutesKey = intPreferencesKey("reminder_time_minutes")
+    private val documentsLockEnabledKey = booleanPreferencesKey("documents_lock_enabled")
 
     override val selectedFont: Flow<AppFont> = dataStore.data
         .map { preferences ->
@@ -82,6 +83,15 @@ class SettingsRepositoryImpl @Inject constructor(private val dataStore: DataStor
     override suspend fun setReminderTimeMinutes(minutes: Int) {
         dataStore.edit { preferences ->
             preferences[reminderTimeMinutesKey] = minutes
+        }
+    }
+
+    override val documentsLockEnabled: Flow<Boolean> = dataStore.data
+        .map { preferences -> preferences[documentsLockEnabledKey] ?: false }
+
+    override suspend fun setDocumentsLockEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[documentsLockEnabledKey] = enabled
         }
     }
 

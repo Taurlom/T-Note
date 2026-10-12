@@ -36,6 +36,7 @@ import ru.taurlom.tnote.domain.model.SharedText
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.presentation.error.AppErrorBus
+import ru.taurlom.tnote.presentation.lock.SectionLockViewModel
 import ru.taurlom.tnote.presentation.navigation.AppNavigation
 import ru.taurlom.tnote.presentation.screens.settings.SettingsViewModel
 import ru.taurlom.tnote.presentation.splash.SplashScreen
@@ -53,6 +54,10 @@ class MainActivity : AppCompatActivity() {
     // activity): заставка ждёт его sectionsLoaded — когда разделы прочитаны
     // из DataStore, под заставкой уже нарисован интерфейс.
     private val settingsViewModel: SettingsViewModel by viewModels()
+
+    // Тот же activity-скоуп, что у AppNavigation: отсюда раздел запирается
+    // при уходе приложения в фон, там — разблокируется после подтверждения.
+    private val sectionLockViewModel: SectionLockViewModel by viewModels()
 
     // Compose-состояние вне composition: пишет его onNewIntent, читает AppNavigation.
     private val pendingShareUri = mutableStateOf<Uri?>(null)
@@ -188,6 +193,14 @@ class MainActivity : AppCompatActivity() {
         // launchMode="singleTop": файл, открытый в запущенном приложении,
         // приходит сюда, а не в новую активность.
         handleIncomingIntent(intent)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Защита раздела «Документы»: уход в фон запирает раздел обратно.
+        // Системный диалог подтверждения (Keyguard на старых API) тоже
+        // приводит сюда — безвредно: сессия в этот момент ещё закрыта.
+        sectionLockViewModel.onAppBackgrounded()
     }
 
     private fun handleIncomingIntent(intent: Intent?) {

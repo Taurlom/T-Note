@@ -3,6 +3,7 @@ package ru.taurlom.tnote.presentation.screens.settings
 import android.Manifest
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,6 +43,8 @@ import ru.taurlom.tnote.presentation.components.AppDropdown
 import ru.taurlom.tnote.presentation.components.AppTextButton
 import ru.taurlom.tnote.presentation.components.AppTimePicker
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
+import ru.taurlom.tnote.presentation.lock.DeviceCredential
+import ru.taurlom.tnote.presentation.lock.rememberDeviceCredentialVerifier
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.fontFamily
 import ru.taurlom.tnote.presentation.theme.labelRes
@@ -207,6 +211,11 @@ internal fun SettingsContent(
             textRes = R.string.clear_calendar,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // ── Приватность ──
+        Spacer(modifier = Modifier.height(24.dp))
+        SectionTitle(stringResource(R.string.privacy_section))
+        DocumentsLockSwitch(uiState, viewModel)
 
         // ── Резервная копия ──
         Spacer(modifier = Modifier.height(24.dp))
@@ -376,6 +385,62 @@ private fun SectionTitle(text: String) {
         color = AppTheme.colors.sectionTitle,
     )
     Spacer(modifier = Modifier.height(8.dp))
+}
+
+/**
+ * Тумблер защиты «Документов». Любая смена — только через системное
+ * подтверждение разблокировки телефона: иначе на разблокированном
+ * телефоне чужой отключил бы защиту одним движением. Если блокировка
+ * экрана не настроена, защищать нечем — подсказка тостом.
+ */
+@Composable
+private fun DocumentsLockSwitch(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    // Куда переключить тумблер после подтверждения; null — запроса нет.
+    var pendingLockChange by remember { mutableStateOf<Boolean?>(null) }
+    val startVerification = rememberDeviceCredentialVerifier(
+        title = stringResource(R.string.documents_lock_prompt_title),
+        onResult = { confirmed ->
+            val target = pendingLockChange
+            pendingLockChange = null
+            if (confirmed && target != null) {
+                viewModel.applyDocumentsLockEnabled(target)
+            }
+        },
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.documents_lock_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.documents_lock_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Switch(
+            checked = uiState.documentsLockEnabled,
+            onCheckedChange = { enabled ->
+                if (DeviceCredential.isAvailable(context)) {
+                    pendingLockChange = enabled
+                    startVerification()
+                } else {
+                    Toast.makeText(
+                        context,
+                        R.string.documents_lock_unavailable,
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            },
+        )
+    }
 }
 
 private fun formatDateTime(millis: Long): String = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(millis)

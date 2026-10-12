@@ -73,6 +73,14 @@
 
     <!-- Backup -->
     <string name="backup_section">Backup</string>
+
+    <string name="privacy_section">Privacy</string>
+    <string name="documents_lock_title">Protect the \"Documents\" section</string>
+    <string name="documents_lock_subtitle">Ask for the phone unlock (PIN, pattern or biometrics) on entry</string>
+    <string name="documents_lock_unavailable">No screen lock is set up on this phone</string>
+    <string name="documents_locked_title">Documents are protected</string>
+    <string name="documents_locked_unlock">Unlock</string>
+    <string name="documents_lock_prompt_title">Unlock Documents</string>
     <string name="backup_export">Save a copy</string>
     <string name="backup_import">Restore from copy</string>
     <string name="backup_restore">Restore</string>
