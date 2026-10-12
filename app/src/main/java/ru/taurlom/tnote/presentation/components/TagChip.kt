@@ -11,21 +11,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
 
 /**
- * Бейдж тега заметки: слово с `#`, палитра чипов дизайн-системы.
- * Недологгирован — чип только отображает метку.
+ * Бейдж тега заметки: слово с `#`. Цвет — от вторичного текста
+ * поверхности (onSurfaceVariant): бейдж лежит на карточке списка и на
+ * фоне экрана, а чип-роли AppColors настроены на светлые диалоги —
+ * на тёмной карточке бейдж сливался с фоном.
  */
 @Composable
 fun TagChip(tag: String, modifier: Modifier = Modifier) {
-    val colors = AppTheme.colors
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
-        color = colors.chipContainer,
-        contentColor = colors.chipContent,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Text(
             text = "#$tag",
