@@ -16,3 +16,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "TimeManager"
 include(":app")
+// Вендоренный WYSIWYG-редактор заметок (richeditor-compose с фиксом,
+// см. README.md в модуле).
+include(":richeditor-compose")

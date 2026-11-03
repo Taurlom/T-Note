@@ -163,9 +163,10 @@ dependencies {
 
     implementation(libs.coil.compose)
     // WYSIWYG-редактор заметок: форматирование выделения и картинки в тексте,
-    // ввод/вывод markdown — формат хранения в базе не меняется. Требует
-    // свежий Compose (см. таблицу совместимости библиотеки).
-    implementation(libs.richeditor.compose)
+    // ввод/вывод markdown — формат хранения в базе не меняется. Вендоренный
+    // модуль (см. README.md в richeditor-compose): версия 1.2.1 + фикс
+    // неровных отступов списков в режиме просмотра (апстрим-PR #853).
+    implementation(project(":richeditor-compose"))
     implementation(libs.core.splashscreen)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
@@ -201,6 +202,8 @@ tasks.register<JavaExec>("ktlintCheck") {
         "**/src/**/*.kt",
         "**/src/**/*.kts",
         "!**/build/**",
+        // Вендоренный код не линтуется правилами проекта.
+        "!richeditor-compose/**",
     )
     workingDir = rootProject.projectDir
 }
@@ -215,6 +218,8 @@ tasks.register<JavaExec>("ktlintFormat") {
         "**/src/**/*.kt",
         "**/src/**/*.kts",
         "!**/build/**",
+        // Вендоренный код не линтуется правилами проекта.
+        "!richeditor-compose/**",
     )
     workingDir = rootProject.projectDir
 }
