@@ -178,6 +178,13 @@ internal class RichSpan(
     fun isEmpty(): Boolean = text.isEmpty() && isChildrenEmpty() && !richSpanStyle.isAtomic
 
     /**
+     * Total text length of this span and all its descendants — exactly the number of
+     * characters this span contributes to the flattened paragraph text.
+     */
+    fun totalTextLength(): Int =
+        text.length + children.sumOf { it.totalTextLength() }
+
+    /**
      * Check if the rich span is blank.
      * A rich span is blank if its text is blank and its children are blank
      *

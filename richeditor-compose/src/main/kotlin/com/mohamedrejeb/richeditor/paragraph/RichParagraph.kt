@@ -75,11 +75,22 @@ internal class RichParagraph(
             )
 
         // Check if the textIndex is in the startRichSpan current paragraph
-        if (index > textIndex)
-            return if (textIndex >= offset)
-                index to getFirstNonEmptyChild(offset = index)
-            else
-                index to null
+        if (index > textIndex) {
+            if (textIndex >= offset)
+                return index to getFirstNonEmptyChild(offset = index)
+            // The search position lies in an earlier paragraph, but the walk keeps
+            // running: the returned offset is the next paragraph's starting offset and
+            // must include this paragraph's full text. Returning `index` (only the
+            // separator and the prefix) shortened every following paragraph's offset by
+            // its children's length, so all later paragraphs' startRichSpan textRanges
+            // were corrupted — list prefixes were then measured from those garbage
+            // ranges and rendered with wrong indents (an atomic span matched by the
+            // search position, e.g. a note image, makes the walk fall through here
+            // even though it sits at the searched index).
+            var end = index
+            children.fastForEach { end += it.totalTextLength() }
+            return end to null
+        }
 
         children.fastForEach { richSpan ->
             val result = richSpan.getRichSpanByTextIndex(
