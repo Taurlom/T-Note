@@ -52,6 +52,11 @@ fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel
     val visibleNotes = remember(uiState.notes, query) {
         uiState.notes.filter { NoteTags.matches(it, query) }
     }
+    // Автокомплит тегов: после «#» и первой буквы предлагаем существующие
+    // теги с совпадающим началом (NoteTags.suggestions); выбор заменяет
+    // запрос целиком на «#тег».
+    val allTags = remember(uiState.notes) { uiState.notes.flatMap { it.tags } }
+    val tagSuggestions = remember(allTags, query) { NoteTags.suggestions(allTags, query) }
 
     Scaffold(
         modifier = Modifier
@@ -66,6 +71,8 @@ fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel
                     onQueryChange = search::onQueryChange,
                     onClose = search::close,
                     placeholder = stringResource(R.string.search_notes_hint),
+                    suggestions = tagSuggestions,
+                    onSuggestionClick = { tag -> search.onQueryChange("#$tag") },
                 )
             } else {
                 SectionTopBar(

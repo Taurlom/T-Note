@@ -10,6 +10,7 @@
     <string name="task_description">Описание</string>
     <string name="copy_to">Копировать в</string>
     <string name="copy">Скопировать</string>
+    <string name="paste">Вставить</string>
     <string name="choose_list">Выберите список</string>
     <string name="task_copied">Скопировано в список «%1$s»</string>
     <string name="save">Сохранить</string>

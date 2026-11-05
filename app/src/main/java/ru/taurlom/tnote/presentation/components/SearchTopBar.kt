@@ -1,9 +1,12 @@
 package ru.taurlom.tnote.presentation.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -89,11 +92,24 @@ fun searchMatch(query: String, vararg fields: String?): Boolean {
  * поле ввода получает фокус сразу, IME-кнопка «Найти» просто убирает
  * клавиатуру — фильтрация идёт на лету по мере ввода.
  *
+ * [suggestions] — варианты автокомплита под полем (например, теги для
+ * запроса вида «#пре»); пустой список — меню не показывается. Выбор
+ * варианта отдаётся вызывающему ([onSuggestionClick]) — он решает, чем
+ * заполнить запрос.
+ *
  * Общий компонент для заметок, документов и списков задач.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+fun SearchTopBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    suggestions: List<String> = emptyList(),
+    onSuggestionClick: (String) -> Unit = {},
+) {
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -112,41 +128,48 @@ fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> 
             }
         },
         title = {
-            TextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = {
-                    Text(
-                        text = placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        keyboard?.hide()
-                        focusManager.clearFocus()
+            Box {
+                TextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = {
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
                     },
-                ),
-                textStyle = MaterialTheme.typography.bodyLarge,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    focusedTextColor = AppTheme.colors.appBarContent,
-                    unfocusedTextColor = AppTheme.colors.appBarContent,
-                    cursorColor = AppTheme.colors.appBarContent,
-                    focusedPlaceholderColor = AppTheme.colors.appBarContent.copy(alpha = 0.6f),
-                    unfocusedPlaceholderColor = AppTheme.colors.appBarContent.copy(alpha = 0.6f),
-                ),
-            )
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            keyboard?.hide()
+                            focusManager.clearFocus()
+                        },
+                    ),
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent,
+                        focusedTextColor = AppTheme.colors.appBarContent,
+                        unfocusedTextColor = AppTheme.colors.appBarContent,
+                        cursorColor = AppTheme.colors.appBarContent,
+                        focusedPlaceholderColor = AppTheme.colors.appBarContent.copy(alpha = 0.6f),
+                        unfocusedPlaceholderColor = AppTheme.colors.appBarContent.copy(alpha = 0.6f),
+                    ),
+                )
+                SearchSuggestionsMenu(
+                    query = query,
+                    suggestions = suggestions,
+                    onSuggestionClick = onSuggestionClick,
+                )
+            }
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = AppTheme.colors.appBarContainer,
@@ -158,6 +181,32 @@ fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> 
     // Автофокус: поиск открылся — можно печатать сразу, без тапа по полю.
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+}
+
+/**
+ * Выпадающие подсказки автокомплита под полем поиска. Тап мимо меню прячет
+ * его до следующего изменения запроса — продолжение ввода открывает снова.
+ */
+@Composable
+private fun SearchSuggestionsMenu(query: String, suggestions: List<String>, onSuggestionClick: (String) -> Unit) {
+    var dismissed by remember(query) { mutableStateOf(false) }
+
+    DropdownMenu(
+        expanded = suggestions.isNotEmpty() && !dismissed,
+        onDismissRequest = { dismissed = true },
+    ) {
+        suggestions.forEach { suggestion ->
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "#$suggestion",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                },
+                onClick = { onSuggestionClick(suggestion) },
+            )
+        }
     }
 }
 

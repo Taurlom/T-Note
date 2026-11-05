@@ -1,13 +1,17 @@
 package ru.taurlom.tnote.presentation.screens.notes
 
 import androidx.compose.foundation.MutatorMutex
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuSession
 import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider
 import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuProvider
@@ -18,12 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -33,9 +39,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.mohamedrejeb.richeditor.clipboard.copySelectedText
+import com.mohamedrejeb.richeditor.clipboard.pasteFromClipboard
 import com.mohamedrejeb.richeditor.model.HeadingStyle
 import com.mohamedrejeb.richeditor.model.RichTextState
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.components.AppDialog
 import ru.taurlom.tnote.presentation.components.AppSaveButton
@@ -137,6 +146,34 @@ internal fun BoxScope.NoteSelectionToolbar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         ) {
+            val clipboard = LocalClipboard.current
+            val scope = rememberCoroutineScope()
+
+            // Копирование и вставка — разовые действия: как системное меню,
+            // панель закрываем после успеха. Панель лежит вне
+            // CompositionLocalProvider редактора, поэтому LocalClipboard здесь
+            // платформенный — расширения сами сташат HTML и применят
+            // форматирование.
+            FormatButton(
+                icon = R.drawable.ic_copy,
+                contentDescription = stringResource(R.string.copy),
+                active = false,
+            ) {
+                scope.launch {
+                    if (state.copySelectedText(clipboard)) session.close()
+                }
+            }
+            FormatButton(
+                icon = R.drawable.ic_paste,
+                contentDescription = stringResource(R.string.paste),
+                active = false,
+            ) {
+                scope.launch {
+                    if (state.pasteFromClipboard(clipboard)) session.close()
+                }
+            }
+            ToolbarDivider()
+
             // Форматирование панель не закрывает: выделение живо, можно
             // применить несколько стилей подряд; активный стиль подсвечен.
             FormatButton(
@@ -193,6 +230,18 @@ private fun FormatButton(icon: Int, contentDescription: String, active: Boolean,
             .clickable(onClick = onClick)
             .padding(5.dp)
             .size(24.dp),
+    )
+}
+
+/** Тонкий разделитель между кнопками буфера обмена и кнопками форматирования. */
+@Composable
+private fun ToolbarDivider() {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .width(1.dp)
+            .height(22.dp)
+            .background(AppTheme.colors.dialogContentMuted),
     )
 }
 

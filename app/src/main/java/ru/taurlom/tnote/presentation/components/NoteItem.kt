@@ -75,14 +75,6 @@ fun NoteItem(note: Note, onClick: () -> Unit, onDelete: () -> Unit, modifier: Mo
                     note.tags.forEach { tag -> TagChip(tag) }
                 }
             }
-            if (note.photoPaths.isNotEmpty()) {
-                // Счётчик вложений, как у документов.
-                Text(
-                    text = "${note.photoPaths.size}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
 
         IconButton(onClick = onDelete) {

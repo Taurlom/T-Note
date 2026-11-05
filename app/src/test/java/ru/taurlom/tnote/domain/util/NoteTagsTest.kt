@@ -119,6 +119,50 @@ class NoteTagsTest {
         assertFalse(NoteTags.matches(note(content = "щи"), "рецепт"))
     }
 
+    // ── Автокомплит в поиске ──
+
+    @Test
+    fun `suggestions match by prefix ignoring case`() {
+        val tags = listOf("рецепт", "Рецепты доставки", "кулинария")
+        assertEquals(
+            listOf("рецепт", "Рецепты доставки"),
+            NoteTags.suggestions(tags, "#рец"),
+        )
+        assertEquals(
+            listOf("Рецепты доставки"),
+            NoteTags.suggestions(tags, "#РЕЦЕПТЫ"),
+        )
+    }
+
+    @Test
+    fun `suggestions drop exact match and dedupe ignoring case`() {
+        // Точное совпадение не предлагается: запрос уже сам по себе точный,
+        // после выбора варианта меню должно закрыться.
+        assertEquals(
+            emptyList<String>(),
+            NoteTags.suggestions(listOf("рецепт", "РЕЦЕПТ"), "#рецепт"),
+        )
+        assertEquals(
+            listOf("рецепт", "рецепты"),
+            NoteTags.suggestions(listOf("рецепт", "РЕЦЕПТ", "рецепты"), "#рецеп"),
+        )
+    }
+
+    @Test
+    fun `suggestions are empty without hash, for lone hash and for blank tag part`() {
+        val tags = listOf("рецепт")
+        assertEquals(emptyList<String>(), NoteTags.suggestions(tags, "рец"))
+        assertEquals(emptyList<String>(), NoteTags.suggestions(tags, "#"))
+        assertEquals(emptyList<String>(), NoteTags.suggestions(tags, "# "))
+    }
+
+    @Test
+    fun `suggestions are capped by limit`() {
+        val tags = (1..10).map { "тег$it" }
+        assertEquals(5, NoteTags.suggestions(tags, "#тег").size)
+        assertEquals(3, NoteTags.suggestions(tags, "#тег", limit = 3).size)
+    }
+
     @Test
     fun `blank query matches anything`() {
         assertTrue(NoteTags.matches(note(), ""))

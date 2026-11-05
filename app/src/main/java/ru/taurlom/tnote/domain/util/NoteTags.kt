@@ -57,6 +57,23 @@ object NoteTags {
     fun parseStored(stored: String): List<String> = normalize(stored.split(STORAGE_SEPARATOR))
 
     /**
+     * Варианты тегов для автокомплита поиска: запрос вида «#пре» предлагает
+     * теги с таким началом (регистр не важен); точное совпадение не
+     * предлагается — запрос уже сам по себе точный. Запрос без `#` или `#`
+     * без текста подсказок не даёт.
+     */
+    fun suggestions(allTags: List<String>, query: String, limit: Int = 5): List<String> {
+        if (!query.startsWith("#")) return emptyList()
+        val prefix = query.substring(1).trim()
+        if (prefix.isEmpty()) return emptyList()
+        return allTags
+            .filter { it.startsWith(prefix, ignoreCase = true) && !it.equals(prefix, ignoreCase = true) }
+            .distinctBy { it.lowercase() }
+            .sortedBy { it.lowercase() }
+            .take(limit)
+    }
+
+    /**
      * Подходит ли заметка под поисковый запрос. Запрос с `#` — поиск
      * строго по целому тегу (регистр не важен, «#рецепт» не найдёт
      * «#рецепты»); `#` без текста и обычный запрос — как substring-поиск
