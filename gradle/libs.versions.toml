@@ -3,7 +3,7 @@
 # Версии библиотек Compose без version.ref берутся из compose-bom.
 
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 # Версия Kotlin нужна только для compose-компилятора: при built-in Kotlin
 # в AGP 9 версия KGP задаётся самим AGP.
 kotlin = "2.4.20"
