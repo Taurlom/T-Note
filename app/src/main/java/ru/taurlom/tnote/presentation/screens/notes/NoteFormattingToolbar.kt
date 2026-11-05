@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,11 +35,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.mohamedrejeb.richeditor.clipboard.clipboardHasText
 import com.mohamedrejeb.richeditor.clipboard.copySelectedText
 import com.mohamedrejeb.richeditor.clipboard.pasteFromClipboard
 import com.mohamedrejeb.richeditor.model.HeadingStyle
@@ -70,6 +73,17 @@ internal class NoteTextToolbarProvider : TextContextMenuProvider {
     /** Открытая сессия панели; null — панель скрыта. */
     var session by mutableStateOf<Session?>(null)
         private set
+
+    /**
+     * Выделение, запрос панели с которым надо игнорировать. Ставится после
+     * копирования (выделение схлопнуто в точку конца копии): фондейшн
+     * перезапрашивает меню при рекомпозиции редактора, пока поднят
+     * showFloatingToolbar (сбросить его снаружи нельзя — internal API), и
+     * панель reopening бы сразу после закрытия. Снимается первым же жестом
+     * на редакторе — interactionSource пробрасывается в экран (см.
+     * NoteDetailScreen); любой long-press снова показывает панель.
+     */
+    var suppressedSelection: TextRange? = null
 
     override suspend fun showTextContextMenu(dataProvider: TextContextMenuDataProvider) {
         val localSession = Session(dataProvider)
@@ -122,6 +136,15 @@ internal fun BoxScope.NoteSelectionToolbar(
     val coords = anchor() ?: return
     if (!coords.isAttached) return
 
+    // Подавленный перезапрос (см. suppressedSelection): запрос с курсором
+    // ровно в точке конца копии — это автоматический перезапуск меню после
+    // закрытия, а не жест пользователя, — сессию закрываем сразу.
+    val suppressed = provider.suppressedSelection
+    if (suppressed != null && state.selection.collapsed && state.selection == suppressed) {
+        session.close()
+        return
+    }
+
     var toolbarSize by remember { mutableStateOf(IntSize.Zero) }
     val gapPx = with(LocalDensity.current) { 6.dp.toPx() }
 
@@ -149,6 +172,15 @@ internal fun BoxScope.NoteSelectionToolbar(
             val clipboard = LocalClipboard.current
             val scope = rememberCoroutineScope()
 
+            // Копирование доступно только при выделении (иначе — серая);
+            // вставка — только если в буфере есть текст (проверка по
+            // описанию клипа при каждом открытии панели, содержимое не
+            // читается — системного уведомления о доступе к буферу нет).
+            var canPaste by remember { mutableStateOf(false) }
+            LaunchedEffect(session) {
+                canPaste = clipboardHasText(clipboard)
+            }
+
             // Копирование и вставка — разовые действия: как системное меню,
             // панель закрываем после успеха. Панель лежит вне
             // CompositionLocalProvider редактора, поэтому LocalClipboard здесь
@@ -158,15 +190,28 @@ internal fun BoxScope.NoteSelectionToolbar(
                 icon = R.drawable.ic_copy,
                 contentDescription = stringResource(R.string.copy),
                 active = false,
+                enabled = !state.selection.collapsed,
             ) {
                 scope.launch {
-                    if (state.copySelectedText(clipboard)) session.close()
+                    if (state.copySelectedText(clipboard)) {
+                        // Как стоковое копирование фондейшна: выделение
+                        // схлопывается в конец скопированного фрагмента.
+                        // Снаружи нельзя только поставить HandleState.None,
+                        // поэтому перезапрос меню с курсором в точке копирования
+                        // подавляем (см. suppressedSelection) — иначе панель
+                        // reopening бы сразу после закрытия.
+                        val collapseTo = TextRange(state.selection.end)
+                        provider.suppressedSelection = collapseTo
+                        state.selection = collapseTo
+                        session.close()
+                    }
                 }
             }
             FormatButton(
                 icon = R.drawable.ic_paste,
                 contentDescription = stringResource(R.string.paste),
                 active = false,
+                enabled = canPaste,
             ) {
                 scope.launch {
                     if (state.pasteFromClipboard(clipboard)) session.close()
@@ -221,13 +266,17 @@ internal fun BoxScope.NoteSelectionToolbar(
 }
 
 @Composable
-private fun FormatButton(icon: Int, contentDescription: String, active: Boolean, onClick: () -> Unit) {
+private fun FormatButton(icon: Int, contentDescription: String, active: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     Icon(
         painter = painterResource(icon),
         contentDescription = contentDescription,
-        tint = if (active) MaterialTheme.colorScheme.primary else AppTheme.colors.dialogContent,
+        tint = when {
+            active -> MaterialTheme.colorScheme.primary
+            enabled -> AppTheme.colors.dialogContent
+            else -> AppTheme.colors.dialogContentMuted
+        },
         modifier = Modifier
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(5.dp)
             .size(24.dp),
     )

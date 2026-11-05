@@ -47,10 +47,13 @@ desktop-набор зелёный.
 для своей панели выделения (системное меню подменено, штатных действий
 «Копировать/Вставить» больше нет) — `clipboard/RichTextClipboardActions.kt`:
 `RichTextState.copySelectedText(clipboard)` кладёт выделение в буфер как
-HTML + plain text (тот же payload, что системное копирование), и
+HTML + plain text (тот же payload, что системное копирование),
 `RichTextState.pasteFromClipboard(clipboard)` вставляет содержимое буфера
 (HTML применяется с форматированием через штатный paste-механизм
-`pendingClipboardHtml`). Функции принимают платформенный `Clipboard`:
+`pendingClipboardHtml`), и `clipboardHasText(clipboard)` отвечает, есть ли
+в буфере вставляемый текст, — только по описанию клипа (mime-типы), без
+чтения содержимого, чтобы не триггерить системное уведомление о доступе
+к буферу (Android 12+). Функции принимают платформенный `Clipboard`:
 панель живёт вне `CompositionLocalProvider` редактора и rich-обёртку
 `LocalClipboard` не видит.
 

@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -321,6 +322,7 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                 // перехватывает показ меню, панель рисуется оверлеем внутри
                 // Box-якоря над границами выделения.
                 var editorAnchor by remember { mutableStateOf<LayoutCoordinates?>(null) }
+                val editorInteractions = remember { MutableInteractionSource() }
                 Box(modifier = Modifier.onGloballyPositioned { editorAnchor = it }) {
                     CompositionLocalProvider(
                         LocalTextContextMenuToolbarProvider provides toolbarProvider,
@@ -328,6 +330,7 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                         OutlinedRichTextEditor(
                             state = editorState,
                             modifier = Modifier.fillMaxWidth(),
+                            interactionSource = editorInteractions,
                             label = { Text(stringResource(R.string.note_content_label)) },
                             minLines = 10,
                             // Палитра как у AppTextField на фоне экрана (appTextFieldColorsOnDark).
@@ -350,6 +353,15 @@ fun NoteDetailScreen(onBackClick: () -> Unit, viewModel: NoteDetailViewModel = h
                             showLinkDialog = true
                         },
                     )
+                }
+                // Первый же жест на редакторе снимает подавление перезапроса
+                // панели после копирования (см. suppressedSelection): нажатие
+                // приходит раньше, чем меню от long-press, поэтому жест
+                // пользователя всегда показывает панель.
+                LaunchedEffect(editorInteractions) {
+                    editorInteractions.interactions.collect {
+                        toolbarProvider.suppressedSelection = null
+                    }
                 }
                 // Лента миниатюр вложений: внутри поля картинка — лишь
                 // символ-заглушка (compose-rich-editor #322), поэтому фото

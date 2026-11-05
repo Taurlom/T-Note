@@ -3,6 +3,8 @@
 package com.mohamedrejeb.richeditor.clipboard
 
 import android.content.ClipData
+import android.content.ClipDescription
+import androidx.compose.ui.platform.AndroidClipboard
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.text.TextRange
@@ -88,4 +90,17 @@ public suspend fun RichTextState.pasteFromClipboard(clipboard: Clipboard): Boole
         ),
     )
     return true
+}
+
+/**
+ * Есть ли в буфере обмена текст, который можно вставить. Читает только
+ * описание клипа (mime-типы), не содержимое — поэтому не триггерит
+ * системное уведомление о доступе к буферу (Android 12+). Текст —
+ * plain text или HTML; буфер с одним лишь изображением текстом не считается.
+ */
+public fun clipboardHasText(clipboard: Clipboard): Boolean {
+    val manager = (clipboard as? AndroidClipboard)?.clipboardManager ?: return false
+    val description = manager.primaryClipDescription ?: return false
+    return description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ||
+        description.hasMimeType(ClipDescription.MIMETYPE_TEXT_HTML)
 }

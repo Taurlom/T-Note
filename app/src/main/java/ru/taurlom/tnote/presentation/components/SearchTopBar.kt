@@ -3,6 +3,7 @@ package ru.taurlom.tnote.presentation.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
@@ -29,12 +30,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
@@ -128,7 +132,9 @@ fun SearchTopBar(
             }
         },
         title = {
-            Box {
+            // Ширина поля — саджесты раскрываются на всю длину строки поиска.
+            var anchorWidthPx by remember { mutableStateOf(0) }
+            Box(modifier = Modifier.onSizeChanged { anchorWidthPx = it.width }) {
                 TextField(
                     value = query,
                     onValueChange = onQueryChange,
@@ -168,6 +174,7 @@ fun SearchTopBar(
                     query = query,
                     suggestions = suggestions,
                     onSuggestionClick = onSuggestionClick,
+                    anchorWidth = with(LocalDensity.current) { anchorWidthPx.toDp() },
                 )
             }
         },
@@ -187,14 +194,19 @@ fun SearchTopBar(
 /**
  * Выпадающие подсказки автокомплита под полем поиска. Тап мимо меню прячет
  * его до следующего изменения запроса — продолжение ввода открывает снова.
+ * Ширина — как у поля поиска ([anchorWidth]); фон — роль surface: в тёмных
+ * темах она тёмная (у части тёмных тем surfaceContainer светлый — меню по
+ * умолчанию вышло бы светлым), в светлой — белая.
  */
 @Composable
-private fun SearchSuggestionsMenu(query: String, suggestions: List<String>, onSuggestionClick: (String) -> Unit) {
+private fun SearchSuggestionsMenu(query: String, suggestions: List<String>, onSuggestionClick: (String) -> Unit, anchorWidth: Dp) {
     var dismissed by remember(query) { mutableStateOf(false) }
 
     DropdownMenu(
         expanded = suggestions.isNotEmpty() && !dismissed,
         onDismissRequest = { dismissed = true },
+        modifier = Modifier.width(anchorWidth),
+        containerColor = MaterialTheme.colorScheme.surface,
     ) {
         suggestions.forEach { suggestion ->
             DropdownMenuItem(
