@@ -15,7 +15,7 @@ core-splashscreen = "1.2.0"
 lifecycle = "2.7.0"
 activity-compose = "1.8.2"
 appcompat = "1.8.0"
-datastore = "1.1.1"
+datastore = "1.3.0"
 # Защита раздела «Документы»: системный диалог биометрии/кода блокировки.
 biometric = "1.1.0"
 exifinterface = "1.4.2"
