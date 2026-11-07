@@ -1,5 +1,7 @@
 package ru.taurlom.tnote.presentation.screens.notes
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,22 +16,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.taurlom.tnote.R
-import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.util.NoteTags
 import ru.taurlom.tnote.presentation.components.AppFab
-import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.components.NoteItem
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
 import ru.taurlom.tnote.presentation.components.SearchTopBar
@@ -41,8 +40,6 @@ import ru.taurlom.tnote.presentation.components.rememberSearchState
 fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel: NotesViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-
-    var noteToDelete by remember { mutableStateOf<Note?>(null) }
 
     val search = rememberSearchState()
     val query = search.query
@@ -73,6 +70,8 @@ fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel
                     placeholder = stringResource(R.string.search_notes_hint),
                     suggestions = tagSuggestions,
                     onSuggestionClick = { tag -> search.onQueryChange("#$tag") },
+                    suggestionsDismissed = search.suggestionsDismissed,
+                    onDismissSuggestions = search::dismissSuggestions,
                 )
             } else {
                 SectionTopBar(
@@ -98,7 +97,16 @@ fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                // Любой жест по контенту (тап, скролл) прячет меню подсказок
+                // тегов до следующего изменения запроса — нефокусируемый popup
+                // (SearchSuggestionsMenu) не ловит тапы мимо себя сам.
+                .pointerInput(search.active, query) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        search.dismissSuggestions()
+                    }
+                },
         ) {
             if (visibleNotes.isEmpty()) {
                 Text(
@@ -124,24 +132,11 @@ fun NotesScreen(onNoteClick: (Long) -> Unit, showBrandHeader: Boolean, viewModel
                     NoteItem(
                         note = note,
                         onClick = { onNoteClick(note.id) },
-                        onDelete = { noteToDelete = note },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
         }
-    }
-
-    noteToDelete?.let { note ->
-        ConfirmDeleteDialog(
-            title = stringResource(R.string.delete),
-            text = stringResource(R.string.delete_note_confirm, note.title),
-            onDismiss = { noteToDelete = null },
-            onConfirm = {
-                viewModel.onEvent(NotesEvent.OnDeleteNote(note))
-                noteToDelete = null
-            },
-        )
     }
 }
 

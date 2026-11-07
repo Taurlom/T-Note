@@ -67,6 +67,52 @@ class ScheduledEventTest {
         assertFalse(repeating(anchor = "не дата").occursOn(LocalDate.parse("2026-01-01")))
     }
 
+    // isOverBefore
+
+    @Test
+    fun `regular event in the past is over`() {
+        val event = ScheduledEvent(date = "2026-01-01", title = "Разовое")
+        assertTrue(event.isOverBefore(LocalDate.parse("2026-06-01")))
+        // Сам день сегодня и будущие — не прошедшие.
+        assertFalse(event.isOverBefore(LocalDate.parse("2026-01-01")))
+        assertFalse(event.isOverBefore(LocalDate.parse("2025-12-31")))
+    }
+
+    @Test
+    fun `birthday is never over`() {
+        val event = ScheduledEvent(date = "1990-01-01", title = "ДР", type = ScheduledEventType.BIRTHDAY)
+        assertFalse(event.isOverBefore(LocalDate.parse("2026-06-01")))
+    }
+
+    @Test
+    fun `unlimited repeating is never over`() {
+        // Бесконечно повторяющееся (окно = 0) живёт всегда.
+        assertFalse(repeating(anchor = "2020-01-01", interval = 7, repeatDays = 0).isOverBefore(LocalDate.parse("2026-06-01")))
+    }
+
+    @Test
+    fun `repeating window fully in the past is over`() {
+        // Вхождения: 1, 4, 7, 10 января — последнее 10-е, окно кончается раньше июня.
+        assertTrue(repeating(anchor = "2026-01-01", interval = 3, repeatDays = 10).isOverBefore(LocalDate.parse("2026-06-01")))
+    }
+
+    @Test
+    fun `repeating window still reaching today is not over`() {
+        // Вхождения: 1, 4, 7, 10 января; 10-е == today — живое.
+        assertFalse(repeating(anchor = "2026-01-01", interval = 3, repeatDays = 10).isOverBefore(LocalDate.parse("2026-01-10")))
+    }
+
+    @Test
+    fun `repeating without interval is kept`() {
+        // Битое повторение без интервала синтаксически живое: правило не удаляет.
+        assertFalse(repeating(anchor = "2020-01-01", interval = null, repeatDays = 30).isOverBefore(LocalDate.parse("2026-06-01")))
+    }
+
+    @Test
+    fun `broken anchor date is kept`() {
+        assertFalse(repeating(anchor = "не дата", interval = 3, repeatDays = 10).isOverBefore(LocalDate.parse("2026-06-01")))
+    }
+
     // effectiveBirthdayDate
 
     @Test

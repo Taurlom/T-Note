@@ -30,6 +30,9 @@
     <string name="font_label">Fuente</string>
     <string name="theme_label">Tema</string>
     <string name="clear_calendar">Vaciar calendario</string>
+    <string name="delete_past">Eliminar pasados</string>
+    <string name="delete_past_message">Se eliminarán las notas y los eventos de los días pasados. Hoy se conserva. Los eventos repetitivos y los cumpleaños no se eliminan. Esta acción no se puede deshacer.</string>
+    <string name="delete_past_done">Eliminados: %1$d evento(s), %2$d nota(s)</string>
     <string name="sections_button">Ajustar secciones</string>
     <string name="section_move_up">Subir sección</string>
     <string name="section_move_down">Bajar sección</string>

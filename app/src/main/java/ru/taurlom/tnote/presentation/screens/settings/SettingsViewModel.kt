@@ -16,8 +16,10 @@ import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
+import ru.taurlom.tnote.domain.repository.PastCalendarCleanup
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.domain.usecase.ClearCalendarUseCase
+import ru.taurlom.tnote.domain.usecase.DeletePastCalendarUseCase
 import ru.taurlom.tnote.domain.usecase.SetReminderTimeUseCase
 import ru.taurlom.tnote.domain.usecase.SetRemindersEnabledUseCase
 import ru.taurlom.tnote.presentation.error.launchCatching
@@ -29,6 +31,7 @@ class SettingsViewModel @Inject constructor(
     private val setRemindersEnabledUseCase: SetRemindersEnabledUseCase,
     private val setReminderTimeUseCase: SetReminderTimeUseCase,
     private val clearCalendarUseCase: ClearCalendarUseCase,
+    private val deletePastCalendarUseCase: DeletePastCalendarUseCase,
     private val backupRepository: BackupRepository,
 ) : ViewModel() {
 
@@ -168,6 +171,17 @@ class SettingsViewModel @Inject constructor(
     fun clearCalendar() {
         launchCatching {
             clearCalendarUseCase()
+        }
+    }
+
+    /**
+     * «Удалить прошедшие»: чище заметки прошедших дней и события без
+     * будущих вхождений. [onDone] вызывается при успехе — экран показывает
+     * тост со счётчиками; отказ через launchCatching уходит в snackbar.
+     */
+    fun deletePastCalendar(onDone: (PastCalendarCleanup) -> Unit = {}) {
+        launchCatching {
+            onDone(deletePastCalendarUseCase())
         }
     }
 

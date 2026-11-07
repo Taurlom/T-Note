@@ -60,7 +60,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImagePainter
@@ -89,9 +88,9 @@ import ru.taurlom.tnote.presentation.components.TagBadges
 import ru.taurlom.tnote.presentation.components.ZoomableImage
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.util.Markdown
+import ru.taurlom.tnote.presentation.util.noteImageModel
 import ru.taurlom.tnote.presentation.util.shareNote
 import ru.taurlom.tnote.presentation.util.shareNoteFile
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -684,10 +683,6 @@ internal fun setMarkdownWithImages(state: RichTextState, markdown: String) {
         searchFrom = position + 1
     }
 }
-
-/** Модель Coil для ссылки из текста заметки: content:// как есть, остальное — файл из filesDir. */
-private fun noteImageModel(context: Context, ref: String): Any =
-    if (ref.startsWith("content://")) ref.toUri() else File(context.filesDir, ref)
 
 /**
  * Удаление i-й картинки из текста редактора. Image-спан владеет ровно одним

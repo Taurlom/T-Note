@@ -30,6 +30,10 @@ interface ScheduledEventDao {
     @Query("DELETE FROM scheduled_events WHERE eventDate = :date")
     suspend fun deleteByDate(date: String)
 
+    /** События строго до [cutoff] («yyyy-MM-dd»): случай утраты решает домен. */
+    @Query("SELECT * FROM scheduled_events WHERE eventDate < :cutoff")
+    suspend fun getByDateBefore(cutoff: String): List<ScheduledEventEntity>
+
     @Query("DELETE FROM scheduled_events")
     suspend fun deleteAll()
 
@@ -41,4 +45,8 @@ interface ScheduledEventDao {
 
     @Delete
     suspend fun delete(event: ScheduledEventEntity)
+
+    /** Вариант для пачки: «Удалить прошедшие» — [deletePast]. */
+    @Delete
+    suspend fun delete(events: List<ScheduledEventEntity>)
 }

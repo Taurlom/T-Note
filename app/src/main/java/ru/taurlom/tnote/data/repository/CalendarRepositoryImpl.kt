@@ -10,6 +10,8 @@ import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.repository.CalendarRepository
+import ru.taurlom.tnote.domain.repository.PastCalendarCleanup
+import java.time.LocalDate
 import javax.inject.Inject
 
 class CalendarRepositoryImpl @Inject constructor(
@@ -40,6 +42,27 @@ class CalendarRepositoryImpl @Inject constructor(
         database.withTransaction {
             noteDao.deleteAll()
             eventDao.deleteAll()
+        }
+    }
+
+    /**
+     * Чистка прошедшего за одну транзакцию: отрывные заметки уходят все
+     * (строка «yyyy-MM-dd» сравнивается лексикографически — безопасно),
+     * события — только без будущих вхождений: правило сидит в модели
+     * ([ScheduledEvent.isOverBefore]), чтобы дни рождения и живые
+     * повторения в список кандидатов не попадали.
+     */
+    override suspend fun deletePast(): PastCalendarCleanup {
+        val cutoffDate = LocalDate.now()
+        val cutoff = cutoffDate.toString()
+        return database.withTransaction {
+            val notes = noteDao.deleteBefore(cutoff)
+            val removable = eventDao
+                .getByDateBefore(cutoff)
+                .map { it.toDomain() }
+                .filter { it.isOverBefore(cutoffDate) }
+            eventDao.delete(removable.map { it.toEntity() })
+            PastCalendarCleanup(events = removable.size, notes = notes)
         }
     }
 }

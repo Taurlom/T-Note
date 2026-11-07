@@ -73,6 +73,8 @@ internal fun SettingsContent(
     importLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     showClearDialog: Boolean,
     onShowClearDialogChange: (Boolean) -> Unit,
+    showPastDialog: Boolean,
+    onShowPastDialogChange: (Boolean) -> Unit,
     showTimeDialog: Boolean,
     onShowTimeDialogChange: (Boolean) -> Unit,
     showRestartDialog: Boolean,
@@ -206,11 +208,18 @@ internal fun SettingsContent(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        AppTextButton(
-            onClick = { onShowClearDialogChange(true) },
-            textRes = R.string.clear_calendar,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            AppTextButton(
+                onClick = { onShowPastDialogChange(true) },
+                textRes = R.string.delete_past,
+                modifier = Modifier.weight(1f),
+            )
+            AppTextButton(
+                onClick = { onShowClearDialogChange(true) },
+                textRes = R.string.clear_calendar,
+                modifier = Modifier.weight(1f),
+            )
+        }
 
         // ── Приватность ──
         Spacer(modifier = Modifier.height(24.dp))
@@ -277,6 +286,28 @@ internal fun SettingsContent(
                 onConfirm = {
                     viewModel.clearCalendar()
                     onShowClearDialogChange(false)
+                },
+            )
+        }
+
+        if (showPastDialog) {
+            ConfirmDeleteDialog(
+                title = stringResource(R.string.delete_past),
+                text = stringResource(R.string.delete_past_message),
+                onDismiss = { onShowPastDialogChange(false) },
+                onConfirm = {
+                    onShowPastDialogChange(false)
+                    viewModel.deletePastCalendar { cleanup ->
+                        Toast.makeText(
+                            context,
+                            context.getString(
+                                R.string.delete_past_done,
+                                cleanup.events,
+                                cleanup.notes,
+                            ),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 },
             )
         }

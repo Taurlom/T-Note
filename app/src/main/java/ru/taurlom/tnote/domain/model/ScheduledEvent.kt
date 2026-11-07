@@ -70,6 +70,34 @@ data class ScheduledEvent(
         return daysSince % interval == 0L
     }
 
+    /**
+     * Закончились ли у события вхождения к дате [today]: оно больше
+     * нигде не появится, и «Удалить прошедшие» может его убрать.
+     *
+     * Кандидат — якорь в прошлом и без будущего: регулярный день (без
+     * повтора) и повторяющийся с окном, целиком ушедшим в прошлое
+     * (последнее кратное интервалу вхождение раньше [today]). Повторения
+     * без ограничения по длительности и дни рождения не заканчиваются
+     * никогда — они не кандидат.
+     */
+    fun isOverBefore(today: LocalDate): Boolean {
+        val anchor = dateOrNull() ?: return false
+        if (!anchor.isBefore(today)) return false
+        return when (type) {
+            ScheduledEventType.REGULAR, ScheduledEventType.WEEKEND -> true
+
+            ScheduledEventType.BIRTHDAY -> false
+
+            ScheduledEventType.REPEATING -> {
+                val interval = repeatIntervalDays?.takeIf { it > 0 } ?: return false
+                if (repeatDays <= 0) return false
+                // Последнее вхождение: последний k < repeatDays, кратный interval.
+                val lastOffset = ((repeatDays - 1) / interval) * interval
+                anchor.plusDays(lastOffset.toLong()).isBefore(today)
+            }
+        }
+    }
+
     companion object {
 
         /** Цвет не выбран: иконка красится тематическим цветом приложения. */

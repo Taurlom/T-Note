@@ -19,6 +19,10 @@ interface CalendarNoteDao {
     @Query("DELETE FROM calendar_notes WHERE eventDate = :date")
     suspend fun deleteByDate(date: String)
 
+    /** Отрывные заметки строго до [cutoff] («yyyy-MM-dd»); возвращает число. */
+    @Query("DELETE FROM calendar_notes WHERE eventDate < :cutoff")
+    suspend fun deleteBefore(cutoff: String): Int
+
     @Query("DELETE FROM calendar_notes")
     suspend fun deleteAll()
 

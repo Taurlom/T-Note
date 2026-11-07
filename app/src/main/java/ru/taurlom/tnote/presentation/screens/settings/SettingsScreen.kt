@@ -46,6 +46,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showClearDialog by rememberSaveable { mutableStateOf(false) }
+    var showPastDialog by rememberSaveable { mutableStateOf(false) }
     var pendingImportUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var showRestartDialog by rememberSaveable { mutableStateOf(false) }
     var showTimeDialog by rememberSaveable { mutableStateOf(false) }
@@ -150,6 +151,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             importLauncher = importLauncher,
             showClearDialog = showClearDialog,
             onShowClearDialogChange = { showClearDialog = it },
+            showPastDialog = showPastDialog,
+            onShowPastDialogChange = { showPastDialog = it },
             showTimeDialog = showTimeDialog,
             onShowTimeDialogChange = { showTimeDialog = it },
             showRestartDialog = showRestartDialog,

@@ -56,10 +56,39 @@ fun <T> ReorderableLazyColumn(
     var draggingItemIndex by remember { mutableIntStateOf(-1) }
     var draggingOffset by remember { mutableFloatStateOf(0f) }
 
+    /**
+     * Отключает «следование» скролла за уезжающим вниз якорем.
+     *
+     * LazyListState хранит позицию по ключу первого видимого элемента и при
+     * перестановке данных тащит viewport следом за этим элементом. У отметки
+     * задачи это выглядит как внезапный скролл в зону выполненных: отмеченная
+     * задача улетает вниз, список проседает за ней и актуальные записи
+     * уезжают из поля зрения.
+     *
+     * Вызывается до обновления currentItems: layoutInfo ещё от старых данных.
+     * Пере-запрашиваем ту же позицию по индексу и offset — requestScrollToItem
+     * забывает ключ якоря ровно на один следующий remeasure, следование не
+     * случится, а на последующих кадрах якорём снова станет реальный первый
+     * видимый элемент. Визуально viewport стоит на месте: на месте уехавшей
+     * задачи окажется следующая строка.
+     *
+     * Только для перестановок той же длины (отметка, ручной reorder): при
+     * вставке/удалении следование за якорем — правильное поведение.
+     */
+    fun keepViewportIfAnchorMovedDown(newItems: List<T>) {
+        if (newItems.size != currentItems.size) return
+        val first = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull() ?: return
+        val anchorNewIndex = newItems.indexOfFirst { key(it) == first.key }
+        // Не найден (удалён) или не уезжает вниз — стандартный механизм справится.
+        if (anchorNewIndex <= first.index) return
+        lazyListState.requestScrollToItem(first.index, lazyListState.firstVisibleItemScrollOffset)
+    }
+
     // Синхронизацию с источником данных вынесли из фазы композиции: запись в
     // state прямо во время композиции запускала немедленный повторный проход.
     LaunchedEffect(items, draggingItemIndex) {
         if (draggingItemIndex == -1 && currentItems != items) {
+            keepViewportIfAnchorMovedDown(items)
             currentItems = items
         }
     }

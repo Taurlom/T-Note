@@ -45,6 +45,9 @@
     <string name="font_label">Шрифт</string>
     <string name="theme_label">Тема</string>
     <string name="clear_calendar">Очистить календарь</string>
+    <string name="delete_past">Удалить прошедшие</string>
+    <string name="delete_past_message">Заметки и события прошедших дней будут удалены, сегодняшние останутся. Повторяющиеся события и дни рождения не удаляются. Это действие нельзя отменить.</string>
+    <string name="delete_past_done">Удалено: событий %1$d, заметок %2$d</string>
     <string name="sections_button">Настройка разделов</string>
     <string name="section_move_up">Поднять раздел выше</string>
     <string name="section_move_down">Опустить раздел ниже</string>

@@ -30,6 +30,9 @@
     <string name="font_label">Font</string>
     <string name="theme_label">Theme</string>
     <string name="clear_calendar">Clear calendar</string>
+    <string name="delete_past">Delete past</string>
+    <string name="delete_past_message">Notes and events from past days will be deleted. Today is kept. Repeating events and birthdays are not deleted. This action cannot be undone.</string>
+    <string name="delete_past_done">Deleted: %1$d event(s), %2$d note(s)</string>
     <string name="sections_button">Section layout</string>
     <string name="section_move_up">Move section up</string>
     <string name="section_move_down">Move section down</string>
