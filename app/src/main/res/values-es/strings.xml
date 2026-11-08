@@ -182,6 +182,13 @@
     <string name="icon_selfcare">Autocuidado</string>
     <string name="icon_bar">Bar</string>
     <string name="icon_garden">Jardín</string>
+    <string name="icon_favorite">Favorito</string>
+    <string name="icon_settings">Ajustes</string>
+    <string name="icon_pets">Mascotas</string>
+    <string name="icon_keep">Importante</string>
+    <string name="icon_call">Llamada</string>
+    <string name="icon_shoppingcart">Compras</string>
+    <string name="icon_school">Estudios</string>
 
     <string name="event_delete_description">Eliminar evento</string>
 

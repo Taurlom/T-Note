@@ -78,6 +78,13 @@ val EventIcon.drawableRes: Int
         EventIcon.SELF_CARE -> R.drawable.ic_event_selfcare
         EventIcon.BAR -> R.drawable.ic_event_bar
         EventIcon.GARDEN -> R.drawable.ic_event_garden
+        EventIcon.FAVORITE -> R.drawable.ic_event_favorite
+        EventIcon.SETTINGS -> R.drawable.ic_event_settings
+        EventIcon.PETS -> R.drawable.ic_event_pets
+        EventIcon.KEEP -> R.drawable.ic_event_keep
+        EventIcon.CALL -> R.drawable.ic_event_call
+        EventIcon.SHOPPING_CART -> R.drawable.ic_event_shoppingcart
+        EventIcon.SCHOOL -> R.drawable.ic_event_school
     }
 
 /** Подпись иконки события. */
@@ -100,4 +107,11 @@ val EventIcon.labelRes: Int
         EventIcon.SELF_CARE -> R.string.icon_selfcare
         EventIcon.BAR -> R.string.icon_bar
         EventIcon.GARDEN -> R.string.icon_garden
+        EventIcon.FAVORITE -> R.string.icon_favorite
+        EventIcon.SETTINGS -> R.string.icon_settings
+        EventIcon.PETS -> R.string.icon_pets
+        EventIcon.KEEP -> R.string.icon_keep
+        EventIcon.CALL -> R.string.icon_call
+        EventIcon.SHOPPING_CART -> R.string.icon_shoppingcart
+        EventIcon.SCHOOL -> R.string.icon_school
     }

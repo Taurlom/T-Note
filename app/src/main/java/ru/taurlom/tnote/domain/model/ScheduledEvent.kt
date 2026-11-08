@@ -28,6 +28,13 @@ enum class EventIcon {
     SELF_CARE,
     BAR,
     GARDEN,
+    FAVORITE,
+    SETTINGS,
+    PETS,
+    KEEP,
+    CALL,
+    SHOPPING_CART,
+    SCHOOL,
 }
 
 /**

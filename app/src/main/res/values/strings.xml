@@ -184,6 +184,13 @@
     <string name="icon_selfcare">Уход за собой</string>
     <string name="icon_bar">Бар</string>
     <string name="icon_garden">Сад</string>
+    <string name="icon_favorite">Любимое</string>
+    <string name="icon_settings">Настройка</string>
+    <string name="icon_pets">Питомцы</string>
+    <string name="icon_keep">Важное</string>
+    <string name="icon_call">Звонок</string>
+    <string name="icon_shoppingcart">Покупки</string>
+    <string name="icon_school">Учёба</string>
 
     <string name="event_delete_description">Удалить событие</string>
 
