@@ -142,6 +142,8 @@ dependencies {
     // Чтение/запись EXIF Orientation без декодирования всего JPEG: поворот
     // фото = правка одного тега, а не перекодирование пикселей.
     implementation(libs.exifinterface)
+    implementation(libs.ical4j)
+    implementation(libs.okhttp)
     implementation(libs.lifecycle.runtime.compose)
 
     implementation(libs.lifecycle.viewmodel.compose)

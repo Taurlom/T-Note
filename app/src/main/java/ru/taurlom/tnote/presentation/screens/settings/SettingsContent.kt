@@ -15,13 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,17 +34,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.AppFont
+import ru.taurlom.tnote.domain.model.CaldavAccount
+import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.presentation.components.AppButton
 import ru.taurlom.tnote.presentation.components.AppDialog
 import ru.taurlom.tnote.presentation.components.AppDropdown
 import ru.taurlom.tnote.presentation.components.AppTextButton
+import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.AppTimePicker
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
 import ru.taurlom.tnote.presentation.lock.DeviceCredential
@@ -49,7 +58,11 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.fontFamily
 import ru.taurlom.tnote.presentation.theme.labelRes
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 
 /**
@@ -220,6 +233,11 @@ internal fun SettingsContent(
                 modifier = Modifier.weight(1f),
             )
         }
+
+        // ── Синхронизация (CalDAV: Яндекс-календарь, этап 1 — чтение) ──
+        Spacer(modifier = Modifier.height(24.dp))
+        SectionTitle(stringResource(R.string.sync_section))
+        CaldavSyncSection(viewModel)
 
         // ── Приватность ──
         Spacer(modifier = Modifier.height(24.dp))
@@ -416,6 +434,225 @@ private fun SectionTitle(text: String) {
         color = AppTheme.colors.sectionTitle,
     )
     Spacer(modifier = Modifier.height(8.dp))
+}
+
+// ── CalDAV-подписка (Яндекс-календарь) ──
+
+/**
+ * Секция «Синхронизация»: карточка каждого подключённого календаря с
+ * действиями «Обновить»/«Отключить» и кнопка формы подключения.
+ */
+@Composable
+private fun CaldavSyncSection(viewModel: SettingsViewModel) {
+    val accounts by viewModel.caldavAccounts.collectAsState()
+    val busy by viewModel.caldavBusy.collectAsState()
+    // Аккаунт, ждущий подтверждения отключения; null — диалог закрыт.
+    var pendingDisconnect by remember { mutableStateOf<CaldavAccount?>(null) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(R.string.sync_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        accounts.forEach { account ->
+            CaldavAccountCard(
+                account = account,
+                busy = busy,
+                viewModel = viewModel,
+                onDisconnectRequest = { pendingDisconnect = account },
+            )
+        }
+        AppTextButton(
+            onClick = viewModel::openCaldavDialog,
+            textRes = R.string.sync_add_account,
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    pendingDisconnect?.let { account ->
+        ConfirmDeleteDialog(
+            title = account.collectionName,
+            text = stringResource(R.string.sync_disconnect_message),
+            onDismiss = { pendingDisconnect = null },
+            onConfirm = {
+                viewModel.disconnectCaldavAccount(account.id)
+                pendingDisconnect = null
+            },
+        )
+    }
+
+    CaldavAddAccountDialog(viewModel)
+    CaldavSyncResultToast(viewModel)
+}
+
+/** Карточка подписки: имена, последняя синхронизация (или ошибка), кнопки. */
+@Composable
+private fun CaldavAccountCard(account: CaldavAccount, busy: Boolean, viewModel: SettingsViewModel, onDisconnectRequest: () -> Unit) {
+    val lastSyncText = remember(account.lastSyncAt) {
+        if (account.lastSyncAt == 0L) {
+            null
+        } else {
+            DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(
+                Instant.ofEpochMilli(account.lastSyncAt).atZone(ZoneId.systemDefault()),
+            )
+        }
+    }
+    val errorText = account.lastError?.takeIf { it.isNotBlank() }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = account.collectionName,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Text(
+            text = account.username + " · " + account.serverUrl,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = errorText ?: (
+                lastSyncText?.let { stringResource(R.string.sync_last_at, it) }
+                    ?: stringResource(R.string.sync_last_never)
+                ),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (errorText != null) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            AppTextButton(
+                onClick = { viewModel.syncCaldavAccount(account.id) },
+                textRes = R.string.sync_refresh,
+                enabled = !busy,
+            )
+            AppTextButton(
+                onClick = onDisconnectRequest,
+                textRes = R.string.sync_disconnect,
+                enabled = !busy,
+            )
+        }
+    }
+}
+
+/** Итог ручной «Обновить» — тост с числами добавленных/обновлённых/удалённых. */
+@Composable
+private fun CaldavSyncResultToast(viewModel: SettingsViewModel) {
+    val result by viewModel.caldavResult.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(result) {
+        result?.let {
+            Toast.makeText(
+                context,
+                context.getString(R.string.sync_result, it.added, it.updated, it.removed),
+                Toast.LENGTH_SHORT,
+            ).show()
+            viewModel.caldavResultShown()
+        }
+    }
+}
+
+/**
+ * Форма «Подключение календаря»: сервер/логин/пароль приложения → поиск
+ * → выбор календаря → подключение с первой синхронизацией.
+ */
+@Composable
+private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
+    val state by viewModel.caldavAddState.collectAsState()
+    if (!state.open) return
+
+    AppDialog(
+        title = stringResource(R.string.sync_add_title),
+        onDismissRequest = viewModel::closeCaldavDialog,
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                AppTextField(
+                    value = state.server,
+                    onValueChange = viewModel::updateCaldavServer,
+                    label = stringResource(R.string.sync_server),
+                    singleLine = true,
+                )
+                AppTextField(
+                    value = state.username,
+                    onValueChange = viewModel::updateCaldavUsername,
+                    label = stringResource(R.string.sync_login),
+                    singleLine = true,
+                )
+                AppTextField(
+                    value = state.password,
+                    onValueChange = viewModel::updateCaldavPassword,
+                    label = stringResource(R.string.sync_password),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+                Text(
+                    text = stringResource(R.string.sync_password_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AppTheme.colors.dialogContent,
+                )
+
+                if (state.calendars.isEmpty()) {
+                    CaldavAddErrorText(state)
+                } else {
+                    Text(
+                        text = stringResource(R.string.sync_pick),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = AppTheme.colors.dialogContent,
+                    )
+                    state.calendars.forEach { calendar ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = calendar.url == state.selectedUrl,
+                                onClick = { viewModel.selectCaldavCalendar(calendar) },
+                            )
+                            Text(
+                                text = calendar.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = AppTheme.colors.dialogContent,
+                            )
+                        }
+                    }
+                    CaldavAddErrorText(state)
+                }
+            }
+        },
+        confirmButton = {
+            if (state.calendars.isEmpty()) {
+                AppTextButton(
+                    onClick = viewModel::discoverCaldavCalendars,
+                    textRes = R.string.sync_find,
+                    enabled = state.username.isNotBlank() &&
+                        state.password.isNotBlank() &&
+                        !state.discovering,
+                )
+            } else {
+                AppTextButton(
+                    onClick = viewModel::connectCaldavAccount,
+                    textRes = R.string.sync_connect,
+                    enabled = state.selectedUrl != null && !state.connecting,
+                )
+            }
+        },
+    )
+}
+
+/** Подпись отказа формы: типизированный вид из [CaldavErrorKind]. */
+@Composable
+private fun CaldavAddErrorText(state: CaldavAddState) {
+    Text(
+        text = when (state.error) {
+            CaldavErrorKind.NETWORK -> stringResource(R.string.sync_error_network)
+            CaldavErrorKind.AUTH -> stringResource(R.string.sync_error_auth)
+            CaldavErrorKind.NO_CALENDARS -> stringResource(R.string.sync_error_no_calendars)
+            else -> stringResource(R.string.sync_error_other, state.errorMessage.orEmpty())
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+    )
 }
 
 /**

@@ -52,6 +52,7 @@ import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.ColorSwatchOption
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import java.time.LocalDate
+import java.util.UUID
 
 /**
  * Диалог выбранного дня календаря: заметка и список событий дня.
@@ -98,11 +99,18 @@ fun CalendarDayDialog(
                     color = AppTheme.colors.dialogContent,
                 )
                 events.forEach { event ->
+                    // События Яндекс-календаря только для чтения: правятся
+                    // на сервере — в редактор и «удалить» они не попадают.
+                    val readOnly = event.caldavAccountId != null
                     ScheduledEventRow(
                         event = event,
                         day = day,
-                        onClick = { editorTarget = event },
-                        onDelete = { onDeleteEvent(event) },
+                        onClick = { if (!readOnly) editorTarget = event },
+                        onDelete = if (readOnly) {
+                            null
+                        } else {
+                            { onDeleteEvent(event) }
+                        },
                     )
                 }
             }
@@ -168,7 +176,13 @@ fun CalendarDayDialog(
 
 /** Строка события в диалоге дня. Прошедшие события приглушены и зачёркнуты. */
 @Composable
-private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun ScheduledEventRow(
+    event: ScheduledEvent,
+    day: LocalDate,
+    onClick: () -> Unit,
+    // null — кнопка удаления не рисуется (событие Яндекса, read-only).
+    onDelete: (() -> Unit)?,
+) {
     val isPast = remember(event, day) { event.isPastOccurrence(day) }
     val titleColor = if (isPast) AppTheme.colors.dialogContent.copy(alpha = 0.45f) else AppTheme.colors.dialogContent
 
@@ -198,13 +212,23 @@ private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: ()
             textDecoration = if (isPast) TextDecoration.LineThrough else null,
             modifier = Modifier.weight(1f),
         )
-
-        IconButton(onClick = onDelete) {
-            Icon(
-                painter = painterResource(R.drawable.ic_delete),
-                contentDescription = stringResource(R.string.event_delete_description),
-                tint = AppTheme.colors.dialogContent,
+        if (event.caldavAccountId != null) {
+            // Метка источника: событие приехало из подписанного календаря.
+            Text(
+                text = stringResource(R.string.sync_badge),
+                style = MaterialTheme.typography.labelSmall,
+                color = AppTheme.colors.dialogContent.copy(alpha = 0.6f),
             )
+        }
+
+        onDelete?.let { delete ->
+            IconButton(onClick = delete) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(R.string.event_delete_description),
+                    tint = AppTheme.colors.dialogContent,
+                )
+            }
         }
     }
 }
@@ -382,6 +406,10 @@ private fun ScheduledEventEditorDialog(
                     onSave(
                         ScheduledEvent(
                             id = original?.id ?: 0L,
+                            // UID и происхождение переживают правку: они —
+                            // ключ сопоставления с серверным объектом.
+                            uid = original?.uid ?: UUID.randomUUID().toString(),
+                            caldavAccountId = original?.caldavAccountId,
                             // Дату открытого дня передаём только для новых
                             // событий; для сохранённых репозиторий вернёт
                             // якорную дату строки (см. ScheduledEventRepositoryImpl.update).

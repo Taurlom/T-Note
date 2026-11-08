@@ -9,19 +9,31 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.AppFont
+import ru.taurlom.tnote.domain.model.CaldavAccount
+import ru.taurlom.tnote.domain.model.CaldavCalendarRef
+import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
+import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import ru.taurlom.tnote.domain.repository.PastCalendarCleanup
 import ru.taurlom.tnote.domain.repository.SettingsRepository
 import ru.taurlom.tnote.domain.usecase.ClearCalendarUseCase
+import ru.taurlom.tnote.domain.usecase.ConnectCaldavAccountUseCase
 import ru.taurlom.tnote.domain.usecase.DeletePastCalendarUseCase
+import ru.taurlom.tnote.domain.usecase.DisconnectCaldavAccountUseCase
+import ru.taurlom.tnote.domain.usecase.DiscoverCaldavCalendarsUseCase
+import ru.taurlom.tnote.domain.usecase.ObserveCaldavAccountsUseCase
 import ru.taurlom.tnote.domain.usecase.SetReminderTimeUseCase
 import ru.taurlom.tnote.domain.usecase.SetRemindersEnabledUseCase
+import ru.taurlom.tnote.domain.usecase.SyncCaldavAccountUseCase
 import ru.taurlom.tnote.presentation.error.launchCatching
 import javax.inject.Inject
 
@@ -33,6 +45,11 @@ class SettingsViewModel @Inject constructor(
     private val clearCalendarUseCase: ClearCalendarUseCase,
     private val deletePastCalendarUseCase: DeletePastCalendarUseCase,
     private val backupRepository: BackupRepository,
+    private val observeCaldavAccountsUseCase: ObserveCaldavAccountsUseCase,
+    private val discoverCaldavCalendarsUseCase: DiscoverCaldavCalendarsUseCase,
+    private val connectCaldavAccountUseCase: ConnectCaldavAccountUseCase,
+    private val disconnectCaldavAccountUseCase: DisconnectCaldavAccountUseCase,
+    private val syncCaldavAccountUseCase: SyncCaldavAccountUseCase,
 ) : ViewModel() {
 
     private val backupStatus = MutableStateFlow(BackupStatus())
@@ -271,4 +288,159 @@ class SettingsViewModel @Inject constructor(
     fun backupResultShown() {
         backupStatus.value = BackupStatus()
     }
+
+    // ── CalDAV-подписка: Яндекс-календари (этап 1 — только чтение) ──
+
+    val caldavAccounts: StateFlow<List<CaldavAccount>> = observeCaldavAccountsUseCase()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _caldavBusy = MutableStateFlow(false)
+    val caldavBusy: StateFlow<Boolean> = _caldavBusy.asStateFlow()
+
+    /** Итог последней синхронизации — для тоста; экран гасит через shown(). */
+    private val _caldavResult = MutableStateFlow<CaldavSyncResult?>(null)
+    val caldavResult: StateFlow<CaldavSyncResult?> = _caldavResult.asStateFlow()
+
+    private val _caldavAddState = MutableStateFlow(CaldavAddState())
+    val caldavAddState: StateFlow<CaldavAddState> = _caldavAddState.asStateFlow()
+
+    fun caldavResultShown() {
+        _caldavResult.value = null
+    }
+
+    fun openCaldavDialog() {
+        _caldavAddState.value = CaldavAddState(open = true)
+    }
+
+    fun closeCaldavDialog() {
+        _caldavAddState.value = CaldavAddState()
+    }
+
+    fun updateCaldavServer(value: String) {
+        _caldavAddState.update { it.copy(server = value) }
+    }
+
+    fun updateCaldavUsername(value: String) {
+        _caldavAddState.update { it.copy(username = value) }
+    }
+
+    fun updateCaldavPassword(value: String) {
+        _caldavAddState.update { it.copy(password = value) }
+    }
+
+    fun selectCaldavCalendar(calendar: CaldavCalendarRef) {
+        _caldavAddState.update { it.copy(selectedUrl = calendar.url) }
+    }
+
+    /** Шаг 1 формы: PROPFIND-поиск календарей с событиями на сервере. */
+    fun discoverCaldavCalendars() {
+        val add = _caldavAddState.value
+        if (add.discovering || add.username.isBlank() || add.password.isBlank()) return
+        viewModelScope.launch {
+            _caldavAddState.update { it.copy(discovering = true, error = null) }
+            try {
+                val calendars = discoverCaldavCalendarsUseCase(
+                    add.server.trim(),
+                    add.username.trim(),
+                    add.password,
+                )
+                _caldavAddState.update { state ->
+                    if (calendars.isEmpty()) {
+                        state.copy(discovering = false, error = CaldavErrorKind.NO_CALENDARS)
+                    } else {
+                        state.copy(
+                            discovering = false,
+                            calendars = calendars,
+                            selectedUrl = calendars.first().url,
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _caldavAddState.update {
+                    it.copy(discovering = false, error = toCaldavErrorKind(e), errorMessage = e.message)
+                }
+            }
+        }
+    }
+
+    /** Шаг 2 формы: подключение выбранного календаря + первая синхронизация. */
+    fun connectCaldavAccount() {
+        val add = _caldavAddState.value
+        val calendar = add.calendars.firstOrNull { it.url == add.selectedUrl } ?: return
+        viewModelScope.launch {
+            _caldavAddState.update { it.copy(connecting = true, error = null) }
+            try {
+                connectCaldavAccountUseCase(
+                    add.server.trim(),
+                    add.username.trim(),
+                    add.password,
+                    calendar,
+                )
+                // Форма отбрасывается целиком: аккаунт виден в списке.
+                closeCaldavDialog()
+            } catch (e: Exception) {
+                _caldavAddState.update {
+                    it.copy(connecting = false, error = toCaldavErrorKind(e), errorMessage = e.message)
+                }
+            }
+        }
+    }
+
+    fun syncCaldavAccount(accountId: Long) {
+        if (_caldavBusy.value) return
+        viewModelScope.launch {
+            _caldavBusy.value = true
+            try {
+                _caldavResult.value = syncCaldavAccountUseCase(accountId)
+            } catch (_: CaldavSyncException) {
+                // Причина — в lastError аккаунта, карточка покажет её сама.
+            }
+            _caldavBusy.value = false
+        }
+    }
+
+    fun disconnectCaldavAccount(accountId: Long) {
+        if (_caldavBusy.value) return
+        viewModelScope.launch {
+            _caldavBusy.value = true
+            try {
+                disconnectCaldavAccountUseCase(accountId)
+            } catch (_: Exception) {
+                // Отказ отключить маловероятен; карточка останется и так.
+            }
+            _caldavBusy.value = false
+        }
+    }
+
+    private fun toCaldavErrorKind(e: Exception): CaldavErrorKind = when (e) {
+        is CaldavSyncException.Network -> CaldavErrorKind.NETWORK
+        is CaldavSyncException.Auth -> CaldavErrorKind.AUTH
+        else -> CaldavErrorKind.OTHER
+    }
+}
+
+/**
+ * Состояние формы «Подключение календаря»: два шага (поля → найденные
+ * календари) живут в одном состоянии, открытие сбрасывает всё до дефолтов.
+ */
+data class CaldavAddState(
+    val open: Boolean = false,
+    val server: String = CaldavCalendarRef.DEFAULT_SERVER,
+    val username: String = "",
+    val password: String = "",
+    val calendars: List<CaldavCalendarRef> = emptyList(),
+    val selectedUrl: String? = null,
+    val discovering: Boolean = false,
+    val connecting: Boolean = false,
+    val error: CaldavErrorKind? = null,
+    /** Текст исключения — для нестандартных сбоев ([CaldavErrorKind.OTHER]). */
+    val errorMessage: String? = null,
+)
+
+/** Типизированный отказ формы подключения: экран подбирает подпись. */
+enum class CaldavErrorKind {
+    NETWORK,
+    AUTH,
+    NO_CALENDARS,
+    OTHER,
 }

@@ -49,4 +49,19 @@ interface ScheduledEventDao {
     /** Вариант для пачки: «Удалить прошедшие» — [deletePast]. */
     @Delete
     suspend fun delete(events: List<ScheduledEventEntity>)
+
+    /** Единственное событие по серверному UID — ключ применения diff'а. */
+    @Query("SELECT * FROM scheduled_events WHERE uid = :uid LIMIT 1")
+    suspend fun getByUid(uid: String): ScheduledEventEntity?
+
+    /** Импортированные этим аккаунтом события больше не на сервере. */
+    @Query(
+        "DELETE FROM scheduled_events WHERE caldavAccountId = :accountId " +
+            "AND uid NOT IN (:uids)",
+    )
+    suspend fun deleteNotInUids(accountId: Long, uids: List<String>): Int
+
+    /** Все события источника — при отключении аккаунта. */
+    @Query("DELETE FROM scheduled_events WHERE caldavAccountId = :accountId")
+    suspend fun deleteByCaldavAccount(accountId: Long): Int
 }

@@ -18,6 +18,7 @@ fun ScheduledEventEntity.toDomain(): ScheduledEvent = ScheduledEvent(
     repeatDays = repeatDays,
     hidePastOccurrences = hidePast,
     position = position,
+    caldavAccountId = caldavAccountId,
 )
 
 fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
@@ -32,4 +33,5 @@ fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
     repeatDays = repeatDays,
     hidePast = hidePastOccurrences,
     position = position,
+    caldavAccountId = caldavAccountId,
 )

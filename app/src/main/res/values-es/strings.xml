@@ -33,6 +33,30 @@
     <string name="delete_past">Eliminar pasados</string>
     <string name="delete_past_message">Se eliminarán las notas y los eventos de los días pasados. Hoy se conserva. Los eventos repetitivos y los cumpleaños no se eliminan. Esta acción no se puede deshacer.</string>
     <string name="delete_past_done">Eliminados: %1$d evento(s), %2$d nota(s)</string>
+
+    <!-- ───── Sincronización (CalDAV) ───── -->
+    <string name="sync_section">Sincronización</string>
+    <string name="sync_hint">Conecta un calendario de Yandex: sus eventos aparecerán en la cuadrícula de la app y se actualizarán automáticamente. Se editan en el servidor; aquí son de solo lectura.</string>
+    <string name="sync_add_account">Agregar calendario de Yandex</string>
+    <string name="sync_add_title">Conectar calendario</string>
+    <string name="sync_server">Dirección del servidor</string>
+    <string name="sync_login">Usuario de Yandex (correo)</string>
+    <string name="sync_password">Contraseña de aplicación</string>
+    <string name="sync_password_hint">Crea una contraseña de aplicación del tipo «Calendario (CalDAV)» en id.yandex.ru/security/app-passwords — la contraseña normal de la cuenta no servirá.</string>
+    <string name="sync_find">Buscar calendarios</string>
+    <string name="sync_connect">Conectar</string>
+    <string name="sync_pick">Elige un calendario</string>
+    <string name="sync_refresh">Actualizar</string>
+    <string name="sync_disconnect">Desconectar</string>
+    <string name="sync_disconnect_message">Los eventos de este calendario se eliminarán de la app (permanecerán en el servidor). No se puede deshacer.</string>
+    <string name="sync_result">Sincronizado: %1$d añadidos, %2$d actualizados, %3$d eliminados</string>
+    <string name="sync_last_never">Todavía sin sincronizar</string>
+    <string name="sync_last_at">Última sincronización: %1$s</string>
+    <string name="sync_badge">Yandex</string>
+    <string name="sync_error_network">Sin conexión con el servidor</string>
+    <string name="sync_error_auth">Usuario o contraseña de aplicación incorrectos</string>
+    <string name="sync_error_no_calendars">No se han encontrado calendarios con eventos</string>
+    <string name="sync_error_other">Error: %1$s</string>
     <string name="sections_button">Ajustar secciones</string>
     <string name="section_move_up">Subir sección</string>
     <string name="section_move_down">Bajar sección</string>

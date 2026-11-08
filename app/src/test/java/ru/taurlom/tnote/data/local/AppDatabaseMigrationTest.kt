@@ -153,4 +153,40 @@ class AppDatabaseMigrationTest {
         }
         db.close()
     }
+
+    /**
+     * 19 → 20: CalDAV-подписка. Новая таблица аккаунтов + колонка-источник
+     * scheduled_events.caldavAccountId: существующие строки остаются
+     * локальными (NULL) — до подключения подписки ничего не меняется.
+     */
+    @Test
+    fun `migrate 19 to 20 adds caldav accounts and origin column`() {
+        helper.createDatabase(19).use { db ->
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatIntervalDays, repeatDays, hidePast, position) " +
+                    "VALUES (1, 'uid-1', '2026-02-17', 'Ремонт', 'REGULAR', 'NOTE', 0, NULL, 0, 0, 0)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            20,
+            listOf(AppDatabaseMigration.MIGRATION_19_20),
+        )
+        // Событие пережило миграцию и осталось локальным (NULL-источник).
+        db.prepare("SELECT title FROM scheduled_events WHERE caldavAccountId IS NULL").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("Ремонт", stmt.getText(0))
+        }
+        // Новая таблица принимает строку аккаунта.
+        db.prepare(
+            "INSERT INTO caldav_accounts (id, serverUrl, username, collectionUrl, " +
+                "collectionName, lastSyncAt) VALUES (1, 'https://caldav.yandex.ru', " +
+                "'taur-lom@yandex.ru', '/calendars/taur-lom%40yandex.ru/events-1/', 'T-Note', 0)",
+        ).use { it.step() }
+        db.prepare("SELECT collectionName FROM caldav_accounts WHERE id = 1").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("T-Note", stmt.getText(0))
+        }
+        db.close()
+    }
 }

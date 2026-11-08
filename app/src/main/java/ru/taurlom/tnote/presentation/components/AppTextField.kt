@@ -17,6 +17,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,8 @@ fun AppTextField(
     readOnly: Boolean = false,
     textStyle: TextStyle = LocalTextStyle.current,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    /** Трансформация ввода — например, точки вместо текста пароля. */
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: (@Composable () -> Unit)? = null,
     required: Boolean = false,
     onDarkBackground: Boolean = false,
@@ -65,6 +68,7 @@ fun AppTextField(
         readOnly = readOnly,
         textStyle = textStyle,
         keyboardOptions = keyboardOptions,
+        visualTransformation = visualTransformation,
         trailingIcon = trailingIcon,
         modifier = modifier,
         colors = if (onDarkBackground) appTextFieldColorsOnDark() else appTextFieldColors(),

@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "scheduled_events",
-    indices = [Index("eventDate"), Index("uid", unique = true)],
+    indices = [Index("eventDate"), Index("uid", unique = true), Index("caldavAccountId")],
 )
 data class ScheduledEventEntity(
     @PrimaryKey(autoGenerate = true)
@@ -29,4 +29,7 @@ data class ScheduledEventEntity(
     @ColumnInfo(defaultValue = "0")
     val hidePast: Boolean,
     val position: Int = 0,
+
+    /** CalDAV-аккаунт-источник (null — локальное событие, см. ScheduledEvent). */
+    val caldavAccountId: Long? = null,
 )

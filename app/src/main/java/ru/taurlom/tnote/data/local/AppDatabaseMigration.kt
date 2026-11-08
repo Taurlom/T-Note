@@ -28,6 +28,57 @@ object AppDatabaseMigration {
     }
 
     /**
+     * CalDAV: колонка scheduled_events.uid + уникальный индекс. Столбец
+     * добавляется NOT NULL DEFAULT '' (пустая строка — временный маркер,
+     * валидация Room совпадает с @ColumnInfo(defaultValue = "")), после чего
+     * каждая существующая строка получает свой UUID: randomblob пересчитывается
+     * для каждой строки UPDATE по отдельности, коллизий между ними нет.
+     * Дубликатов uid в данных нет и дальше — уникальный индекс их исключает.
+     */
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE scheduled_events ADD COLUMN uid TEXT NOT NULL DEFAULT ''",
+            )
+            db.execSQL(
+                "UPDATE scheduled_events SET uid = lower(hex(randomblob(16)))",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX index_scheduled_events_uid " +
+                    "ON scheduled_events(uid)",
+            )
+        }
+    }
+
+    /**
+     * CalDAV-аккаунты: таблица подключённых календарей + колонка
+     * scheduled_events.caldavAccountId (источник события; null — локальное).
+     * Колонка добавляется без DEFAULT — она nullable, валидация Room
+     * требует именно отсутствие значения по умолчанию.
+     */
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS caldav_accounts (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "serverUrl TEXT NOT NULL, " +
+                    "username TEXT NOT NULL, " +
+                    "collectionUrl TEXT NOT NULL, " +
+                    "collectionName TEXT NOT NULL, " +
+                    "lastSyncAt INTEGER NOT NULL, " +
+                    "lastError TEXT)",
+            )
+            db.execSQL(
+                "ALTER TABLE scheduled_events ADD COLUMN caldavAccountId INTEGER",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_events_caldavAccountId " +
+                    "ON scheduled_events(caldavAccountId)",
+            )
+        }
+    }
+
+    /**
      * Архив категорий: флаг archived. Аддитивная миграция — существующие
      * списки остаются активными (0). DEFAULT 0 совпадает с
      * @ColumnInfo(defaultValue = "0") у CategoryEntity, иначе валидация
@@ -319,29 +370,6 @@ object AppDatabaseMigration {
                     "SELECT documentId, photoPath, 0 FROM photo_links_stash",
             )
             db.execSQL("DROP TABLE photo_links_stash")
-        }
-    }
-
-    /**
-     * CalDAV: колонка scheduled_events.uid + уникальный индекс. Столбец
-     * добавляется NOT NULL DEFAULT '' (пустая строка — временный маркер,
-     * валидация Room совпадает с @ColumnInfo(defaultValue = "")), после чего
-     * каждая существующая строка получает свой UUID: randomblob пересчитывается
-     * для каждой строки UPDATE по отдельности, коллизий между ними нет.
-     * Дубликатов uid в данных нет и дальше — уникальный индекс их исключает.
-     */
-    val MIGRATION_18_19 = object : Migration(18, 19) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL(
-                "ALTER TABLE scheduled_events ADD COLUMN uid TEXT NOT NULL DEFAULT ''",
-            )
-            db.execSQL(
-                "UPDATE scheduled_events SET uid = lower(hex(randomblob(16)))",
-            )
-            db.execSQL(
-                "CREATE UNIQUE INDEX index_scheduled_events_uid " +
-                    "ON scheduled_events(uid)",
-            )
         }
     }
 }

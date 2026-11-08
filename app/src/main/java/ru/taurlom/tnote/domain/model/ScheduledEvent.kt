@@ -68,6 +68,13 @@ data class ScheduledEvent(
     /** Скрывать вхождения до сегодняшней даты («удалять прошедшие»). */
     val hidePastOccurrences: Boolean = false,
     val position: Int = 0,
+
+    /**
+     * Аккаунт-источник при CalDAV-подписке (null — локальное событие).
+     * События с аккаунтом показываются как есть с сервера и только
+     * для чтения: правятся на сервере, а не в редакторе приложения.
+     */
+    val caldavAccountId: Long? = null,
 ) {
     fun dateOrNull(): LocalDate? = date.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 

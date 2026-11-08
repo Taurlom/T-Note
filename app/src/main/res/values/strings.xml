@@ -48,6 +48,30 @@
     <string name="delete_past">Удалить прошедшие</string>
     <string name="delete_past_message">Заметки и события прошедших дней будут удалены, сегодняшние останутся. Повторяющиеся события и дни рождения не удаляются. Это действие нельзя отменить.</string>
     <string name="delete_past_done">Удалено: событий %1$d, заметок %2$d</string>
+
+    <!-- ───── Синхронизация (CalDAV) ───── -->
+    <string name="sync_section">Синхронизация</string>
+    <string name="sync_hint">Подключите Яндекс-календарь — его события появятся в сетке приложения и будут обновляться автоматически. Изменяются они на сервере, в приложении только для чтения.</string>
+    <string name="sync_add_account">Добавить Яндекс-календарь</string>
+    <string name="sync_add_title">Подключение календаря</string>
+    <string name="sync_server">Адрес сервера</string>
+    <string name="sync_login">Яндекс-логин (почта)</string>
+    <string name="sync_password">Пароль приложения</string>
+    <string name="sync_password_hint">Создайте пароль приложения типа «Календарь (CalDAV)» на странице id.yandex.ru/security/app-passwords — обычный пароль аккаунта не подойдёт.</string>
+    <string name="sync_find">Найти календари</string>
+    <string name="sync_connect">Подключить</string>
+    <string name="sync_pick">Выберите календарь</string>
+    <string name="sync_refresh">Обновить</string>
+    <string name="sync_disconnect">Отключить</string>
+    <string name="sync_disconnect_message">События этого календаря будут удалены из приложения (на сервере они останутся). Действие нельзя отменить.</string>
+    <string name="sync_result">Синхронизировано: добавлено %1$d, обновлено %2$d, удалено %3$d</string>
+    <string name="sync_last_never">Ещё не синхронизировалось</string>
+    <string name="sync_last_at">Последняя синхронизация: %1$s</string>
+    <string name="sync_badge">Яндекс</string>
+    <string name="sync_error_network">Нет соединения с сервером</string>
+    <string name="sync_error_auth">Неверный логин или пароль приложения</string>
+    <string name="sync_error_no_calendars">Календарей с событиями не найдено</string>
+    <string name="sync_error_other">Не получилось: %1$s</string>
     <string name="sections_button">Настройка разделов</string>
     <string name="section_move_up">Поднять раздел выше</string>
     <string name="section_move_down">Опустить раздел ниже</string>

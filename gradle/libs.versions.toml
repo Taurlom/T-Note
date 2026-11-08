@@ -28,11 +28,17 @@ room = "2.8.5"
 # и точных будильников.
 work = "2.12.0"
 coil = "2.7.0"
+# Транспорт CalDAV: OkHttp — протокол WebDAV/CalDAV живёт поверх HTTP.
+okhttp = "4.12.0"
 # Парсеры, которые тянет вендоренный модуль richeditor-compose
 # (см. README.md модуля): разбор HTML и markdown в RichTextState.
 ksoup = "0.6.0"
 jetbrains-markdown = "0.7.9"
 desugar-jdk-libs = "2.1.5"
+# Разбор iCalendar (VEVENT/RRULE) для CalDAV-синхронизации (Этап 0).
+# Ветка 3.2.x — проверенная на Android; «наполняющая» часть календаря-данных
+# полностью day-only (VALUE=DATE), таймзоны не затрагиваются.
+ical4j = "3.2.19"
 junit = "4.13.2"
 json = "20260814"
 androidx-test-junit = "1.3.0"
@@ -62,6 +68,7 @@ appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "a
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+ical4j = { group = "org.mnode.ical4j", name = "ical4j", version.ref = "ical4j" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
@@ -71,6 +78,7 @@ room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 # Артефакты для вендоренного модуля richeditor-compose: Compose-части берутся
 # из compose-bom, парсеры — с версиями выше.

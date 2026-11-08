@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.taurlom.tnote.data.local.AppDatabase
 import ru.taurlom.tnote.data.local.AppDatabaseMigration
+import ru.taurlom.tnote.data.local.CaldavDao
 import ru.taurlom.tnote.data.local.CalendarNoteDao
 import ru.taurlom.tnote.data.local.CategoryDao
 import ru.taurlom.tnote.data.local.DocumentDao
@@ -43,6 +44,7 @@ object DatabaseModule {
             AppDatabaseMigration.MIGRATION_16_17,
             AppDatabaseMigration.MIGRATION_17_18,
             AppDatabaseMigration.MIGRATION_18_19,
+            AppDatabaseMigration.MIGRATION_19_20,
         )
         // Никакого destructive fallback: отсутствие миграции должно падать
         // loudly на этапе разработки, а не молча стирать пользовательские данные.
@@ -59,6 +61,9 @@ object DatabaseModule {
 
     @Provides
     fun provideScheduledEventDao(database: AppDatabase): ScheduledEventDao = database.scheduledEventDao()
+
+    @Provides
+    fun provideCaldavDao(database: AppDatabase): CaldavDao = database.caldavDao()
 
     @Provides
     fun provideDocumentDao(database: AppDatabase): DocumentDao = database.documentDao()
