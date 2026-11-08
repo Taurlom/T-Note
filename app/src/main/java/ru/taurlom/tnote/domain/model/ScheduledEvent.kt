@@ -3,6 +3,7 @@ package ru.taurlom.tnote.domain.model
 import java.time.LocalDate
 import java.time.Year
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 
 enum class ScheduledEventType { REGULAR, BIRTHDAY, REPEATING, WEEKEND }
 
@@ -46,6 +47,14 @@ enum class EventIcon {
  */
 data class ScheduledEvent(
     val id: Long = 0,
+
+    /**
+     * Глобальный UID для CalDAV-синхронизации (RFC 5545 UID): неизменен на
+     * всю жизнь события и обязателен для сопоставления «наш ↔ серверный»
+     * объект. Генерируется при создании; у событий из бэкапов восстановление
+     * сохраняет исходный UID.
+     */
+    val uid: String = UUID.randomUUID().toString(),
     val date: String,
     val title: String,
     val type: ScheduledEventType = ScheduledEventType.REGULAR,

@@ -7,6 +7,7 @@ import ru.taurlom.tnote.domain.model.ScheduledEventType
 
 fun ScheduledEventEntity.toDomain(): ScheduledEvent = ScheduledEvent(
     id = id,
+    uid = uid,
     date = eventDate,
     title = title,
     type = runCatching { ScheduledEventType.valueOf(type) }
@@ -21,6 +22,7 @@ fun ScheduledEventEntity.toDomain(): ScheduledEvent = ScheduledEvent(
 
 fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
     id = id,
+    uid = uid,
     eventDate = date,
     title = title,
     type = type.name,

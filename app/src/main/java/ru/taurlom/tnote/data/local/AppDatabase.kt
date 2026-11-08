@@ -22,7 +22,7 @@ import ru.taurlom.tnote.data.local.entity.TaskEntity
         NoteEntity::class,
         NotePhotoEntity::class,
     ],
-    version = 18,
+    version = 19,
     // Схемы экспортируются в app/schemas (см. ksp-аргумент в build.gradle.kts).
     exportSchema = true,
 )

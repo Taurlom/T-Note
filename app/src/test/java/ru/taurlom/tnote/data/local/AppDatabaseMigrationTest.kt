@@ -104,4 +104,53 @@ class AppDatabaseMigrationTest {
         }
         db.close()
     }
+
+    /**
+     * 18 → 19: CalDAV-uid событий. Каждой строке выдаётся свой UID; двух
+     * одинаковых быть не может — они нужны дальше как ключ сопоставления
+     * «наше событие ↔ серверный объект» при синхронизации.
+     */
+    @Test
+    fun `migrate 18 to 19 assigns a distinct uid to every event`() {
+        val db18 = helper.createDatabase(18)
+        db18.use { db ->
+            db.prepare(
+                "INSERT INTO scheduled_events (id, eventDate, title, type, " +
+                    "icon, colorArgb, repeatIntervalDays, repeatDays, hidePast, position) " +
+                    "VALUES (1, '2026-02-17', 'Ремонт', 'REGULAR', 'NOTE', 0, NULL, 0, 0, 0)",
+            ).use { it.step() }
+            db.prepare(
+                "INSERT INTO scheduled_events (id, eventDate, title, type, " +
+                    "icon, colorArgb, repeatIntervalDays, repeatDays, hidePast, position) " +
+                    "VALUES (2, '1988-08-09', 'ДР Маши', 'BIRTHDAY', 'NOTE', -65536, NULL, 0, 0, 1)",
+            ).use { it.step() }
+            db.prepare(
+                "INSERT INTO calendar_notes (eventDate, text) VALUES ('2026-02-17', 'старт')",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            19,
+            listOf(AppDatabaseMigration.MIGRATION_18_19),
+        )
+        db.prepare(
+            "SELECT title, uid FROM scheduled_events ORDER BY id",
+        ).use { stmt ->
+            val rows = buildList {
+                while (stmt.step()) add(stmt.getText(0) to stmt.getText(1))
+            }
+            // Данные не тронуты, а каждому событию выдан свой UID — ключ
+            // синхронизации готов ещё до первого PUT.
+            assertEquals(listOf("Ремонт", "ДР Маши"), rows.map { it.first })
+            val uids = rows.map { it.second }
+            assertEquals(uids.toSet().size, uids.size)
+            uids.forEach { uid ->
+                assertTrue(uid.length == 32 && uid.all { c -> c in '0'..'9' || c in 'a'..'f' })
+            }
+        }
+        db.prepare("SELECT text FROM calendar_notes WHERE eventDate = '2026-02-17'").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("старт", stmt.getText(0))
+        }
+        db.close()
+    }
 }

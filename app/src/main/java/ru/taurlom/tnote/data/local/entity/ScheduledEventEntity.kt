@@ -7,11 +7,15 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "scheduled_events",
-    indices = [Index("eventDate")],
+    indices = [Index("eventDate"), Index("uid", unique = true)],
 )
 data class ScheduledEventEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+
+    /** CalDAV UID события (см. ScheduledEvent.uid): уникален по архитектуре. */
+    @ColumnInfo(defaultValue = "")
+    val uid: String,
     val eventDate: String,
     val title: String,
     val type: String,
