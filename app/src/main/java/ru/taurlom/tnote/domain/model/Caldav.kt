@@ -29,13 +29,23 @@ data class CaldavCalendarRef(val name: String, val url: String) {
 }
 
 /**
- * Итог одной синхронизации — числа для снекбара экрана.
+ * Итог одной синхронизации — числа для тоста/снекса экрана.
  */
-data class CaldavSyncResult(val added: Int, val updated: Int, val removed: Int) {
+data class CaldavSyncResult(
+    val added: Int,
+    val updated: Int,
+    val removed: Int,
+    /** Доведено до сервера изменений: PUT'ы правок и DELETE'ы удалений. */
+    val pushed: Int = 0,
+    /** Строк, перезаписанных более свежей серверной версией (last-write-wins). */
+    val overwritten: Int = 0,
+) {
     /** Суммирование результатов по всем аккаунтам за один прогон. */
     operator fun plus(other: CaldavSyncResult): CaldavSyncResult = CaldavSyncResult(
         added = added + other.added,
         updated = updated + other.updated,
         removed = removed + other.removed,
+        pushed = pushed + other.pushed,
+        overwritten = overwritten + other.overwritten,
     )
 }

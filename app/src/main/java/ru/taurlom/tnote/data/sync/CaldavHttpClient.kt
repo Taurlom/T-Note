@@ -38,6 +38,15 @@ internal data class DavEntry(
 )
 
 /**
+ * Итог простой записи (PUT/DELETE, этап 2): код состояния и заголовок ETag.
+ * Multistatus здесь не ждут: 201/204 — успех, 412 — «конфликт, разрешает
+ * движок», 404 — «объекта нет»; ETag сервер отдаёт не всегда — null
+ * означает «предусловие на следующей правке не выставить», движок это
+ * переживает через конфликтный путь If-None-Match:*.
+ */
+data class CaldavWriteResponse(val code: Int, val etag: String? = null)
+
+/**
  * Транспорт CalDAV: OkHttp с преждевременным BasicAuth и разбором
  * multistatus. Слой нарочно тонкий: ответы Яндекса простые (см. живые
  * пробы, зафиксированные в CaldavHttpClientTest), поэтому dav4jvm ради
@@ -56,6 +65,10 @@ class CaldavHttpClient @Inject constructor() {
      * PROPFIND / REPORT с телом [body]; ответ 207 разбирается в [DavEntry].
      * Отказ авторизации → [CaldavSyncException.Auth], сеть → [CaldavSyncException.Network],
      * прочие протокольные расхождения → [CaldavSyncException.Server].
+     * [notFoundIsEmpty] — точечный PROPFIND при разрешении конфликтов:
+     * 404 там означает «объект уже удалён», и вычитка отдельного объекта
+     * отвечает пустым списком, а не исключением; всем прочим запросам 404
+     * по-прежнему выстреливает как протокольный сбой.
      */
     internal suspend fun davRequest(
         method: String,
@@ -64,6 +77,7 @@ class CaldavHttpClient @Inject constructor() {
         body: String,
         username: String,
         password: String,
+        notFoundIsEmpty: Boolean = false,
     ): List<DavEntry> = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(url.toHttpUrl())
@@ -83,6 +97,8 @@ class CaldavHttpClient @Inject constructor() {
                     response.code == 401 || response.code == 403 ->
                         throw CaldavSyncException.Auth()
 
+                    response.code == 404 && notFoundIsEmpty -> return@use emptyList<DavEntry>()
+
                     !response.isSuccessful ->
                         throw CaldavSyncException.Server(
                             "HTTP ${response.code}: ${text.take(160)}",
@@ -94,6 +110,53 @@ class CaldavHttpClient @Inject constructor() {
                             "Неразборчивый ответ сервера (HTTP ${response.code})",
                         )
                     }
+            }
+        } catch (e: CaldavSyncException) {
+            throw e
+        } catch (e: IOException) {
+            throw CaldavSyncException.Network(e)
+        }
+    }
+
+    /**
+     * PUT/DELETE без multistatus: ответ — код состояния и заголовок ETag.
+     * Предусловия RFC 7232 задаёт движок: If-Match («обновляй, если сервер
+     * не затирал объект») — для уже публиковавшегося события; If-None-Match: *
+     * («создавай, только если объекта ещё нет») — для первой публикации.
+     * Отказ авторизации и сеть — те же исключения, что у davRequest; прочие
+     * коды возвращаются движку: 412 и 404 он трактует в рамках разрешения
+     * конфликтов, остальные — отказ синхронизации.
+     */
+    internal suspend fun writeRequest(
+        method: String,
+        url: String,
+        body: String?,
+        contentType: String?,
+        username: String,
+        password: String,
+        ifMatch: String?,
+        ifNoneMatchStar: Boolean,
+    ): CaldavWriteResponse = withContext(Dispatchers.IO) {
+        val builder = Request.Builder()
+            .url(url.toHttpUrl())
+            .header(
+                "Authorization",
+                Credentials.basic(username, password, Charsets.UTF_8),
+            )
+            .header("User-Agent", "T-Note/1.0 CalDAV")
+            .method(
+                method,
+                body?.toRequestBody(contentType?.toMediaType()),
+            )
+        ifMatch?.let { builder.header("If-Match", it) }
+        if (ifNoneMatchStar) builder.header("If-None-Match", "*")
+
+        try {
+            okhttp.newCall(builder.build()).execute().use { response ->
+                when (response.code) {
+                    401, 403 -> throw CaldavSyncException.Auth()
+                }
+                CaldavWriteResponse(response.code, response.header("ETag"))
             }
         } catch (e: CaldavSyncException) {
             throw e
