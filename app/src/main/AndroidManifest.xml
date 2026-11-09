@@ -8,6 +8,11 @@
          системной настройкой. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Сеть для синхронизации CalDAV (Яндекс/Google-календари): запросы
+         из CaldavHttpClient и CaldavSyncWorker. Обычное разрешение —
+         выдаётся при установке, runtime-запрос не нужен. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <queries>
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />

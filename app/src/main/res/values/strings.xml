@@ -72,6 +72,8 @@
     <string name="sync_error_auth">Неверный логин или пароль приложения</string>
     <string name="sync_error_no_calendars">Календарей с событиями не найдено</string>
     <string name="sync_error_other">Не получилось: %1$s</string>
+    <string name="sync_password_show">Показать пароль</string>
+    <string name="sync_password_hide">Скрыть пароль</string>
     <string name="sections_button">Настройка разделов</string>
     <string name="section_move_up">Поднять раздел выше</string>
     <string name="section_move_down">Опустить раздел ниже</string>

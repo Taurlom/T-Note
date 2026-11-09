@@ -57,6 +57,8 @@
     <string name="sync_error_auth">Wrong login or app password</string>
     <string name="sync_error_no_calendars">No calendars with events found</string>
     <string name="sync_error_other">Failed: %1$s</string>
+    <string name="sync_password_show">Show password</string>
+    <string name="sync_password_hide">Hide password</string>
     <string name="sections_button">Section layout</string>
     <string name="section_move_up">Move section up</string>
     <string name="section_move_down">Move section down</string>
