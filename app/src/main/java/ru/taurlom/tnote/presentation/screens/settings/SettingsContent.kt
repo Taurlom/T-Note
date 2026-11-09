@@ -543,7 +543,7 @@ private fun CaldavAccountCard(account: CaldavAccount, busy: Boolean, viewModel: 
     }
 }
 
-/** Итог ручной «Обновить» — тост с числами добавленных/обновлённых/удалённых. */
+/** Итог ручной «Обновить» — тост с числами добавленных/обновлённых/удалённых/отправленных. */
 @Composable
 private fun CaldavSyncResultToast(viewModel: SettingsViewModel) {
     val result by viewModel.caldavResult.collectAsState()
@@ -552,7 +552,7 @@ private fun CaldavSyncResultToast(viewModel: SettingsViewModel) {
         result?.let {
             Toast.makeText(
                 context,
-                context.getString(R.string.sync_result, it.added, it.updated, it.removed),
+                context.getString(R.string.sync_result, it.added, it.updated, it.removed, it.pushed),
                 Toast.LENGTH_SHORT,
             ).show()
             viewModel.caldavResultShown()

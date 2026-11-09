@@ -27,10 +27,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import ru.taurlom.tnote.data.sync.SyncOverwriteBus
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.SharedText
 import ru.taurlom.tnote.domain.model.ThemeKind
@@ -173,6 +175,22 @@ class MainActivity : AppCompatActivity() {
                         LaunchedEffect(Unit) {
                             AppErrorBus.events.collect {
                                 snackbarHostState.showSnackbar(actionFailedText)
+                            }
+                        }
+                        // Канал перезаписей (SyncOverwriteBus): сервер оказался
+                        // автором более свежей правки — локальная уступила. Такой
+                        // отказ не бывает «молча»: снек на любом экране, а не
+                        // только в настройках.
+                        val context = LocalContext.current
+                        LaunchedEffect(Unit) {
+                            SyncOverwriteBus.overwritten.collect { count ->
+                                snackbarHostState.showSnackbar(
+                                    context.resources.getQuantityString(
+                                        R.plurals.sync_overwritten,
+                                        count,
+                                        count,
+                                    ),
+                                )
                             }
                         }
                         SnackbarHost(

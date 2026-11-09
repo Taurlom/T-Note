@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -65,6 +67,28 @@ class CaldavSyncScheduler @Inject constructor(@ApplicationContext private val co
         )
     }
 
+    /**
+     * Экспедированный прогон после локальной правки (этап 2): правка,
+     * набранная на телефоне, доезжает до календаря за секунды, а не к
+     * следующей четверти. REPLACE собирает «залп» правок (десяток
+     * пересохранений подряд) в один ближайший прогон; без сети прогоны
+     * ждут констрейнта.
+     */
+    fun requestPush() {
+        workManager.enqueueUniqueWork(
+            ONE_TIME,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<CaldavSyncWorker>()
+                .setInitialDelay(5, TimeUnit.SECONDS)
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build(),
+                )
+                .build(),
+        )
+    }
+
     fun cancelPeriodic() {
         workManager.cancelUniqueWork(UNIQUE_WORK)
     }
@@ -72,5 +96,6 @@ class CaldavSyncScheduler @Inject constructor(@ApplicationContext private val co
     private companion object {
 
         const val UNIQUE_WORK = "caldav-sync"
+        const val ONE_TIME = "caldav-sync-onetime"
     }
 }

@@ -64,7 +64,15 @@
     <string name="sync_refresh">Обновить</string>
     <string name="sync_disconnect">Отключить</string>
     <string name="sync_disconnect_message">События этого календаря будут удалены из приложения (на сервере они останутся). Действие нельзя отменить.</string>
-    <string name="sync_result">Синхронизировано: добавлено %1$d, обновлено %2$d, удалено %3$d</string>
+    <string name="sync_result">Синхронизировано: добавлено %1$d, обновлено %2$d, удалено %3$d, отправлено %4$d</string>
+    <!-- Перезаписи last-write-wins: сервер применил свою более свежую правку —
+         локальная уступила; пользователь узнаёт об этом снеком (MainActivity). -->
+    <plurals name="sync_overwritten">
+        <item quantity="one">Сервер перезаписал %1$d правку</item>
+        <item quantity="few">Сервер перезаписал %1$d правки</item>
+        <item quantity="many">Сервер перезаписал %1$d правок</item>
+        <item quantity="other">Сервер перезаписал %1$d правок</item>
+    </plurals>
     <string name="sync_last_never">Ещё не синхронизировалось</string>
     <string name="sync_last_at">Последняя синхронизация: %1$s</string>
     <string name="sync_badge">Яндекс</string>

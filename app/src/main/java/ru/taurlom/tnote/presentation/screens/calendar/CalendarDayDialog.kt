@@ -110,18 +110,15 @@ fun CalendarDayDialog(
                     color = AppTheme.colors.dialogContent,
                 )
                 events.forEach { event ->
-                    // События Яндекс-календаря только для чтения: правятся
-                    // на сервере — в редактор и «удалить» они не попадают.
-                    val readOnly = event.caldavAccountId != null
+                    // Этап 2: события Яндекс-календаря правятся и удаляются
+                    // здесь же, а синк доезжает до сервера (If-Match/PUT,
+                    // tombstone/DELETE). Серверные перезаписи поверх наших
+                    // правок прилетают снеком через SyncOverwriteBus.
                     ScheduledEventRow(
                         event = event,
                         day = day,
-                        onClick = { if (!readOnly) editorTarget = event },
-                        onDelete = if (readOnly) {
-                            null
-                        } else {
-                            { onDeleteEvent(event) }
-                        },
+                        onClick = { editorTarget = event },
+                        onDelete = { onDeleteEvent(event) },
                     )
                 }
             }
@@ -187,13 +184,7 @@ fun CalendarDayDialog(
 
 /** Строка события в диалоге дня. Прошедшие события приглушены и зачёркнуты. */
 @Composable
-private fun ScheduledEventRow(
-    event: ScheduledEvent,
-    day: LocalDate,
-    onClick: () -> Unit,
-    // null — кнопка удаления не рисуется (событие Яндекса, read-only).
-    onDelete: (() -> Unit)?,
-) {
+private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: () -> Unit, onDelete: () -> Unit) {
     val isPast = remember(event, day) { event.isPastOccurrence(day) }
     val titleColor = if (isPast) AppTheme.colors.dialogContent.copy(alpha = 0.45f) else AppTheme.colors.dialogContent
 
@@ -232,14 +223,12 @@ private fun ScheduledEventRow(
             )
         }
 
-        onDelete?.let { delete ->
-            IconButton(onClick = delete) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete),
-                    contentDescription = stringResource(R.string.event_delete_description),
-                    tint = AppTheme.colors.dialogContent,
-                )
-            }
+        IconButton(onClick = onDelete) {
+            Icon(
+                painter = painterResource(R.drawable.ic_delete),
+                contentDescription = stringResource(R.string.event_delete_description),
+                tint = AppTheme.colors.dialogContent,
+            )
         }
     }
 }

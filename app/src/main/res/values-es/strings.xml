@@ -49,7 +49,13 @@
     <string name="sync_refresh">Actualizar</string>
     <string name="sync_disconnect">Desconectar</string>
     <string name="sync_disconnect_message">Los eventos de este calendario se eliminarán de la app (permanecerán en el servidor). No se puede deshacer.</string>
-    <string name="sync_result">Sincronizado: %1$d añadidos, %2$d actualizados, %3$d eliminados</string>
+    <string name="sync_result">Sincronizado: %1$d añadidos, %2$d actualizados, %3$d eliminados, %4$d enviados</string>
+    <!-- Sobrescrituras last-write-wins: el servidor aplicó su edición más
+         reciente en lugar de la local; se avisa con un snackbar (MainActivity). -->
+    <plurals name="sync_overwritten">
+        <item quantity="one">El servidor sobrescribió %1$d cambio</item>
+        <item quantity="other">El servidor sobrescribió %1$d cambios</item>
+    </plurals>
     <string name="sync_last_never">Todavía sin sincronizar</string>
     <string name="sync_last_at">Última sincronización: %1$s</string>
     <string name="sync_badge">Yandex</string>

@@ -2,7 +2,10 @@ package ru.taurlom.tnote.data.repository
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import ru.taurlom.tnote.data.local.CaldavDao
+import ru.taurlom.tnote.data.local.CaldavTombstoneDao
 import ru.taurlom.tnote.data.local.ScheduledEventDao
 import ru.taurlom.tnote.data.local.entity.CaldavAccountEntity
 import ru.taurlom.tnote.data.mapper.toDomain
@@ -10,6 +13,7 @@ import ru.taurlom.tnote.data.security.PasswordStore
 import ru.taurlom.tnote.data.sync.CaldavApi
 import ru.taurlom.tnote.data.sync.CaldavSyncEngine
 import ru.taurlom.tnote.data.sync.CaldavSyncScheduler
+import ru.taurlom.tnote.data.sync.SyncOverwriteBus
 import ru.taurlom.tnote.data.sync.SyncTransaction
 import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
@@ -22,18 +26,28 @@ import javax.inject.Singleton
 /**
  * CalDAV-репозиторий: мост между настройками (UI), сетевым клиентом,
  * движком и таблицами БД. Пароль ходит только через [PasswordStore].
- * Подключение/отключение заведует также периодическим воркером.
+ * Подключение/отключение заведует также периодическим воркером, а прогон
+ * синка анонсирует перезаписи через [SyncOverwriteBus] («не молча»).
  */
 @Singleton
 class CaldavRepositoryImpl @Inject constructor(
     private val caldavDao: CaldavDao,
     private val scheduledEventDao: ScheduledEventDao,
+    private val tombstoneDao: CaldavTombstoneDao,
     private val api: CaldavApi,
     private val engine: CaldavSyncEngine,
     private val passwordStore: PasswordStore,
     private val scheduler: CaldavSyncScheduler,
     private val tx: SyncTransaction,
 ) : CaldavRepository {
+
+    /**
+     * Периодический и экспедированный воркеры могут сработать почти
+     * одновременно: два движка поверх одной коллекции — гонка вычитки
+     * и постановки. Сериализуем на мьютексе; транзакции Room порядок
+     * сами не дадут перепутать, но double-pull между ними возможен.
+     */
+    private val syncLock = Mutex()
 
     override fun observeAccounts(): Flow<List<CaldavAccount>> = caldavDao.observeAll().map { list -> list.map { it.toDomain() } }
 
@@ -68,6 +82,10 @@ class CaldavRepositoryImpl @Inject constructor(
         val account = caldavDao.getById(accountId) ?: return
         tx.inTransaction {
             scheduledEventDao.deleteByCaldavAccount(accountId)
+            // Tombstones этого аккаунта гасятся вместе с подпиской: его
+            // события остаются на сервере, а очередь DELETE без подписки
+            // превращается в мусор, который некому исполнить.
+            tombstoneDao.deleteAllFor(accountId)
             caldavDao.deleteById(accountId)
         }
         // Пароль хранится по username: другие подписки этого аккаунта остаются.
@@ -82,7 +100,11 @@ class CaldavRepositoryImpl @Inject constructor(
         val password = passwordStore.read(account.username)
             ?: throw CaldavSyncException.Auth("Пароль для ${account.username} не сохранён")
         return try {
-            engine.sync(account, password)
+            // Перезаписи («сервер новее») анонсируются после удачного прогона:
+            // пользователь должен увидеть это на любом экране, а не только
+            // в настройках.
+            syncLock.withLock { engine.sync(account, password) }
+                .also { SyncOverwriteBus.report(it.overwritten) }
         } catch (e: CaldavSyncException) {
             caldavDao.markFailed(account.id, e.message)
             throw e
