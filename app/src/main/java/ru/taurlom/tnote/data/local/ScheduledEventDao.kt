@@ -54,14 +54,38 @@ interface ScheduledEventDao {
     @Query("SELECT * FROM scheduled_events WHERE uid = :uid LIMIT 1")
     suspend fun getByUid(uid: String): ScheduledEventEntity?
 
-    /** Импортированные этим аккаунтом события больше не на сервере. */
+    /** Импортированные этим аккаунтом события больше не на сервере.
+     *  dirty-строки исключены: локальная правка репетирует PUT и
+     *  воскресит объект сама — здесь её удалять нельзя. */
     @Query(
         "DELETE FROM scheduled_events WHERE caldavAccountId = :accountId " +
-            "AND uid NOT IN (:uids)",
+            "AND dirty = 0 AND uid NOT IN (:uids)",
     )
     suspend fun deleteNotInUids(accountId: Long, uids: List<String>): Int
 
     /** Все события источника — при отключении аккаунта. */
     @Query("DELETE FROM scheduled_events WHERE caldavAccountId = :accountId")
     suspend fun deleteByCaldavAccount(accountId: Long): Int
+
+    /** События дня (одноразово) — перед удалением дня: собирать tombstones. */
+    @Query("SELECT * FROM scheduled_events WHERE eventDate = :date")
+    suspend fun getByDateOnce(date: String): List<ScheduledEventEntity>
+
+    /** Все события с привязкой к CalDAV — tombstones при полной чистке. */
+    @Query("SELECT * FROM scheduled_events WHERE caldavAccountId IS NOT NULL")
+    suspend fun getAttributed(): List<ScheduledEventEntity>
+
+    /** Ждут PUT: события, приписанные этому аккаунту (атрибуция — у репозитория). */
+    @Query(
+        "SELECT * FROM scheduled_events WHERE dirty = 1 " +
+            "AND caldavAccountId = :accountId " +
+            "ORDER BY id ASC",
+    )
+    suspend fun getDirtyFor(accountId: Long): List<ScheduledEventEntity>
+
+    /** PUT доехал: очередь чиста, ETag и href обновлены. */
+    @Query(
+        "UPDATE scheduled_events SET dirty = 0, etag = :etag, serverHref = :href WHERE id = :id",
+    )
+    suspend fun markPushed(id: Long, etag: String?, href: String)
 }

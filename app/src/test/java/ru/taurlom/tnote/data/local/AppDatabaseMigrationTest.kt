@@ -275,4 +275,45 @@ class AppDatabaseMigrationTest {
         }
         db.close()
     }
+
+    /**
+     * 22 → 23: очередь двустороннего обмена. Существующие события получают
+     * dirty = 0 и пустые etag/serverHref — до первой правки отправлять нечего;
+     * таблица caldav_tombstones принимает строку отложенного удаления.
+     */
+    @Test
+    fun `migrate 22 to 23 adds push queue fields and tombstones`() {
+        helper.createDatabase(22).use { db ->
+            // Событие позднего этапа 1: с exdates и меткой правки.
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position) " +
+                    "VALUES (1, 'uid-1', '2026-11-16', 'Полив', 'REPEATING', 'NOTE', 0, " +
+                    "'WEEKS', 1, 'MO', NULL, NULL, 0, 0)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            23,
+            listOf(AppDatabaseMigration.MIGRATION_22_23),
+        )
+        // Событие пережило миграцию: очередь пуста, ETag/href неизвестны.
+        db.prepare("SELECT dirty, etag, serverHref FROM scheduled_events WHERE id = 1").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(0L, stmt.getLong(0))
+            assertTrue(stmt.isNull(1))
+            assertTrue(stmt.isNull(2))
+        }
+        // Таблица tombstones принимает строку отложенного удаления.
+        db.prepare(
+            "INSERT INTO caldav_tombstones (uid, accountId, href, etag, deletedAt) " +
+                "VALUES ('uid-2', 1, '/calendars/x/uid-2.ics', '\"e2\"', 42)",
+        ).use { it.step() }
+        db.prepare("SELECT accountId, href FROM caldav_tombstones WHERE uid = 'uid-2'").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(1L, stmt.getLong(0))
+            assertEquals("/calendars/x/uid-2.ics", stmt.getText(1))
+        }
+        db.close()
+    }
 }

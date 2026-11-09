@@ -3,6 +3,7 @@ package ru.taurlom.tnote.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import ru.taurlom.tnote.data.local.entity.CaldavAccountEntity
+import ru.taurlom.tnote.data.local.entity.CaldavTombstoneEntity
 import ru.taurlom.tnote.data.local.entity.CalendarNoteEntity
 import ru.taurlom.tnote.data.local.entity.CategoryEntity
 import ru.taurlom.tnote.data.local.entity.DocumentEntity
@@ -19,12 +20,13 @@ import ru.taurlom.tnote.data.local.entity.TaskEntity
         CalendarNoteEntity::class,
         ScheduledEventEntity::class,
         CaldavAccountEntity::class,
+        CaldavTombstoneEntity::class,
         DocumentEntity::class,
         DocumentPhotoEntity::class,
         NoteEntity::class,
         NotePhotoEntity::class,
     ],
-    version = 22,
+    version = 23,
     // Схемы экспортируются в app/schemas (см. ksp-аргумент в build.gradle.kts).
     exportSchema = true,
 )
@@ -48,6 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduledEventDao(): ScheduledEventDao
 
     abstract fun caldavDao(): CaldavDao
+    abstract fun caldavTombstoneDao(): CaldavTombstoneDao
     abstract fun documentDao(): DocumentDao
     abstract fun noteDao(): NoteDao
 }

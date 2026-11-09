@@ -42,6 +42,25 @@ data class ScheduledEventEntity(
     /** CalDAV-аккаунт-источник (null — локальное событие, см. ScheduledEvent). */
     val caldavAccountId: Long? = null,
 
+    /**
+     * Очередь двустороннего обмена (этап 2): локальная правка ещё не уехала
+     * на сервер (PUT). Ставится репозиторием при правке, снимается движком
+     * после успешного PUT.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val dirty: Boolean = false,
+    /**
+     * Последний известный ETag объекта — предусловие If-Match при PUT
+     * («не затри чужое»). Хранится как вернул сервер, вместе с кавычками.
+     */
+    val etag: String? = null,
+    /**
+     * Href объекта на сервере из REPORT («/calendars/…/<uid>.ics»): PUT/DELETE
+     * бьют по нему, а не выводят имя файла из UID — сервер мог назвать
+     * объект по-своему. null — событие ни разу не гуляло по серверу.
+     */
+    val serverHref: String? = null,
+
     /** Момент создания (epoch millis); null — унаследовано от старых версий. */
     val createdAt: Long? = null,
     /** Момент последней правки (epoch millis); null — унаследовано от старых версий. */

@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import ru.taurlom.tnote.data.local.AppDatabase
 import ru.taurlom.tnote.data.local.AppDatabaseMigration
 import ru.taurlom.tnote.data.local.CaldavDao
+import ru.taurlom.tnote.data.local.CaldavTombstoneDao
 import ru.taurlom.tnote.data.local.CalendarNoteDao
 import ru.taurlom.tnote.data.local.CategoryDao
 import ru.taurlom.tnote.data.local.DocumentDao
@@ -47,6 +48,7 @@ object DatabaseModule {
             AppDatabaseMigration.MIGRATION_19_20,
             AppDatabaseMigration.MIGRATION_20_21,
             AppDatabaseMigration.MIGRATION_21_22,
+            AppDatabaseMigration.MIGRATION_22_23,
         )
         // Никакого destructive fallback: отсутствие миграции должно падать
         // loudly на этапе разработки, а не молча стирать пользовательские данные.
@@ -66,6 +68,9 @@ object DatabaseModule {
 
     @Provides
     fun provideCaldavDao(database: AppDatabase): CaldavDao = database.caldavDao()
+
+    @Provides
+    fun provideCaldavTombstoneDao(database: AppDatabase): CaldavTombstoneDao = database.caldavTombstoneDao()
 
     @Provides
     fun provideDocumentDao(database: AppDatabase): DocumentDao = database.documentDao()

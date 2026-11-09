@@ -283,7 +283,36 @@ object AppDatabaseMigration {
         }
     }
 
-
+    /**
+     * 22 → 23: очередь двустороннего обмена CalDAV (этап 2). Событиям
+     * добавляются: флаг dirty («локальная правка ждёт PUT»), etag (предусловие
+     * If-Match) и serverHref (адрес объекта — не выводить имя файла из UID).
+     * Удаления гуляют через таблицу caldav_tombstones: без неё pull вернул бы
+     * удалённое пользователем событие при первой же вычитке. Все колонки
+     * пустые/нулевые — до первой правки событию нечего отправлять.
+     */
+    val MIGRATION_22_23 = object : Migration(22, 23) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN etag TEXT")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN serverHref TEXT")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS caldav_tombstones (
+                    uid TEXT NOT NULL PRIMARY KEY,
+                    accountId INTEGER NOT NULL,
+                    href TEXT,
+                    etag TEXT,
+                    deletedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_caldav_tombstones_accountId " +
+                    "ON caldav_tombstones(accountId)",
+            )
+        }
+    }
 
     /** Добавляет в scheduled_events настройки повторения. */
     val MIGRATION_11_12 = object : Migration(11, 12) {
