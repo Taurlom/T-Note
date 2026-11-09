@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
@@ -23,7 +24,8 @@ class GetEventsForDateUseCaseTest {
         date = anchor,
         title = "Повтор $id",
         type = ScheduledEventType.REPEATING,
-        repeatIntervalDays = interval,
+        repeatUnit = RepeatUnit.DAYS,
+        repeatInterval = interval,
         hidePastOccurrences = hidePast,
     )
 

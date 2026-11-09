@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.EventIcon
+import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.presentation.theme.AppTheme
@@ -56,6 +57,16 @@ val ScheduledEventType.labelRes: Int
         ScheduledEventType.BIRTHDAY -> R.string.event_type_birthday
         ScheduledEventType.REPEATING -> R.string.event_type_repeating
         ScheduledEventType.WEEKEND -> R.string.event_type_weekend
+    }
+
+/** Название частоты повторения — меню как в Яндексе («Каждый день»…). */
+@get:StringRes
+val RepeatUnit.labelRes: Int
+    get() = when (this) {
+        RepeatUnit.DAYS -> R.string.repeat_freq_daily
+        RepeatUnit.WEEKS -> R.string.repeat_freq_weekly
+        RepeatUnit.MONTHS -> R.string.repeat_freq_monthly
+        RepeatUnit.YEARS -> R.string.repeat_freq_yearly
     }
 
 /** Drawable для иконки обычного события (отображается под числом в календаре). */

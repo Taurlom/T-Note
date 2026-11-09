@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,4 +14,11 @@ data class CalendarNoteEntity(
     @PrimaryKey
     val eventDate: String,
     val text: String,
+
+    /** Момент создания (epoch millis); 0 — унаследовано от старых версий. */
+    @ColumnInfo(defaultValue = "0")
+    val createdAt: Long = 0,
+    /** Момент последней правки (epoch millis); 0 — унаследовано от старых версий. */
+    @ColumnInfo(defaultValue = "0")
+    val modifiedAt: Long = 0,
 )

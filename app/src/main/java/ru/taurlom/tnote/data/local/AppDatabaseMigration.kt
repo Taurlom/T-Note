@@ -207,6 +207,84 @@ object AppDatabaseMigration {
         }
     }
 
+    /**
+     * Повторения как в RRULE (RFC 5545) с интерфейсом как в Яндексе:
+     * частота DAYS/WEEKS/MONTHS/YEARS, интервал «каждые N», дни недели
+     * для недельных и дата-ограничитель «повторять до» вместо окна в днях.
+     * Старые поля переводятся: repeatIntervalDays → частота DAYS с тем же
+     * интервалом, окно repeatDays → repeatUntil (якорь + окно − 1 день).
+     * Пересоздание таблицы вместо DROP COLUMN: на Android < 13 SQLite его
+     * не поддерживает.
+     */
+    val MIGRATION_20_21 = object : Migration(20, 21) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_events_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    uid TEXT NOT NULL DEFAULT '',
+                    eventDate TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    icon TEXT NOT NULL DEFAULT 'NOTE',
+                    colorArgb INTEGER NOT NULL DEFAULT 0,
+                    repeatUnit TEXT,
+                    repeatInterval INTEGER NOT NULL DEFAULT 1,
+                    repeatWeekdays TEXT,
+                    repeatUntil TEXT,
+                    hidePast INTEGER NOT NULL DEFAULT 0,
+                    position INTEGER NOT NULL,
+                    caldavAccountId INTEGER
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "INSERT INTO scheduled_events_new (id, uid, eventDate, title, type, icon, colorArgb, " +
+                    "repeatUnit, repeatInterval, repeatWeekdays, repeatUntil, hidePast, position, caldavAccountId) " +
+                    "SELECT id, uid, eventDate, title, type, icon, colorArgb, " +
+                    "CASE WHEN type = 'REPEATING' THEN 'DAYS' END, " +
+                    "COALESCE(repeatIntervalDays, 1), " +
+                    "NULL, " +
+                    "CASE WHEN type = 'REPEATING' AND repeatDays > 0 " +
+                    "THEN date(eventDate, '+' || CAST(repeatDays - 1 AS TEXT) || ' days') END, " +
+                    "hidePast, position, caldavAccountId FROM scheduled_events",
+            )
+            db.execSQL("DROP TABLE scheduled_events")
+            db.execSQL("ALTER TABLE scheduled_events_new RENAME TO scheduled_events")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_events_eventDate " +
+                    "ON scheduled_events(eventDate)",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_scheduled_events_uid " +
+                    "ON scheduled_events(uid)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_scheduled_events_caldavAccountId " +
+                    "ON scheduled_events(caldavAccountId)",
+            )
+        }
+    }
+
+    /**
+     * 21 → 22: отменённые вхождения (EXDATE) и метки времени для будущего
+     * разрешения конфликтов CalDAV-этапа 2 («последняя правка побеждает»).
+     * Событию — nullable-колонки (null — момент неизвестен), заметке дня —
+     * 0-умолчания: заметки вне синхронизации, там важнее не сломать старые
+     * бэкапы, а факт «время неизвестно» различать не нужно.
+     */
+    val MIGRATION_21_22 = object : Migration(21, 22) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN exdates TEXT")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN createdAt INTEGER")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN modifiedAt INTEGER")
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN modifiedAt INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+
+
     /** Добавляет в scheduled_events настройки повторения. */
     val MIGRATION_11_12 = object : Migration(11, 12) {
         override fun migrate(db: SupportSQLiteDatabase) {

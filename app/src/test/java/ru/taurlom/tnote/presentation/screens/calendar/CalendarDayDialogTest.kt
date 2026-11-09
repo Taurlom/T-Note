@@ -3,6 +3,7 @@ package ru.taurlom.tnote.presentation.screens.calendar
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.LocalDate
@@ -17,7 +18,8 @@ class CalendarDayDialogTest {
         date = anchor,
         title = "Тест",
         type = ScheduledEventType.REPEATING,
-        repeatIntervalDays = 1,
+        repeatUnit = RepeatUnit.DAYS,
+        repeatInterval = 1,
     )
 
     // Обычные события: день показа совпадает с датой события.

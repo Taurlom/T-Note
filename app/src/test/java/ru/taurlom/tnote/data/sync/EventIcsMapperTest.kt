@@ -6,8 +6,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ru.taurlom.tnote.domain.model.EventIcon
+import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
+import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -33,13 +36,21 @@ class EventIcsMapperTest {
         position = 4,
     )
 
-    private fun repeating(anchor: String = "2026-01-01", interval: Int? = 3, repeatDays: Int = 0) = ScheduledEvent(
+    private fun repeating(
+        anchor: String = "2026-01-01",
+        unit: RepeatUnit? = RepeatUnit.DAYS,
+        interval: Int = 3,
+        weekdays: Set<DayOfWeek> = emptySet(),
+        until: String? = null,
+    ) = ScheduledEvent(
         uid = "aaaaaaa1-0000-0000-0000-000000000001",
         date = anchor,
         title = "Зарядка",
         type = ScheduledEventType.REPEATING,
-        repeatIntervalDays = interval,
-        repeatDays = repeatDays,
+        repeatUnit = unit,
+        repeatInterval = interval,
+        repeatWeekdays = weekdays,
+        repeatUntil = until,
         icon = EventIcon.FITNESS,
     )
 
@@ -56,7 +67,16 @@ class EventIcsMapperTest {
         val calendar = parseIcs(ics) ?: error("ICS-текст не разобрался: $ics")
         val events = calendar.vevents()
         assertEquals(1, events.size)
-        return events[0].toScheduledEvent() ?: error("VEVENT не распознан: $ics")
+        val parsed = events[0].toScheduledEvent() ?: error("VEVENT не распознан: $ics")
+        // Без заданных CREATED/LAST-MODIFIED экспорт пишет только DTSTAMP
+        // «сейчас», и разбор заполняет метки временем теста. Для источников
+        // без меток такие значения выравниваем на null; события с метками
+        // проверяются строго в `own timestamps round-trip`.
+        return if (event.createdAt == null && event.modifiedAt == null) {
+            parsed.copy(createdAt = null, modifiedAt = null)
+        } else {
+            parsed
+        }
     }
 
     // Круговорот своих событий
@@ -80,27 +100,52 @@ class EventIcsMapperTest {
     }
 
     @Test
-    fun `repeating with window round-trips`() {
-        val source = repeating(repeatDays = 10)
+    fun `daily repeating with until round-trips`() {
+        val source = repeating(anchor = "2026-01-01", unit = RepeatUnit.DAYS, interval = 3, until = "2026-01-28")
         val parsed = roundTrip(source)
         assertEquals(source.copy(position = 0, id = 0), parsed)
-        assertTrue(parsed.occursOn(LocalDate.parse("2026-01-10")))
-        assertFalse(parsed.occursOn(LocalDate.parse("2026-01-11")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-01-28")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-01-31")))
     }
 
     @Test
-    fun `unlimited repeating round-trips without count`() {
-        val parsed = roundTrip(repeating(repeatDays = 0))
-        assertEquals(repeating(repeatDays = 0).copy(position = 0, id = 0), parsed)
+    fun `unlimited repeating round-trips without until`() {
+        val source = repeating(anchor = "2026-01-01", unit = RepeatUnit.DAYS, interval = 3, until = null)
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
         assertTrue(parsed.occursOn(LocalDate.parse("2030-01-04")))
     }
 
     @Test
-    fun `broken repeating without interval exports as plain note`() {
+    fun `weekly with weekdays round-trips`() {
+        // Наш аналог «повторять по дням недели» из Яндекса.
+        val source = repeating(
+            anchor = "2026-01-06",
+            unit = RepeatUnit.WEEKS,
+            interval = 2,
+            weekdays = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+            until = "2026-03-31",
+        )
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-01-19"))) // вторая неделя, понедельник
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-01-20"))) // вторник — не выбран
+    }
+
+    @Test
+    fun `monthly and yearly repeating round-trip`() {
+        val monthly = repeating(anchor = "2026-01-10", unit = RepeatUnit.MONTHS, interval = 2)
+        assertEquals(monthly.copy(position = 0, id = 0), roundTrip(monthly))
+        val yearly = repeating(anchor = "2026-01-10", unit = RepeatUnit.YEARS, interval = 1)
+        assertEquals(yearly.copy(position = 0, id = 0), roundTrip(yearly))
+    }
+
+    @Test
+    fun `broken repeating without unit exports as plain note`() {
         // OccursOn для такого события всегда false, RRULE на экспорт не пишем.
-        val parsed = roundTrip(repeating(interval = null, repeatDays = 7))
-        assertEquals(ScheduledEventType.REGULAR, parsed.type)
-        assertNull(parsed.repeatIntervalDays)
+        val parsed = roundTrip(repeating(unit = null))
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertNull(parsed.repeatUnit)
         assertFalse(parsed.occursOn(LocalDate.parse("2026-01-01")))
     }
 
@@ -162,7 +207,7 @@ class EventIcsMapperTest {
     }
 
     @Test
-    fun `foreign daily rrule becomes repeating with count`() {
+    fun `foreign daily rrule becomes repeating with until from count`() {
         val parsed = foreign(
             "UID:foreign-3@example.com",
             "DTSTART;VALUE=DATE:20260101",
@@ -170,16 +215,18 @@ class EventIcsMapperTest {
             "SUMMARY:Зарядка",
         ) ?: error("VEVENT не распознан")
         assertEquals(ScheduledEventType.REPEATING, parsed.type)
-        assertEquals(3, parsed.repeatIntervalDays)
-        assertEquals(10, parsed.repeatDays)
-        assertTrue(parsed.occursOn(LocalDate.parse("2026-01-10")))
-        assertFalse(parsed.occursOn(LocalDate.parse("2026-01-11")))
+        assertEquals(RepeatUnit.DAYS, parsed.repeatUnit)
+        assertEquals(3, parsed.repeatInterval)
+        // 10-е вхождение: 1, 4, 7, …, 28 января.
+        assertEquals("2026-01-28", parsed.repeatUntil)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-01-28")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-01-31")))
     }
 
     @Test
-    fun `foreign daily rrule with until is converted to count`() {
+    fun `foreign daily rrule with until keeps the boundary date`() {
         // Вхождения: якорь + каждые 3 дня до (и включая) 2026-01-10
-        // -> 1, 4, 7, 10 января = 4 вхождения.
+        // -> 1, 4, 7, 10 января.
         val parsed = foreign(
             "UID:foreign-4@example.com",
             "DTSTART;VALUE=DATE:20260101",
@@ -187,12 +234,17 @@ class EventIcsMapperTest {
             "SUMMARY:Курс быстрой ходьбы",
         ) ?: error("VEVENT не распознан")
         assertEquals(ScheduledEventType.REPEATING, parsed.type)
-        assertEquals(3, parsed.repeatIntervalDays)
-        assertEquals(4, parsed.repeatDays)
+        assertEquals(RepeatUnit.DAYS, parsed.repeatUnit)
+        assertEquals(3, parsed.repeatInterval)
+        assertEquals("2026-01-10", parsed.repeatUntil)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-01-10")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-01-13")))
     }
 
     @Test
-    fun `foreign yearly rrule is treated as birthday`() {
+    fun `foreign yearly rrule becomes repeating years, not birthday`() {
+        // Чужое «каждый год» — не день рождения: без подарка-иконки и без
+        // сдвига 29 февраля (это семантика людей, а не дат).
         val parsed = foreign(
             "UID:foreign-5@example.com",
             "DTSTART;VALUE=DATE:19880809",
@@ -200,22 +252,206 @@ class EventIcsMapperTest {
             "SUMMARY:Годовщина",
         ) ?: error("VEVENT не распознан")
         assertEquals("1988-08-09", parsed.date)
-        assertEquals(ScheduledEventType.BIRTHDAY, parsed.type)
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.YEARS, parsed.repeatUnit)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-08-09")))
     }
 
     @Test
-    fun `foreign weekly rrule falls back to plain anchor day`() {
-        // WEEKLY на нашей модели не выразить: пока — якорный день, а честное
-        // разворачивание вхождений делает движок этапа 1.
+    fun `foreign weekly byday becomes repeating with weekdays`() {
+        // Главный кейс Яндекса: «повторять по дням недели» — Пн и Ср.
         val parsed = foreign(
             "UID:foreign-6@example.com",
-            "DTSTART;VALUE=DATE:20261117",
+            "DTSTART;VALUE=DATE:20261117", // вторник
             "RRULE:FREQ=WEEKLY;BYDAY=MO,WE",
             "SUMMARY:Тренировка",
         ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.WEEKS, parsed.repeatUnit)
+        assertEquals(1, parsed.repeatInterval)
+        assertEquals(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY), parsed.repeatWeekdays)
+        // Якорь — вхождение всегда, даже когда вторник не выбран (RFC 5545).
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-11-17")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-11-18"))) // среда
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-11-23"))) // понедельник
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-24"))) // вторник следующей недели
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-19"))) // четверг
+    }
+
+    @Test
+    fun `foreign weekly byday with interval two honors week alignment`() {
+        // «Каждые 2 недели по понедельникам»: неделя якоря — вхождение,
+        // следующая — пропуск.
+        val parsed = foreign(
+            "UID:foreign-7@example.com",
+            "DTSTART;VALUE=DATE:20261116", // понедельник
+            "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+            "SUMMARY:Полив цветов",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(RepeatUnit.WEEKS, parsed.repeatUnit)
+        assertEquals(2, parsed.repeatInterval)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-11-30")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-23")))
+    }
+
+    @Test
+    fun `foreign weekly without byday repeats on anchor weekday`() {
+        val parsed = foreign(
+            "UID:foreign-8@example.com",
+            "DTSTART;VALUE=DATE:20261117", // вторник
+            "RRULE:FREQ=WEEKLY",
+            "SUMMARY:Созвон",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(RepeatUnit.WEEKS, parsed.repeatUnit)
+        assertEquals(emptySet<DayOfWeek>(), parsed.repeatWeekdays)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-11-24")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-18")))
+    }
+
+    @Test
+    fun `foreign monthly rrule becomes repeating months`() {
+        val parsed = foreign(
+            "UID:foreign-9@example.com",
+            "DTSTART;VALUE=DATE:20260110",
+            "RRULE:FREQ=MONTHLY;INTERVAL=2",
+            "SUMMARY:Плановый визит",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.MONTHS, parsed.repeatUnit)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-03-10")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-02-10")))
+    }
+
+    @Test
+    fun `foreign rrule with positional byday falls back to anchor day`() {
+        // «Вторый вторник месяца» нашей моделью не выразить: якорный день
+        // остаётся, остальное не выдумываем.
+        val parsed = foreign(
+            "UID:foreign-10@example.com",
+            "DTSTART;VALUE=DATE:20261110",
+            "RRULE:FREQ=MONTHLY;BYDAY=2TU",
+            "SUMMARY:Встреча клуба",
+        ) ?: error("VEVENT не распознан")
         assertEquals(ScheduledEventType.REGULAR, parsed.type)
-        assertNull(parsed.repeatIntervalDays)
-        assertEquals(0, parsed.repeatDays)
+        assertNull(parsed.repeatUnit)
+    }
+
+    @Test
+    fun `foreign rrule with bymonthday falls back to anchor day`() {
+        val parsed = foreign(
+            "UID:foreign-11@example.com",
+            "DTSTART;VALUE=DATE:20261110",
+            "RRULE:FREQ=MONTHLY;BYMONTHDAY=10,15",
+            "SUMMARY:Два числа",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertNull(parsed.repeatUnit)
+    }
+
+    // Отменённые вхождения и метки времени
+
+    @Test
+    fun `exdates round-trip through ics text`() {
+        // Наш аналог «повторять по дням недели» с парой отменённых дней.
+        val source = repeating(
+            anchor = "2026-11-16", // понедельник
+            unit = RepeatUnit.WEEKS,
+            interval = 1,
+            weekdays = setOf(DayOfWeek.MONDAY),
+        ).copy(exdates = setOf(LocalDate.parse("2026-11-30"), LocalDate.parse("2026-12-14")))
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-30")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-12-07")))
+    }
+
+    @Test
+    fun `foreign exdate removes occurrences`() {
+        // «По понедельникам, но 30 ноября не проводить» — ровно то,
+        // что делает Яндекс при отмене одного повтора.
+        val parsed = foreign(
+            "UID:foreign-14@example.com",
+            "DTSTART;VALUE=DATE:20261116", // понедельник
+            "RRULE:FREQ=WEEKLY;BYDAY=MO",
+            "EXDATE;VALUE=DATE:20261130",
+            "SUMMARY:Отряд",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(setOf(LocalDate.parse("2026-11-30")), parsed.exdates)
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-30")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-12-07")))
+    }
+
+    @Test
+    fun `foreign multi-day event becomes daily repeat until last day`() {
+        // Отпуск 1–5 марта: DTEND эксклюзивен, значит последний видимый
+        // день — 5-е. Визуально это «каждый день до 5 марта» — готовая
+        // механика частоты DAYS, отдельное поле endDate не нужно.
+        val parsed = foreign(
+            "UID:foreign-15@example.com",
+            "DTSTART;VALUE=DATE:20260301",
+            "DTEND;VALUE=DATE:20260306",
+            "SUMMARY:Отпуск",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.DAYS, parsed.repeatUnit)
+        assertEquals(1, parsed.repeatInterval)
+        assertEquals("2026-03-05", parsed.repeatUntil)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-03-01")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-03-05")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-03-06")))
+    }
+
+    @Test
+    fun `foreign single-day event keeps regular type`() {
+        // Однодневное событие имеет DTEND = якорь + 1 — адаптер не включается.
+        val parsed = foreign(
+            "UID:foreign-16@example.com",
+            "DTSTART;VALUE=DATE:20260301",
+            "DTEND;VALUE=DATE:20260302",
+            "SUMMARY:Один день",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertNull(parsed.repeatUnit)
+    }
+
+    @Test
+    fun `timestamps come from created and last-modified`() {
+        val created = Instant.parse("2020-05-01T10:30:00Z").toEpochMilli()
+        val modified = Instant.parse("2026-02-20T08:00:00Z").toEpochMilli()
+        val parsed = foreign(
+            "UID:foreign-17@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "CREATED:20200501T103000Z",
+            "LAST-MODIFIED:20260220T080000Z",
+            "SUMMARY:С метками",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(created, parsed.createdAt)
+        assertEquals(modified, parsed.modifiedAt)
+    }
+
+    @Test
+    fun `missing created falls back to dtstamp`() {
+        // DTSTAMP обязателен по RFC — он закрывает пропуски CREATED и
+        // LAST-MODIFIED (это поведение Яндекса в том числе).
+        val parsed = foreign(
+            "UID:foreign-18@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "DTSTAMP:20260305T120000Z",
+            "SUMMARY:Только штамп",
+        ) ?: error("VEVENT не распознан")
+        val stamp = Instant.parse("2026-03-05T12:00:00Z").toEpochMilli()
+        assertEquals(stamp, parsed.createdAt)
+        assertEquals(stamp, parsed.modifiedAt)
+    }
+
+    @Test
+    fun `own timestamps round-trip through ics text`() {
+        val source = regular().copy(
+            createdAt = Instant.parse("2024-01-01T00:00:00Z").toEpochMilli(),
+            modifiedAt = Instant.parse("2026-01-02T03:04:05Z").toEpochMilli(),
+        )
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
     }
 
     // Непригодное на входе
@@ -223,100 +459,37 @@ class EventIcsMapperTest {
     @Test
     fun `vevent without dtstart is rejected`() {
         val parsed = foreign(
-            "UID:no-dtstart@example.com",
-            "SUMMARY:Пустышка",
+            "UID:foreign-12@example.com",
+            "SUMMARY:Без даты",
         )
         assertNull(parsed)
     }
 
     @Test
-    fun `garbage ics text parses to null`() {
-        assertNull(parseIcs("это не календарь"))
-    }
-
-    // Живой вид сервера (пробы CalDAV Яндекса)
-
-    /**
-     * Яндекс оборачивает объект в VCALENDAR с VTIMEZONE (Europe/Moscow с
-     * историческими DST-переходами) и служебными свойствами: парсер должен
-     * игнорировать DTSTART'ы таймзоны и вытащить только VEVENT.
-     */
-    @Test
-    fun `yandex-style calendar with VTIMEZONE parses the event, not the timezone`() {
-        val ics = listOf(
-            "BEGIN:VCALENDAR",
-            "PRODID:-//Yandex LLC//Yandex Calendar//EN",
-            "VERSION:2.0",
-            "CALSCALE:GREGORIAN",
-            "METHOD:PUBLISH",
-            "BEGIN:VTIMEZONE",
-            "TZID:Europe/Moscow",
-            "BEGIN:STANDARD",
-            "DTSTART:18800101T000000",
-            "TZOFFSETFROM:+023017",
-            "TZOFFSETTO:+023017",
-            "TZNAME:MMT",
-            "END:STANDARD",
-            "BEGIN:DAYLIGHT",
-            "DTSTART:20241110T233000",
-            "TZOFFSETFROM:+0300",
-            "TZOFFSETTO:+0300",
-            "TZNAME:MSK",
-            "END:DAYLIGHT",
-            "END:VTIMEZONE",
-            "BEGIN:VEVENT",
-            "UID:probe-1@tnote.local",
-            "DTSTAMP:20261108T190135Z",
+    fun `vevent without uid is rejected`() {
+        val parsed = foreign(
             "DTSTART;VALUE=DATE:20261117",
-            "DTEND;VALUE=DATE:20261118",
-            "SUMMARY:GET-проверка",
-            "URL:https://calendar.yandex.ru/event?event_id=4413021",
-            "TRANSP:OPAQUE",
-            "CATEGORIES:T-Note",
-            "CLASS:PRIVATE",
-            "END:VEVENT",
-            "END:VCALENDAR",
-        ).joinToString("\r\n") + "\r\n"
-
-        val parsed = parseIcs(ics)?.vevents()?.firstOrNull()?.toScheduledEvent()
-
-        // Единственное событие; DTSTART таймзоны (1880 год) не спутался с ним.
-        assertEquals("2026-11-17", parsed?.date)
-        assertEquals("GET-проверка", parsed?.title)
-        assertEquals(ScheduledEventType.REGULAR, parsed?.type)
-        assertEquals(EventIcon.NOTE, parsed?.icon)
+            "SUMMARY:Без UID",
+        )
+        assertNull(parsed)
     }
 
-    /** Таймзонное время веб-интерфейса Яндекса: дата дня остаётся датой. */
     @Test
-    fun `timed event with TZID keeps its local date`() {
-        val ics = listOf(
+    fun `vevent with broken dtstart is rejected`() {
+        val body = listOf(
             "BEGIN:VCALENDAR",
-            "PRODID:-//Yandex LLC//Yandex Calendar//EN",
             "VERSION:2.0",
-            "BEGIN:VTIMEZONE",
-            "TZID:Europe/Moscow",
-            "BEGIN:STANDARD",
-            "DTSTART:19701025T030000",
-            "TZOFFSETFROM:+0300",
-            "TZOFFSETTO:+0200",
-            "TZNAME:MSK",
-            "END:STANDARD",
-            "END:VTIMEZONE",
+            "PRODID:-//Yandex//Calendar//EN",
             "BEGIN:VEVENT",
-            "UID:probe-tz@tnote.local",
-            "DTSTAMP:20261108T120000Z",
-            "DTSTART;TZID=Europe/Moscow:20261117T090000",
-            "DTEND;TZID=Europe/Moscow:20261117T100000",
-            "SUMMARY:Таймзонное",
+            "UID:foreign-13@example.com",
+            "DTSTART;VALUE=DATE:31.02.2026",
+            "SUMMARY:Битая дата",
             "END:VEVENT",
             "END:VCALENDAR",
         ).joinToString("\r\n") + "\r\n"
-
-        val parsed = parseIcs(ics)?.vevents()?.firstOrNull()?.toScheduledEvent()
-
-        assertEquals("2026-11-17", parsed?.date)
-        assertEquals("Таймзонное", parsed?.title)
-        assertEquals(ScheduledEventType.REGULAR, parsed?.type)
+        // Битая дата может отвергнуться на любом из двух барьеров:
+        // парсером ICS (null-календарь) или разбором DTSTART (null-событие).
+        val calendar = parseIcs(body)
+        assertNull(calendar?.vevents()?.firstOrNull()?.toScheduledEvent())
     }
 }

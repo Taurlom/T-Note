@@ -4,12 +4,20 @@ import net.fortuna.ical4j.data.CalendarBuilder
 import net.fortuna.ical4j.data.CalendarOutputter
 import net.fortuna.ical4j.model.Calendar
 import net.fortuna.ical4j.model.Date
+import net.fortuna.ical4j.model.DateList
+import net.fortuna.ical4j.model.DateTime
 import net.fortuna.ical4j.model.Property
 import net.fortuna.ical4j.model.PropertyList
+import net.fortuna.ical4j.model.Recur
+import net.fortuna.ical4j.model.WeekDay
 import net.fortuna.ical4j.model.component.VEvent
+import net.fortuna.ical4j.model.parameter.Value
+import net.fortuna.ical4j.model.property.Created
 import net.fortuna.ical4j.model.property.DtEnd
 import net.fortuna.ical4j.model.property.DtStamp
 import net.fortuna.ical4j.model.property.DtStart
+import net.fortuna.ical4j.model.property.ExDate
+import net.fortuna.ical4j.model.property.LastModified
 import net.fortuna.ical4j.model.property.ProdId
 import net.fortuna.ical4j.model.property.RRule
 import net.fortuna.ical4j.model.property.Summary
@@ -17,13 +25,14 @@ import net.fortuna.ical4j.model.property.Uid
 import net.fortuna.ical4j.model.property.Version
 import net.fortuna.ical4j.model.property.XProperty
 import ru.taurlom.tnote.domain.model.EventIcon
+import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.io.ByteArrayOutputStream
 import java.io.StringReader
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 private const val PROP_TYPE = "X-TNOTE-TYPE"
 private const val PROP_ICON = "X-TNOTE-ICON"
@@ -34,6 +43,9 @@ private const val PROP_HIDE_PAST = "X-TNOTE-HIDEPAST"
 private const val PROD_ID = "-//T-Note//iCalendar 1.0//RU"
 
 private val icsDate = DateTimeFormatter.BASIC_ISO_DATE
+
+/** Защитный предел разворота COUNT (дней вперёд) — примерно 270 лет. */
+private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
 
 /**
  * Мост «событие T-Note ↔ iCalendar (VEVENT)» — фундамент CalDAV-синхронизации:
@@ -49,18 +61,28 @@ private val icsDate = DateTimeFormatter.BASIC_ISO_DATE
  *    а не с сервера;
  *  - цвет, иконка, тип и «прошлые вхождения скрыты» — нестандартные свойства
  *    X-TNOTE-*: сервер хранит их дословно, другие календарные клиенты игнорируют;
- *  - повторение: RRULE FREQ=DAILY;INTERVAL=N и COUNT=M — прямое отображение на
- *    наш якорь [ScheduledEvent.date], интервал и окно [ScheduledEvent.repeatDays];
- *    окно без ограничения (repeatDays = 0) экспортируется без COUNT;
+ *  - повторение: RRULE FREQ=DAILY/WEEKLY/MONTHLY/YEARLY;INTERVAL=N — прямое
+ *    отображение на наш якорь [ScheduledEvent.date], частоту и интервал; BYDAY
+ *    у WEEKLY — это выбранные дни недели (интерфейс повторения как в Яндексе);
+ *    дата-ограничитель — UNTIL (COUNT при разборе разворачивается в дату
+ *    последнего вхождения);
+ *  - EXDATE — отменённые вхождения повтора («5 марта отменено»): вычёркивают
+ *    даты из набора, включая якорную;
+ *  - многодневное чужое событие (DTEND на день позже якоря и больше) —
+ *    адаптируется в готовую механику «каждый день до последнего дня»
+ *    (частота DAYS, интервал 1, ограничитель DTEND − 1): визуально в сетке
+ *    это тот же непрерывный ряд дней, отдельное поле endDate не нужно;
+ *  - метки времени для конфликтов (этап 2, «последняя правка побеждает»):
+ *    CREATED → [ScheduledEvent.createdAt], LAST-MODIFIED →
+ *    [ScheduledEvent.modifiedAt]; без них — DTSTAMP (он обязателен по RFC);
  *  - день рождения: RRULE FREQ=YEARLY от полного якоря с годом; февральские 29
  *    и високосный год сводит модель (effectiveBirthdayDate), ICS не знает о них;
  *  - «выходной» (WEEKEND) — генерируемая отметка: наружу не экспортируется,
  *    на входе трактуется как REGULAR.
  *
- * Непредставимые своей моделью чужие RRULE (WEEKLY, BYMONTH и прочие правила)
- * разбираются как REGULAR на якорный день; честное разворачивание остальных
- * вхождений на срок вперед — работа движка синхронизации (вместе с EXDATE и
- * RECURRENCE-ID), это заготовка, а не финал.
+ * Непредставимые своей моделью чужие RRULE (BYDAY с позициями «вторый вторник
+ * месяца», BYMONTHDAY и прочие селекторы) разбираются как REGULAR на якорный
+ * день — без попытки угадать.
  *
  * VEVENT для CalDAV PUT. Битая якорная дата — исключение: движок перед
  * экспортом фильтрует строки, события с «2026-13-40» до PUT не доходят.
@@ -85,20 +107,33 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         properties.add(DtEnd(Date(anchor.plusDays(1).format(icsDate), "yyyyMMdd")))
         properties.add(Summary(title))
         // RRULE пишут повторения: «выходной» наружу вообще не ходит,
-        // и повторение без интервала повторить нечего — идёт без RRULE.
+        // и повторение без частоты повторить нечего — идёт без RRULE.
         if (type == ScheduledEventType.REPEATING) {
-            repeatIntervalDays?.takeIf { it > 0 }?.let { interval ->
-                val value = if (repeatDays > 0) {
-                    "FREQ=DAILY;INTERVAL=$interval;COUNT=$repeatDays"
-                } else {
-                    "FREQ=DAILY;INTERVAL=$interval"
-                }
-                properties.add(RRule(value))
+            repeatUnit?.let { unit ->
+                properties.add(RRule(recurValue(unit, anchor)))
             }
         }
         if (type == ScheduledEventType.BIRTHDAY) {
             properties.add(RRule("FREQ=YEARLY"))
         }
+        // EXDATE — отменённые вхождения повтора. Своим событиям отмены
+        // пока не прикладываются, набор копится только от сервера.
+        // Список обязан знать тип DATE, иначе даты сериализуются формой
+        // с временем суток (T030000) и другие клиенты их не поймут.
+        if (exdates.isNotEmpty()) {
+            val exDateProp = ExDate(
+                DateList(Value.DATE).apply {
+                    exdates.sorted().forEach { day -> add(Date(day.format(icsDate), "yyyyMMdd")) }
+                },
+            )
+            exDateProp.parameters.add(Value.DATE)
+            properties.add(exDateProp)
+        }
+        // Метки времени для разрешения конфликтов: DTSTAMP («когда объект
+        // перезаписан») ical4j ставит сам, CREATED и LAST-MODIFIED — наши
+        // пользовательские моменты создания и правки.
+        createdAt?.let { properties.add(Created(DateTime(it))) }
+        modifiedAt?.let { properties.add(LastModified(DateTime(it))) }
         properties.add(XProperty(PROP_TYPE, exportType.name))
         properties.add(XProperty(PROP_ICON, icon.name))
         if (colorArgb != ScheduledEvent.DEFAULT_COLOR) {
@@ -109,6 +144,27 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         }
     }
 }
+
+/** RRULE-значение нашего повторения: FREQ, INTERVAL, BYDAY (недели), UNTIL. */
+private fun ScheduledEvent.recurValue(unit: RepeatUnit, anchor: LocalDate): String {
+    val interval = repeatInterval.takeIf { it > 0 } ?: 1
+    val parts = mutableListOf("FREQ=${unit.icsFreq}", "INTERVAL=$interval")
+    if (unit == RepeatUnit.WEEKS) {
+        ScheduledEvent.weekdaysToCode(repeatWeekdays)?.let { parts += "BYDAY=$it" }
+    }
+    // UNTIL для VALUE=DATE — дата без времени (совпадает с типом DTSTART).
+    repeatUntil?.let { parts += "UNTIL=${it.replace("-", "")}" }
+    return parts.joinToString(";")
+}
+
+/** Наша единица частоты → FREQ из RFC 5545. */
+private val RepeatUnit.icsFreq: String
+    get() = when (this) {
+        RepeatUnit.DAYS -> "DAILY"
+        RepeatUnit.WEEKS -> "WEEKLY"
+        RepeatUnit.MONTHS -> "MONTHLY"
+        RepeatUnit.YEARS -> "YEARLY"
+    }
 
 /** VCALENDAR с одним или несколькими VEVENT — тело CalDAV PUT. */
 fun eventCalendar(events: List<VEvent>): Calendar = Calendar().apply {
@@ -140,60 +196,102 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
     val dtStart = properties.byName(Property.DTSTART) as? DtStart ?: return null
     // VALUE=DATE — «yyyyMMdd»; чужое событие с точным временем
     // («...T090000Z» и родственные формы) берём по календарному дню.
-    val anchor = runCatching {
-        LocalDate.parse(dtStart.value.take(8), icsDate)
-    }.getOrNull() ?: return null
+    val anchor = icsDay(dtStart.value) ?: return null
     val summary = properties.byName(Property.SUMMARY)?.value ?: ""
+
+    // DTEND — эксклюзивная дата конца (RFC 5545): минус день даёт последний
+    // показанный день. Однодневное событие имеет DTEND = якорь + 1.
+    val spanEnd = (properties.byName(Property.DTEND) as? DtEnd)?.value?.let(::icsDay)?.minusDays(1)
+
+    // Отменённые вхождения повтора (EXDATE): могут идти несколькими строками
+    // и с перечислением через запятую; VALUE=DATE и точное время — обе формы.
+    val exdates = properties
+        .filter { it.name == Property.EXDATE }
+        .flatMap { property -> (property as? ExDate)?.dates ?: emptyList() }
+        .mapNotNull { exception -> icsDay(exception.toString()) }
+        .toSet()
+
+    // Метки времени для разрешения конфликтов (этап 2, «последняя правка
+    // побеждает»): CREATED/LAST-MODIFIED пользовательские, DTSTAMP обязателен
+    // по RFC и потому есть всегда — им и закрываем пропуски.
+    val stamp = (properties.byName(Property.DTSTAMP) as? DtStamp)?.date?.time
+    val createdAt = (properties.byName(Property.CREATED) as? Created)?.date?.time ?: stamp
+    val modifiedAt = (properties.byName(Property.LAST_MODIFIED) as? LastModified)?.date?.time ?: stamp
+
+    val rule = (properties.byName(Property.RRULE) as? RRule)?.recur
 
     val declaredType = properties.byName(PROP_TYPE)?.value
         ?.let { value -> ScheduledEventType.entries.find { it.name == value } }
-    val rule = (properties.byName(Property.RRULE) as? RRule)?.recur
     val frequency = rule?.getFrequency()?.name
 
-    // Чей VEVENT: свой (X-TNOTE-TYPE есть) или чужой — тогда тип узнаем
-    // по RRULE и редкие правила растим в движке этапа 1.
-    val type = declaredType ?: when (frequency) {
-        "DAILY" -> ScheduledEventType.REPEATING
-        "YEARLY" -> ScheduledEventType.BIRTHDAY
-        else -> ScheduledEventType.REGULAR
+    // Частота из FREQ; INTERVAL в RFC не обязателен — умолчание 1.
+    val unit = when (frequency) {
+        "DAILY" -> RepeatUnit.DAYS
+        "WEEKLY" -> RepeatUnit.WEEKS
+        "MONTHLY" -> RepeatUnit.MONTHS
+        "YEARLY" -> RepeatUnit.YEARS
+        else -> null
     }
-
-    // Границы повторения: COUNT берём как есть, UNTIL пересчитываем в
-    // COUNT (последнее вхождение не позже UNTIL: floor(дни/интервал)+1).
-    val interval = if (type == ScheduledEventType.REPEATING) {
-        rule?.getInterval()?.takeIf { it > 0 }
+    val interval = rule?.getInterval()?.takeIf { it > 0 } ?: 1
+    // BYDAY выражает наши дни недели только у недельной частоты и без
+    // позиционных префиксов («вторый вторник» нашей моделью не выразить).
+    val weekdays = if (unit == RepeatUnit.WEEKS) {
+        rule?.dayList
+            ?.filter { it.offset == 0 }
+            ?.mapNotNull { weekdayOf(it.day) }
+            ?.toSet()
+            ?: emptySet()
     } else {
-        null
+        emptySet()
     }
-    val windowCount: Int = when {
-        interval == null -> 0
 
-        else -> {
-            val count = rule?.getCount()?.takeIf { it > 0 } ?: 0
-            // UNTIL бывает и в полной форме с точным временем — через строку
-            // достаём только дату: UNTIL=20260110 или UNTIL=20260110T000000Z.
-            val until = rule?.getUntil()?.toString()?.take(8)
-                ?.let { compact -> runCatching { LocalDate.parse(compact, icsDate) }.getOrNull() }
-            when {
-                count > 0 -> count
+    // Селекторы BY* (BYMONTH, BYMONTHDAY, BYSETPOS, время внутри дня…)
+    // и BYDAY с позициями нашей моделью не выразить — правило целиком
+    // отбрасывается: якорный день остаётся, остальное не выдумываем.
+    val representable = rule != null && unit != null && rule.isRepresentableByModel(unit)
 
-                until != null -> {
-                    val between = ChronoUnit.DAYS.between(anchor, until)
-                    if (between < 0) 0 else (between / interval).toInt() + 1
-                }
+    // Чей VEVENT: свой (X-TNOTE-TYPE есть) или чужой — тогда тип узнаем
+    // по RRULE. Годовой повтор чужого события — не день рождения (подарок
+    // и сдвиг 29 февраля — про людей), а честное REPEATING/YEARS.
+    val type = declaredType ?: if (representable) ScheduledEventType.REPEATING else ScheduledEventType.REGULAR
+    // Правило имеет смысл только для REPEATING: у BIRTHDAY повторение —
+    // часть типа, отдельного правила у нашего события нет.
+    val effectiveUnit = if (type == ScheduledEventType.REPEATING && representable) unit else null
+    val effectiveWeekdays = if (effectiveUnit == RepeatUnit.WEEKS) weekdays else emptySet()
 
-                else -> 0
-            }
-        }
+    val draft = ScheduledEvent(
+        id = 0, // локальный id назначит Room; сопоставление ведёт UID
+        date = anchor.toString(),
+        uid = uid,
+        title = summary,
+        type = type,
+        repeatUnit = effectiveUnit,
+        repeatInterval = interval,
+        repeatWeekdays = effectiveWeekdays,
+    )
+
+    // Границы повторения: UNTIL — как есть (только дата), COUNT — датой
+    // последнего вхождения (развёртка по occursOn с защитным пределом).
+    val resolved = if (effectiveUnit != null) {
+        draft.copy(repeatUntil = draft.windowEnd(rule))
+    } else {
+        draft
     }
-    val resolvedType = when {
-        type != ScheduledEventType.REPEATING -> type
 
-        // DAILY без INTERVAL повторить нельзя: как минимум якорный день
-        // остаётся видимым — храним как обычное событие.
-        interval == null -> ScheduledEventType.REGULAR
-
-        else -> type
+    // Многодневное чужое событие без RRULE (DTEND на день позже якоря и
+    // больше): визуально это непрерывный ряд дней — ровно то, что даёт
+    // частота DAYS с интервалом 1 и ограничителем на последний день.
+    // Отдельное поле endDate не нужно; при живом RRULE правило важнее.
+    val multiDayEnd = spanEnd?.takeIf { rule == null && it.isAfter(anchor) }
+    val adapted = if (type == ScheduledEventType.REGULAR && multiDayEnd != null) {
+        resolved.copy(
+            type = ScheduledEventType.REPEATING,
+            repeatUnit = RepeatUnit.DAYS,
+            repeatInterval = 1,
+            repeatUntil = multiDayEnd.toString(),
+        )
+    } else {
+        resolved
     }
 
     val icon = properties.byName(PROP_ICON)?.value
@@ -203,19 +301,68 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         ?: ScheduledEvent.DEFAULT_COLOR
     val hidePast = properties.byName(PROP_HIDE_PAST)?.value == "1"
 
-    return ScheduledEvent(
-        id = 0, // локальный id назначит Room; сопоставление ведёт UID
-        date = anchor.toString(),
-        uid = uid,
-        title = summary,
-        type = resolvedType,
+    return adapted.copy(
         icon = icon,
         colorArgb = color,
-        repeatIntervalDays = interval,
-        repeatDays = windowCount,
         hidePastOccurrences = hidePast,
-        position = 0, // локальная сортировка; движок берёт её из локальной копии
+        exdates = exdates,
+        createdAt = createdAt,
+        modifiedAt = modifiedAt,
     )
+}
+
+/** "20260305" / "20260305T000000Z" → LocalDate; неразборчивое — null. */
+private fun icsDay(value: String): LocalDate? = runCatching { LocalDate.parse(value.take(8), icsDate) }.getOrNull()
+
+/** UNTIL/COUNT правила в наш «повторять до»; ни того ни другого — null (бессрочно). */
+private fun ScheduledEvent.windowEnd(rule: Recur?): String? {
+    // UNTIL бывает в полной форме с точным временем — через строку
+    // достаём только дату: UNTIL=20260110 или UNTIL=20260110T000000Z.
+    val until = rule?.getUntil()?.toString()?.take(8)
+        ?.let { compact -> runCatching { LocalDate.parse(compact, icsDate) }.getOrNull() }
+    if (until != null) return until.toString()
+    val count = rule?.getCount()?.takeIf { it > 0 } ?: return null
+    return nthOccurrence(count)?.toString()
+}
+
+/** Дата [count]-го вхождения события (от якоря) или null, если не нашли. */
+private fun ScheduledEvent.nthOccurrence(count: Int): LocalDate? {
+    var cursor = dateOrNull() ?: return null
+    var remaining = count
+    var guard = 0
+    while (guard++ < COUNT_EXPANSION_LIMIT_DAYS) {
+        if (occursOn(cursor) && --remaining == 0) return cursor
+        cursor = cursor.plusDays(1)
+    }
+    return null
+}
+
+/**
+ * Выразимо ли правило нашей моделью: у DAYS и у WEEKS не должно быть иных
+ * селекторов BY*, кроме BYDAY (без позиций у WEEKLY); MONTHLY и YEARLY —
+ * только совсем без селекторов. Время внутри дня (BYHOUR и родня) не
+ * выразимо всегда — наши события дневные метки.
+ */
+private fun Recur.isRepresentableByModel(unit: RepeatUnit): Boolean {
+    if (hourList.isNotEmpty() || minuteList.isNotEmpty() || secondList.isNotEmpty()) return false
+    if (monthList.isNotEmpty() || monthDayList.isNotEmpty() || yearDayList.isNotEmpty()) return false
+    if (setPosList.isNotEmpty() || weekNoList.isNotEmpty()) return false
+    return when (unit) {
+        RepeatUnit.DAYS -> dayList.isEmpty()
+        RepeatUnit.WEEKS -> dayList.all { it.offset == 0 }
+        RepeatUnit.MONTHS, RepeatUnit.YEARS -> dayList.isEmpty()
+    }
+}
+
+/** Код дня недели ical4j (MO..SU) в java.time. */
+private fun weekdayOf(day: WeekDay.Day): DayOfWeek? = when (day) {
+    WeekDay.Day.MO -> DayOfWeek.MONDAY
+    WeekDay.Day.TU -> DayOfWeek.TUESDAY
+    WeekDay.Day.WE -> DayOfWeek.WEDNESDAY
+    WeekDay.Day.TH -> DayOfWeek.THURSDAY
+    WeekDay.Day.FR -> DayOfWeek.FRIDAY
+    WeekDay.Day.SA -> DayOfWeek.SATURDAY
+    WeekDay.Day.SU -> DayOfWeek.SUNDAY
 }
 
 /** Поиск первого свойства по имени: ical4j getProperty бросается, мы не хотим. */

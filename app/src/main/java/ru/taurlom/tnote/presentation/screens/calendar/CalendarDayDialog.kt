@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -38,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.model.EventIcon
+import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.presentation.components.AppButton
@@ -51,7 +55,14 @@ import ru.taurlom.tnote.presentation.components.AppTextButton
 import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.ColorSwatchOption
 import ru.taurlom.tnote.presentation.theme.AppTheme
+import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.time.format.TextStyle
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -259,17 +270,34 @@ private fun ScheduledEventEditorDialog(
     var colorArgb by rememberSaveable {
         mutableStateOf(original?.colorArgb ?: ScheduledEvent.DEFAULT_COLOR)
     }
+    // Повторение в духе Яндекса: частота + «каждые N» + дни недели
+    // (для недель) + «повторять до» (пусто — бессрочно).
+    var repeatUnit by rememberSaveable {
+        mutableStateOf(original?.repeatUnit ?: RepeatUnit.DAYS)
+    }
     var intervalText by rememberSaveable {
-        mutableStateOf(original?.repeatIntervalDays?.toString().orEmpty())
+        mutableStateOf(original?.repeatInterval?.takeIf { it > 0 }?.toString() ?: "1")
     }
+    val anchorDayOfWeek = remember(original, defaultDate) {
+        (original?.dateOrNull() ?: runCatching { LocalDate.parse(defaultDate) }.getOrNull() ?: LocalDate.now())
+            .dayOfWeek
+    }
+    var weekdays by rememberSaveable {
+        mutableStateOf(
+            original?.repeatWeekdays?.takeIf { it.isNotEmpty() } ?: setOf(anchorDayOfWeek),
+        )
+    }
+    var untilText by rememberSaveable { mutableStateOf(original?.repeatUntil.orEmpty()) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var hidePast by rememberSaveable { mutableStateOf(original?.hidePastOccurrences ?: false) }
-    var repeatDaysText by rememberSaveable {
-        mutableStateOf(original?.repeatDays?.takeIf { it > 0 }?.toString().orEmpty())
-    }
 
-    val intervalDays = intervalText.toIntOrNull() ?: 0
-    // Повторяющему событию нужен интервал «раз в N дней».
-    val repeatConfigured = type != ScheduledEventType.REPEATING || intervalDays > 0
+    val interval = intervalText.toIntOrNull()?.takeIf { it > 0 }
+    val untilDate = untilText.takeIf { it.isNotBlank() }
+        ?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
+    // Повторяющемуся событию нужны частота, интервал и (если заполнено)
+    // разборчивая дата-ограничитель.
+    val repeatConfigured = type != ScheduledEventType.REPEATING ||
+        (repeatUnit != null && interval != null && (untilText.isBlank() || untilDate != null))
 
     AppDialog(
         title = stringResource(
@@ -309,24 +337,87 @@ private fun ScheduledEventEditorDialog(
             )
 
             if (type == ScheduledEventType.REPEATING) {
+                // Частота — тем же меню, что и в Яндексе.
+                AppDropdown(
+                    label = stringResource(R.string.repeat_frequency),
+                    selectedLabel = stringResource(repeatUnit.labelRes),
+                    options = RepeatUnit.entries.toList(),
+                    optionText = { option ->
+                        Text(
+                            text = stringResource(option.labelRes),
+                            color = AppTheme.colors.dialogContent,
+                        )
+                    },
+                    onSelect = {
+                        repeatUnit = it
+                        // Для недель без выбранных дней берём день якоря.
+                        if (it == RepeatUnit.WEEKS && weekdays.isEmpty()) {
+                            weekdays = setOf(anchorDayOfWeek)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 AppTextField(
                     value = intervalText,
                     onValueChange = { intervalText = it.filter(Char::isDigit).take(3) },
-                    label = stringResource(R.string.repeat_every_days),
+                    label = stringResource(R.string.repeat_every),
                     singleLine = true,
                     // Без интервала повторяющее событие не существует.
                     required = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                AppTextField(
-                    value = repeatDaysText,
-                    onValueChange = { repeatDaysText = it.filter(Char::isDigit).take(4) },
-                    label = stringResource(R.string.repeat_days),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                if (repeatUnit == RepeatUnit.WEEKS) {
+                    Text(
+                        text = stringResource(R.string.repeat_weekdays),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = AppTheme.colors.dialogContent,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        DayOfWeek.entries.forEach { day ->
+                            WeekdayChip(
+                                day = day,
+                                selected = day in weekdays,
+                                locale = LocalConfiguration.current.locales[0],
+                                onClick = {
+                                    weekdays = if (day in weekdays) {
+                                        weekdays - day
+                                    } else {
+                                        weekdays + day
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // «Повторять до»: бессрочно или дата (выбор в системном
+                // календаре). Выбранная дата показывается в поле.
+                AppDropdown(
+                    label = stringResource(R.string.repeat_until),
+                    selectedLabel = untilDate?.let { date ->
+                        date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+                    } ?: stringResource(R.string.repeat_until_never),
+                    options = listOf(R.string.repeat_until_never, R.string.repeat_until_pick),
+                    optionText = { option ->
+                        Text(
+                            text = stringResource(option),
+                            color = AppTheme.colors.dialogContent,
+                        )
+                    },
+                    onSelect = { option ->
+                        if (option == R.string.repeat_until_pick) {
+                            showDatePicker = true
+                        } else {
+                            untilText = ""
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
+
                 // Флажок без 48-dp минимальной зоны касания Material — иначе
                 // визуальный квадратик центрируется в ней и смещён вправо, не
                 // сходясь с краём полей. В material3 1.3.x старый
@@ -418,17 +509,28 @@ private fun ScheduledEventEditorDialog(
                             type = type,
                             icon = icon,
                             colorArgb = colorArgb,
-                            repeatIntervalDays =
-                            if (type == ScheduledEventType.REPEATING) {
-                                intervalDays.takeIf { it > 0 }
+                            repeatUnit = if (type == ScheduledEventType.REPEATING) repeatUnit else null,
+                            repeatInterval = if (type == ScheduledEventType.REPEATING) {
+                                interval ?: 1
+                            } else {
+                                1
+                            },
+                            repeatWeekdays = if (type == ScheduledEventType.REPEATING && repeatUnit == RepeatUnit.WEEKS) {
+                                weekdays
+                            } else {
+                                emptySet()
+                            },
+                            repeatUntil = if (type == ScheduledEventType.REPEATING) {
+                                untilDate?.toString()
                             } else {
                                 null
                             },
-                            repeatDays = if (type == ScheduledEventType.REPEATING) {
-                                repeatDaysText.toIntOrNull()?.coerceAtLeast(0) ?: 0
-                            } else {
-                                0
-                            },
+                            // Отмены вхождений и метки времени — не для
+                            // редактора: их прикладывает сервер. Правка
+                            // сохранённого события обязана их не потерять.
+                            exdates = original?.exdates ?: emptySet(),
+                            createdAt = original?.createdAt,
+                            modifiedAt = original?.modifiedAt,
                             hidePastOccurrences =
                             type == ScheduledEventType.REPEATING && hidePast,
                             position = original?.position ?: 0,
@@ -445,6 +547,61 @@ private fun ScheduledEventEditorDialog(
             null
         },
     )
+
+    if (showDatePicker) {
+        // Системный выбор даты для «повторять до». Миллисекунды пикера —
+        // UTC-полуночь выбранного дня; обратно собираем LocalDate.
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (untilDate ?: LocalDate.now())
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                AppTextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            untilText = Instant.ofEpochMilli(millis)
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                        }
+                        showDatePicker = false
+                    },
+                    textRes = R.string.save,
+                )
+            },
+            dismissButton = {
+                AppTextButton(onClick = { showDatePicker = false }, textRes = R.string.cancel)
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+/** Кружок выбора дня недели — в размере и стилистике палитры цветов. */
+@Composable
+private fun WeekdayChip(day: DayOfWeek, selected: Boolean, locale: Locale, onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(
+                if (selected) AppTheme.colors.chipSelectedContainer else AppTheme.colors.chipContainer,
+            )
+            .clickable(onClick = onClick),
+    ) {
+        Text(
+            // Короткое имя дня в локали: «пн», «вт»… / «Mon», «Tue»…
+            text = day.getDisplayName(TextStyle.SHORT_STANDALONE, locale).lowercase(locale),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) AppTheme.colors.chipSelectedContent else AppTheme.colors.chipContent,
+        )
+    }
 }
 
 /** Кружок-переключатель иконки события — в размер палитры цветов. */

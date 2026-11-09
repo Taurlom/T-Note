@@ -184,8 +184,16 @@
     <string name="event_type_weekend">Выходной</string>
 
     <!-- Повторяющееся событие -->
-    <string name="repeat_every_days">Раз в сколько дней</string>
-    <string name="repeat_days">Повторять дней</string>
+    <string name="repeat_frequency">Повторение</string>
+    <string name="repeat_freq_daily">Каждый день</string>
+    <string name="repeat_freq_weekly">Каждую неделю</string>
+    <string name="repeat_freq_monthly">Каждый месяц</string>
+    <string name="repeat_freq_yearly">Каждый год</string>
+    <string name="repeat_every">Повторять каждые</string>
+    <string name="repeat_weekdays">Дни недели</string>
+    <string name="repeat_until">Повторять до</string>
+    <string name="repeat_until_never">Бессрочно</string>
+    <string name="repeat_until_pick">Выбрать дату…</string>
     <string name="repeat_hide_past">Удалять прошедшие</string>
     <string name="event_icon">Иконка</string>
     <string name="event_color">Цвет</string>

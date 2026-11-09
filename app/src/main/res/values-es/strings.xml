@@ -182,8 +182,16 @@
     <string name="event_type_weekend">Fin de semana</string>
 
     <!-- Evento repetible -->
-    <string name="repeat_every_days">Cada N días</string>
-    <string name="repeat_days">Repetir durante días</string>
+    <string name="repeat_frequency">Repetición</string>
+    <string name="repeat_freq_daily">Cada día</string>
+    <string name="repeat_freq_weekly">Cada semana</string>
+    <string name="repeat_freq_monthly">Cada mes</string>
+    <string name="repeat_freq_yearly">Cada año</string>
+    <string name="repeat_every">Repetir cada</string>
+    <string name="repeat_weekdays">Días de la semana</string>
+    <string name="repeat_until">Repetir hasta</string>
+    <string name="repeat_until_never">Sin fecha de fin</string>
+    <string name="repeat_until_pick">Elegir fecha…</string>
     <string name="repeat_hide_past">Eliminar pasados</string>
     <string name="event_icon">Icono</string>
     <string name="event_color">Color</string>

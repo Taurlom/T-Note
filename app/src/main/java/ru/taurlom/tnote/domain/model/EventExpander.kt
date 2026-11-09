@@ -29,8 +29,9 @@ object EventExpander {
         val dateKey = date.toString()
         // Якоря повторов приходят в месячной выборке, а их вхождения
         // генерируются ниже целиком — иначе якорь задублировался бы.
+        // Отменённый день (EXDATE) не показывается вовсе.
         val result = monthEvents.filterTo(mutableListOf()) {
-            it.date == dateKey && it.type != ScheduledEventType.REPEATING
+            it.date == dateKey && it.type != ScheduledEventType.REPEATING && !it.isExcludedOn(date)
         }
         birthdays.forEach { birthday ->
             birthdayOccurrence(birthday, date.year)?.let { (month, day) ->
@@ -58,6 +59,8 @@ object EventExpander {
     ): Map<String, List<ScheduledEvent>> {
         val byDate = monthEvents
             .filterNot { it.type == ScheduledEventType.REPEATING }
+            // Отменённый якорный день (EXDATE) не показывается вовсе.
+            .filterNot { event -> event.dateOrNull()?.let(event::isExcludedOn) == true }
             .groupByTo(LinkedHashMap()) { it.date }
         birthdays.forEach { birthday ->
             birthdayOccurrence(birthday, year)?.let { (m, d) ->

@@ -189,4 +189,90 @@ class AppDatabaseMigrationTest {
         }
         db.close()
     }
+
+    /**
+     * 20 → 21: повторения как в RRULE. Старые поля переводятся в новые:
+     * интервал «раз в N дней» → частота DAYS с тем же интервалом, окно
+     * «повторять дней» → дата-ограничитель repeatUntil (якорь + окно − 1).
+     * Событие без повторения получает repeatInterval = 1 и пустые правила.
+     */
+    @Test
+    fun `migrate 20 to 21 converts legacy repeat fields`() {
+        helper.createDatabase(20).use { db ->
+            // Повторяющееся: раз в 3 дня, окно 10 дней (до 2026-01-10).
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatIntervalDays, repeatDays, hidePast, position) " +
+                    "VALUES (1, 'uid-1', '2026-01-01', 'Зарядка', 'REPEATING', 'NOTE', 0, 3, 10, 0, 0)",
+            ).use { it.step() }
+            // Обычное событие: правила нет вовсе (NULL-интервал).
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatIntervalDays, repeatDays, hidePast, position) " +
+                    "VALUES (2, 'uid-2', '2026-02-17', 'Ремонт', 'REGULAR', 'NOTE', 0, NULL, 0, 0, 1)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            21,
+            listOf(AppDatabaseMigration.MIGRATION_20_21),
+        )
+        db.prepare(
+            "SELECT title, repeatUnit, repeatInterval, repeatWeekdays, repeatUntil " +
+                "FROM scheduled_events ORDER BY id",
+        ).use { stmt ->
+            // Повторяющееся: частота DAYS, интервал сохранён, окно стало датой.
+            assertTrue(stmt.step())
+            assertEquals("Зарядка", stmt.getText(0))
+            assertEquals("DAYS", stmt.getText(1))
+            assertEquals(3L, stmt.getLong(2))
+            assertTrue(stmt.isNull(3))
+            assertEquals("2026-01-10", stmt.getText(4))
+            // Обычное: без частоты, интервал по умолчанию.
+            assertTrue(stmt.step())
+            assertEquals("Ремонт", stmt.getText(0))
+            assertTrue(stmt.isNull(1))
+            assertEquals(1L, stmt.getLong(2))
+            assertTrue(stmt.isNull(4))
+        }
+        db.close()
+    }
+
+    /**
+     * 21 → 22: отменённые вхождения (EXDATE) и метки времени. Колонки
+     * добавляются пустыми: отмены копятся с сервера, моменты времени —
+     * с момента первой правки в новой версии.
+     */
+    @Test
+    fun `migrate 21 to 22 adds exdates and timestamps`() {
+        helper.createDatabase(21).use { db ->
+            // Повтор по понедельникам без отмен и меток.
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, hidePast, position) " +
+                    "VALUES (1, 'uid-1', '2026-11-16', 'Полив', 'REPEATING', 'NOTE', 0, " +
+                    "'WEEKS', 1, 'MO', NULL, 0, 0)",
+            ).use { it.step() }
+            // Заметка дня без меток времени.
+            db.prepare(
+                "INSERT INTO calendar_notes (eventDate, text) VALUES ('2026-11-16', 'Первая заметка')",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            22,
+            listOf(AppDatabaseMigration.MIGRATION_21_22),
+        )
+        db.prepare("SELECT exdates, createdAt, modifiedAt FROM scheduled_events WHERE id = 1").use { stmt ->
+            assertTrue(stmt.step())
+            assertTrue(stmt.isNull(0))
+            assertTrue(stmt.isNull(1))
+            assertTrue(stmt.isNull(2))
+        }
+        db.prepare("SELECT createdAt, modifiedAt FROM calendar_notes WHERE eventDate = '2026-11-16'").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(0L, stmt.getLong(0))
+            assertEquals(0L, stmt.getLong(1))
+        }
+        db.close()
+    }
 }

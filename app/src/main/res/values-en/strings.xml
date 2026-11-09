@@ -182,8 +182,16 @@
     <string name="event_type_weekend">Weekend</string>
 
     <!-- Repeating event -->
-    <string name="repeat_every_days">Every N days</string>
-    <string name="repeat_days">Repeat for days</string>
+    <string name="repeat_frequency">Repeat</string>
+    <string name="repeat_freq_daily">Every day</string>
+    <string name="repeat_freq_weekly">Every week</string>
+    <string name="repeat_freq_monthly">Every month</string>
+    <string name="repeat_freq_yearly">Every year</string>
+    <string name="repeat_every">Repeat every</string>
+    <string name="repeat_weekdays">Days of week</string>
+    <string name="repeat_until">Repeat until</string>
+    <string name="repeat_until_never">Forever</string>
+    <string name="repeat_until_pick">Pick a date…</string>
     <string name="repeat_hide_past">Delete past ones</string>
     <string name="event_icon">Icon</string>
     <string name="event_color">Color</string>

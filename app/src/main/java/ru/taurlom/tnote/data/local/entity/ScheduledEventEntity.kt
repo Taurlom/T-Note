@@ -23,13 +23,27 @@ data class ScheduledEventEntity(
     val icon: String,
     @ColumnInfo(defaultValue = "0")
     val colorArgb: Long,
-    val repeatIntervalDays: Int?,
-    @ColumnInfo(defaultValue = "0")
-    val repeatDays: Int,
+
+    /** Частота повторения (DAYS/WEEKS/MONTHS/YEARS); null — не повторяется. */
+    val repeatUnit: String?,
+    /** «Каждые N единиц» частоты (см. ScheduledEvent.repeatInterval). */
+    @ColumnInfo(defaultValue = "1")
+    val repeatInterval: Int,
+    /** Дни недели для WEEKS — коды RFC "MO,WE,FR" (null — день якоря). */
+    val repeatWeekdays: String?,
+    /** Последний день повторения включительно ("yyyy-MM-dd"); null — бессрочно. */
+    val repeatUntil: String?,
+    /** Отменённые вхождения — ISO-даты через запятую (EXDATE); null — без отмен. */
+    val exdates: String? = null,
     @ColumnInfo(defaultValue = "0")
     val hidePast: Boolean,
     val position: Int = 0,
 
     /** CalDAV-аккаунт-источник (null — локальное событие, см. ScheduledEvent). */
     val caldavAccountId: Long? = null,
+
+    /** Момент создания (epoch millis); null — унаследовано от старых версий. */
+    val createdAt: Long? = null,
+    /** Момент последней правки (epoch millis); null — унаследовано от старых версий. */
+    val modifiedAt: Long? = null,
 )
