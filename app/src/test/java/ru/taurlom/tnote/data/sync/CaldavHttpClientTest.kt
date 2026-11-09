@@ -124,4 +124,31 @@ class CaldavHttpClientTest {
     fun `non-dav body yields no entries`() {
         assertEquals(0, DavXml.parseMultistatus("<html><body>404</body></html>").size)
     }
+
+    @Test
+    fun `unquoted getetag from yandex is stored quoted`() {
+        // Живой ответ Яндекса: getetag — голое число без кавычек.
+        val xml = """
+            <?xml version='1.0' encoding='utf-8'?>
+            <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+            <D:response><D:href>/calendars/x/1.ics</D:href>
+            <D:propstat><D:prop>
+            <D:getetag>1794258807976</D:getetag>
+            </D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>
+            </D:multistatus>
+        """.trimIndent()
+
+        assertEquals("\"1794258807976\"", DavXml.parseMultistatus(xml).single().etag)
+    }
+
+    @Test
+    fun `etag forms are normalized to quoted shape`() {
+        // Формы на границах транспорта приводятся к кавычкам: так If-Match
+        // всегда уходит в читаемой Яндексом форме (без них — вечный 412).
+        assertEquals("\"1794258807976\"", normalizeEtag("1794258807976"))
+        assertEquals("\"e\"", normalizeEtag(" \"e\" "))
+        assertNull(normalizeEtag(null))
+        assertNull(normalizeEtag(""))
+        assertNull(normalizeEtag("   "))
+    }
 }

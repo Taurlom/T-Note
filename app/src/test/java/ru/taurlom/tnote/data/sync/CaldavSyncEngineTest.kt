@@ -342,6 +342,62 @@ class CaldavSyncEngineTest {
     }
 
     @Test
+    fun `put failure defers row and lets tombstones flush`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Живой сценарий Яндекса: PUT первой публикации отдаёт 504 (невалидное
+        // для сервера тело или его временный сбой). Прогон не рвётся:
+        // строка остаётся в очереди, tombstone другой строки всё равно
+        // доезжает, в настройках остаётся след незавершённого прогона.
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 500, title = "Локальная правка")
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u2",
+            accountId = 42,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u2.ics",
+            etag = null,
+            deletedAt = 700,
+        )
+        api.putResults += CaldavWriteResponse(504)
+
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        assertTrue(fakeEventDao.rows.single().dirty)
+        assertEquals(1, api.deleteCalls.size)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        assertEquals(1234567890L, fakeCaldavDao.lastSyncAt)
+        assertEquals(
+            "Не отправлено: 1 (сбой сервера, повторится)",
+            fakeCaldavDao.lastError,
+        )
+    }
+
+    @Test
+    fun `tombstone delete failure keeps row queued without aborting`() = runBlocking {
+        val api = FakeApi(CaldavPull(emptyList()))
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 42,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            etag = null,
+            deletedAt = 700,
+        )
+        api.deleteResults += 504
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0), result)
+        assertEquals(1, fakeTombstoneDao.rows.size)
+        assertEquals(1234567890L, fakeCaldavDao.lastSyncAt)
+        assertEquals(
+            "Не отправлено: 1 (сбой сервера, повторится)",
+            fakeCaldavDao.lastError,
+        )
+    }
+
+    @Test
     fun `dirty row with broken date stays queued instead of crashing`() = runBlocking {
         val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
         engine(api).sync(account, "pwd")

@@ -102,7 +102,9 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
     }
     return VEvent().apply {
         properties.add(Uid(ownUid))
-        properties.add(DtStamp())
+        // DTSTAMP не добавляем руками: конструктор VEvent сам вставляет
+        // момент создания, а его дубль делает тело невалидным по RFC 5545 —
+        // Яндекс на такой PUT отвечает 504.
         properties.add(DtStart(Date(anchor.format(icsDate), "yyyyMMdd")))
         properties.add(DtEnd(Date(anchor.plusDays(1).format(icsDate), "yyyyMMdd")))
         properties.add(Summary(title))

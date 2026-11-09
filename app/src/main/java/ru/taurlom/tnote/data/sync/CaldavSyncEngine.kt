@@ -9,7 +9,6 @@ import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.ScheduledEventType
-import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import java.time.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,9 +23,10 @@ fun interface SyncTransaction {
 
 /**
  * Итог отправки одной dirty-строки: доехала до сервера / сервер перезаписал
- * нашу правку / строка технически не отправляема (битая дата, WEEKEND).
+ * нашу правку / строка технически не отправляема (битая дата, WEEKEND) /
+ * временный сбой сервера — очередь ждёт следующего прогона.
  */
-private enum class PushOutcome { Pushed, Overwritten, Skipped }
+private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
 
 /**
  * Движок синхронизации одного аккаунта: вычитка (calendar-query) и
@@ -61,6 +61,15 @@ private enum class PushOutcome { Pushed, Overwritten, Skipped }
  * поддерживает (проверено), календарь личный и небольшой. Локальные
  * события (caldavAccountId == null) движок не трогает — приписку делает
  * репозиторий (см. CaldavAttribution).
+ *
+ * Капризы Яндекса из живых проб (ноябрь 2026): невалидное по RFC тело —
+ * дубль DTSTAMP от ical4j — сервер отвечает 504-м и не создаёт; If-None-
+ * Match:* на первую публикацию игнорируется (второй PUT того же UID тоже
+ * 201, объект молча перезаписывается); ETag приходит без кавычек, а
+ * If-Match признаётся только в цитированной форме — нормализация на
+ * границе транспорта (normalizeEtag). Временные сбои (5xx) не рвут прогон:
+ * строка остаётся в очереди, DELETE tombstones всё равно доходят, в
+ * настройках остаётся след незавершённого прогона.
  */
 @Singleton
 class CaldavSyncEngine @Inject constructor(
@@ -123,11 +132,17 @@ class CaldavSyncEngine @Inject constructor(
         }
 
         // ── Push правок: сеть по строке, запись — короткая транзакция ──
+        var deferred = 0
         for (row in eventDao.getDirtyFor(account.id)) {
             when (pushRow(account, row, password)) {
                 PushOutcome.Pushed -> pushed++
+
                 PushOutcome.Overwritten -> overwritten++
-                PushOutcome.Skipped -> Unit // нечему отправляться — очередь ждёт
+
+                PushOutcome.Skipped -> Unit
+
+                // нечему отправляться — очередь ждёт
+                PushOutcome.Deferred -> deferred++ // временный сбой — до следующего прогона
             }
         }
 
@@ -143,11 +158,18 @@ class CaldavSyncEngine @Inject constructor(
                     pushed++
                 }
 
-                else -> throw CaldavSyncException.Server("DELETE отклонён: HTTP $code")
+                else -> deferred++ // временный сбой: строка удаления доживёт до следующего прогона
             }
         }
 
-        caldavDao.markSynced(account.id, clock.millis())
+        // Прогон с невыполненной частью — не успех: время последней вычитки
+        // обновляем, но в настройках остаётся причина незавершённого прогона.
+        if (deferred > 0) {
+            caldavDao.markSynced(account.id, clock.millis())
+            caldavDao.markFailed(account.id, "Не отправлено: $deferred (сбой сервера, повторится)")
+        } else {
+            caldavDao.markSynced(account.id, clock.millis())
+        }
         return CaldavSyncResult(added, updated, removed, pushed, overwritten)
     }
 
@@ -195,8 +217,15 @@ class CaldavSyncEngine @Inject constructor(
             eventDao.markPushed(row.id, first.etag, href)
             return PushOutcome.Pushed
         }
-        if (first.code != 412 && first.code != 404) {
-            throw CaldavSyncException.Server("PUT отклонён: HTTP ${first.code}")
+        when (first.code) {
+            412, 404 -> Unit
+
+            // конфликт — разрешаем ниже по потоку
+
+            // Прочие коды — временный сбой сервера: рвать весь прогон из-за
+            // одной строки нельзя, застрявшая в throw-месте очередь
+            // блокировала бы и DELETE tombstones на каждом прогоне.
+            else -> return PushOutcome.Deferred
         }
 
         // Конфликт: серверный объект уже не тот (412) или исчез (404).
@@ -213,7 +242,7 @@ class CaldavSyncEngine @Inject constructor(
                 createIfAbsent = true,
             )
             if (recreate.code !in 200..299) {
-                throw CaldavSyncException.Server("PUT отклонён: HTTP ${recreate.code}")
+                return PushOutcome.Deferred
             }
             eventDao.markPushed(row.id, recreate.etag, href)
             return PushOutcome.Pushed
@@ -234,7 +263,7 @@ class CaldavSyncEngine @Inject constructor(
             createIfAbsent = false,
         )
         if (retry.code !in 200..299) {
-            throw CaldavSyncException.Server("PUT отклонён: HTTP ${retry.code}")
+            return PushOutcome.Deferred
         }
         eventDao.markPushed(row.id, retry.etag, href)
         return PushOutcome.Pushed

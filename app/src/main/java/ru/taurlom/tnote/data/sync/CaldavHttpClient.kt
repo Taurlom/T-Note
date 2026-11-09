@@ -47,6 +47,19 @@ internal data class DavEntry(
 data class CaldavWriteResponse(val code: Int, val etag: String? = null)
 
 /**
+ * ETag в одной форме для всей очереди. Яндекс отдаёт значение без кавычек
+ * (GET/REPORT — голое число), но If-Match признаёт только в цитированной
+ * форме RFC 7232: пока хранили «как вернул сервер», каждое обновление
+ * серверного события отвечало 412. Здесь всё приводится к кавычкам — так
+ * If-Match уходит сразу в читаемой сервером форме.
+ */
+internal fun normalizeEtag(raw: String?): String? {
+    val trimmed = raw?.trim().orEmpty()
+    if (trimmed.isEmpty()) return null
+    return if (trimmed.startsWith("\"")) trimmed else "\"$trimmed\""
+}
+
+/**
  * Транспорт CalDAV: OkHttp с преждевременным BasicAuth и разбором
  * multistatus. Слой нарочно тонкий: ответы Яндекса простые (см. живые
  * пробы, зафиксированные в CaldavHttpClientTest), поэтому dav4jvm ради
@@ -148,7 +161,9 @@ class CaldavHttpClient @Inject constructor() {
                 method,
                 body?.toRequestBody(contentType?.toMediaType()),
             )
-        ifMatch?.let { builder.header("If-Match", it) }
+        ifMatch?.let { value ->
+            normalizeEtag(value)?.let { normalized -> builder.header("If-Match", normalized) }
+        }
         if (ifNoneMatchStar) builder.header("If-None-Match", "*")
 
         try {
@@ -156,7 +171,7 @@ class CaldavHttpClient @Inject constructor() {
                 when (response.code) {
                     401, 403 -> throw CaldavSyncException.Auth()
                 }
-                CaldavWriteResponse(response.code, response.header("ETag"))
+                CaldavWriteResponse(response.code, normalizeEtag(response.header("ETag")))
             }
         } catch (e: CaldavSyncException) {
             throw e
@@ -338,7 +353,7 @@ internal object DavXml {
                             propStatus = statusRegex.find(text.trim())
                                 ?.groupValues?.get(1)?.toIntOrNull() ?: 200
 
-                        "getetag" -> propEtag = text.trim()
+                        "getetag" -> propEtag = normalizeEtag(text)
 
                         "displayname" -> propDisplayName = text.trim()
 

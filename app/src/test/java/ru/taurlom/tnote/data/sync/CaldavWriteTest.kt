@@ -156,4 +156,25 @@ class CaldavWriteTest {
             deriveObjectHref("https://caldav.yandex.ru/calendars/u%40yandex.ru/events-1", "uid-1"),
         )
     }
+
+    @Test
+    fun `etag without quotes is quoted in response and if-match`() = runBlocking {
+        // Форма Яндекса: ETag приходит и уходит без кавычек. If-Match он
+        // признаёт только в цитированной форме — нормализация должна быть
+        // на границе транспорта, а не в голове движка.
+        server.enqueue(MockResponse().setResponseCode(201).addHeader("ETag", "1794258807976"))
+
+        val result = api.putEvent(
+            server.url("/x/a.ics").toString(),
+            icsBody(),
+            "user",
+            "pass",
+            etag = "1794258807976",
+            createIfAbsent = false,
+        )
+
+        assertEquals("\"1794258807976\"", result.etag)
+        val recorded = server.takeRequest()
+        assertEquals("\"1794258807976\"", recorded.getHeader("If-Match"))
+    }
 }
