@@ -30,6 +30,9 @@ import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.io.ByteArrayOutputStream
 import java.io.StringReader
+import java.nio.ByteBuffer
+import java.nio.charset.Charset
+import java.nio.charset.CodingErrorAction
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -68,7 +71,11 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *    очередность восстанавливается из локальной копии, сопоставленной по UID,
  *    а не с сервера;
  *  - цвет, иконка, тип и «прошлые вхождения скрыты» — нестандартные свойства
- *    X-TNOTE-*: сервер хранит их дословно, другие календарные клиенты игнорируют;
+ *    X-TNOTE-*: полноценные CalDAV-серверы хранят их дословно, другие
+ *    календарные клиенты игнорируют. Яндекс при PUT выбрасывает их вместе
+ *    со всеми неизвестными X-свойствами (проба 2026-11), поэтому копия без
+ *    X-TNOTE-* не стирает локальные значения этих полей при переписи
+ *    (hasTnoteMetadata → CaldavRemoteEvent.metadataFromIcs → applyRemote);
  *  - повторение: RRULE FREQ=DAILY/WEEKLY/MONTHLY/YEARLY;INTERVAL=N — прямое
  *    отображение на наш якорь [ScheduledEvent.date], частоту и интервал; BYDAY
  *    у WEEKLY — это выбранные дни недели (интерфейс повторения как в Яндексе);
@@ -202,6 +209,39 @@ private val RepeatUnit.icsFreq: String
         RepeatUnit.YEARS -> "YEARLY"
     }
 
+/**
+ * Починка «UTF-8, прочитанного как cp1252». Парсер text/calendar Яндекса
+ * угадывает кодировку PUT-тела: UTF-8 BOM или байты из «дыр» cp1252
+ * (0x81/0x8D/0x8F/0x90/0x9D — в кириллице это «Ё», «э», «я», «А», «Н»,
+ * «с») включают UTF-8, прочие тела декодируются как cp1252 и хранятся
+ * кракозябрами (charset=... игнорируется; проба и бисекция 2026-11).
+ * Свой PUT шлётся с BOM (CaldavHttpClient), но тела чужих клиентов без
+ * BOM и старые наши PUT-ы лежат в хранилище уже испорченными. Такой
+ * шаблон обратим: символ строки — это байт корректного UTF-8, их надо
+ * собрать обратно и декодировать.
+ *
+ * Защита от ложной починки: живой текст на кириллице или с эмодзи при
+ * cp1252-сборке дал бы '?' на каждой не выразимой букве — рост их числа
+ * значит «это не кракозябры, не трогать». Latin-1-тексты («Café») после
+ * сборки не образуют валидной UTF-8-последовательности и возвращаются
+ * как есть; ложная починка возможна только для текста, случайно похожего
+ * на задвоенное UTF-8 («Ã©» → «é») — на живых названиях практически
+ * не встречается.
+ */
+internal fun repairMojibake(text: String): String {
+    if (text.none { it.code >= 0x80 }) return text
+    val bytes = text.toByteArray(Charset.forName("windows-1252"))
+    val questionMarks = bytes.count { it == '?'.code.toByte() }
+    if (questionMarks > text.count { it == '?' }) return text
+    return runCatching {
+        Charsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
+    }.getOrDefault(text)
+}
+
 /** VCALENDAR с одним или несколькими VEVENT — тело CalDAV PUT. */
 fun eventCalendar(events: List<VEvent>): Calendar = Calendar().apply {
     properties.add(ProdId(PROD_ID))
@@ -224,6 +264,17 @@ fun parseIcs(text: String): Calendar? = runCatching {
 fun Calendar.vevents(): List<VEvent> = components.filterIsInstance<VEvent>()
 
 /**
+ * Есть ли в VEVENT наши свойства X-TNOTE-*. Экспорт всегда пишет
+ * X-TNOTE-TYPE и X-TNOTE-ICON, так что полноценный CalDAV-сервер отвечает
+ * «да» всегда; «нет» означает, что сервер наши свойства выбросил (Яндекс
+ * режет все неизвестные X-*, проба 2026-11) — движок по этому флагу
+ * сохраняет при переписи локальные иконку/цвет/«скрыть прошлое».
+ */
+internal fun VEvent.hasTnoteMetadata(): Boolean = properties.any {
+    it.name == PROP_TYPE || it.name == PROP_ICON || it.name == PROP_COLOR || it.name == PROP_HIDE_PAST
+}
+
+/**
  * Разбор серверного VEVENT в доменную модель. null — если это вовсе не
  * дневная метка: нет UID/DTSTART или дата не читается.
  */
@@ -233,7 +284,9 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
     // VALUE=DATE — «yyyyMMdd»; чужое событие с точным временем
     // («...T090000Z» и родственные формы) берём по календарному дню.
     val anchor = icsDay(dtStart.value) ?: return null
-    val summary = properties.byName(Property.SUMMARY)?.value ?: ""
+    // Имя могло доехать в «cp1252-прочтении» UTF-8 (Яндекс без BOM —
+    // см. repairMojibake): восстанавливаем до разбора типа и правил.
+    val summary = repairMojibake(properties.byName(Property.SUMMARY)?.value ?: "")
 
     // DTEND — эксклюзивная дата конца (RFC 5545): минус день даёт последний
     // показанный день. Однодневное событие имеет DTEND = якорь + 1.

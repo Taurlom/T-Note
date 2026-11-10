@@ -73,6 +73,23 @@ class CaldavWriteTest {
     }
 
     @Test
+    fun `put body carries utf-8 bom for yandex charset sniffing`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(201))
+        val url = server.url("/calendars/u%40yandex.ru/events-1/test-uid.ics").toString()
+
+        api.putEvent(url, icsBody(), "user", "pass", etag = null, createIfAbsent = true)
+
+        val recorded = server.takeRequest()
+        val bytes = recorded.body.readByteArray()
+        // Бом-префикс: без него парсер Яндекса декодирует тело как cp1252
+        // и хранит кракозябры (charset=... он игнорирует, проба 2026-11).
+        assertEquals(0xEF, bytes[0].toInt() and 0xFF)
+        assertEquals(0xBB, bytes[1].toInt() and 0xFF)
+        assertEquals(0xBF, bytes[2].toInt() and 0xFF)
+        assertTrue(String(bytes, Charsets.UTF_8).contains("BEGIN:VEVENT"))
+    }
+
+    @Test
     fun `update with known etag sends if-match and surfaces 412`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(412))
         val url = server.url("/calendars/u%40yandex.ru/events-1/test-uid.ics").toString()

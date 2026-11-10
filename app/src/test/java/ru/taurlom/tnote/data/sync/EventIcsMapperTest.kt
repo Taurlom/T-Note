@@ -164,6 +164,66 @@ class EventIcsMapperTest {
         assertEquals(ScheduledEventType.REGULAR, parsed.type)
     }
 
+    // Починка кодировки и флаг наших свойств на границе разбора
+
+    /** Форма хранения Яндекса для PUT без BOM: UTF-8 байты, прочитанные как cp1252. */
+    private fun cp1252Mangled(text: String): String = String(text.toByteArray(Charsets.UTF_8), charset("windows-1252"))
+
+    @Test
+    fun `cp1252-mangled title is repaired on import`() {
+        // Форма из живой пробы (бисекция E1): тело без BOM, «Порт 🎂 Портал».
+        val original = "Порт 🎂 Портал"
+        assertEquals(original, repairMojibake(cp1252Mangled(original)))
+    }
+
+    @Test
+    fun `mangled birthday title still converts to birthday type`() {
+        // Название без «дырявых» букв (А/с/я/э/Н/Ё дают байты 0x81/0x8D/
+        // 0x8F/0x90/0x9D — с ними сервер сам включается на UTF-8 и не
+        // портит тело); именно дырко-свободные он хранит испорченными.
+        val mangled = cp1252Mangled("🎂 Торт Маши")
+        val parsed = foreign(
+            "UID:foreign-mangled@example.com",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:$mangled",
+            "RRULE:FREQ=YEARLY;BYMONTH=11;BYMONTHDAY=12;INTERVAL=1",
+        ) ?: error("VEVENT не распознан")
+        assertEquals("Торт Маши", parsed.title)
+        assertEquals(ScheduledEventType.BIRTHDAY, parsed.type)
+    }
+
+    @Test
+    fun `repair keeps real unicode and latin-1 titles untouched`() {
+        // Кириллица/эмодзи невыразимы в cp1252 — живой текст не трогается.
+        assertEquals("Полив цветов 🌷", repairMojibake("Полив цветов 🌷"))
+        // Latin-1-акценты после сборки не дают валидного UTF-8.
+        assertEquals("Café", repairMojibake("Café"))
+        // Чистый ASCII проходит сквозь починку без изменений.
+        assertEquals("Stand-up", repairMojibake("Stand-up"))
+    }
+
+    @Test
+    fun `own export reports tnote metadata, foreign does not`() {
+        val own = parseIcs(eventCalendar(listOf(regular().toIcsEvent())).icsText())
+            ?.vevents()?.single() ?: error("свой VEVENT не разобрался")
+        assertTrue(own.hasTnoteMetadata())
+
+        val alien = parseIcs(
+            listOf(
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "BEGIN:VEVENT",
+                "UID:foreign-meta@example.com",
+                "DTSTART;VALUE=DATE:20261117",
+                "SUMMARY:Без наших свойств",
+                "END:VEVENT",
+                "END:VCALENDAR",
+            ).joinToString("\r\n") + "\r\n",
+        )?.vevents()?.single() ?: error("чужой VEVENT не разобрался")
+        assertFalse(alien.hasTnoteMetadata())
+    }
+
     // Приём чужих VEVENT (созданы вне T-Note)
 
     /** Текст календаря с одним VEVENT: RFC-строгие CRLF, без складок линий. */

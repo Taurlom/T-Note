@@ -113,6 +113,53 @@ class CaldavSyncEngineTest {
     }
 
     @Test
+    fun `pull without tnote metadata keeps local presentation fields`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Отделка пользователя: вне очереди отправки, но Яндекс при PUT
+        // выбрасывает X-TNOTE-* — его копия приходит без иконки/цвета.
+        fakeEventDao.rows.replaceAll { row ->
+            row.copy(icon = "FITNESS", colorArgb = 0xFFE53935L, hidePast = true)
+        }
+        api.pull = CaldavPull(
+            listOf(remoteEvent("u1", title = "Переименован").copy(metadataFromIcs = false)),
+        )
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(added = 0, updated = 1, removed = 0), result)
+        fakeEventDao.rows.let { rows ->
+            // Содержимое — серверное, отделка — своя: стирать её дефолтами
+            // перепись не должна.
+            assertEquals("Переименован", rows[0].title)
+            assertEquals("FITNESS", rows[0].icon)
+            assertEquals(0xFFE53935L, rows[0].colorArgb)
+            assertTrue(rows[0].hidePast)
+        }
+    }
+
+    @Test
+    fun `pull with tnote metadata overwrites presentation fields`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+        fakeEventDao.rows.replaceAll { row ->
+            row.copy(icon = "FITNESS", colorArgb = 0xFFE53935L, hidePast = true)
+        }
+        // Полноценный сервер вернул X-TNOTE-*: его копия правит и отделку.
+        api.pull = CaldavPull(listOf(remoteEvent("u1", title = "С сервера")))
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(added = 0, updated = 1, removed = 0), result)
+        fakeEventDao.rows.let { rows ->
+            assertEquals("NOTE", rows[0].icon)
+            assertEquals(ScheduledEvent.DEFAULT_COLOR, rows[0].colorArgb)
+            assertFalse(rows[0].hidePast)
+        }
+    }
+
+    @Test
     fun `events absent on server are removed, local rows survive`() = runBlocking {
         val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
         val engine = engine(api)

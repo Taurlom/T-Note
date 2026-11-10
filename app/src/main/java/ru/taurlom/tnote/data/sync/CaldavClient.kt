@@ -22,6 +22,15 @@ data class CaldavRemoteEvent(
     val href: String,
     val etag: String?,
     val event: ScheduledEvent,
+    /**
+     * Пришли ли в VEVENT наши свойства X-TNOTE-*. Экспорт всегда пишет
+     * X-TNOTE-TYPE/ICON, поэтому полноценный CalDAV-сервер возвращает их
+     * всегда, а Яндекс выбрасывает все неизвестные X-свойства при PUT
+     * (проба 2026-11) — его копии приходят без метаданных, и при переписи
+     * движок сохраняет локальные иконку/цвет/«скрыть прошлое» (applyRemote),
+     * вместо того чтобы стирать их дефолтами уже на следующей вычитке.
+     */
+    val metadataFromIcs: Boolean = true,
 )
 
 /**
@@ -160,7 +169,9 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
             // Одно событие-объект может вернуть и мастер, и его overrides;
             // храним мастера: ровно то, что показывал read-only этап 1.
             events += calendar.vevents().mapNotNull { vevent ->
-                vevent.toScheduledEvent()?.let { CaldavRemoteEvent(href, entry.etag, it) }
+                vevent.toScheduledEvent()?.let {
+                    CaldavRemoteEvent(href, entry.etag, it, metadataFromIcs = vevent.hasTnoteMetadata())
+                }
             }
         }
         return CaldavPull(events, unreadable)
@@ -217,11 +228,14 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
         // в RFC-шной форме переводов строк для ical4j.
         val ics = data.replace("\r\n", "\n").lines().joinToString("\r\n")
         // Тело с overrides принимается как и в pullEvents — мастером.
-        val event = parseIcs(ics)?.vevents()?.firstOrNull()?.toScheduledEvent() ?: return null
+        val calendar = parseIcs(ics) ?: return null
+        val vevent = calendar.vevents().firstOrNull() ?: return null
+        val event = vevent.toScheduledEvent() ?: return null
         return CaldavRemoteEvent(
             href = resolve(url, entry.href),
             etag = entry.etag,
             event = event,
+            metadataFromIcs = vevent.hasTnoteMetadata(),
         )
     }
 

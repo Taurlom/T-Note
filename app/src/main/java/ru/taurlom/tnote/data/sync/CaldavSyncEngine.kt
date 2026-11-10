@@ -67,9 +67,15 @@ private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
  * Match:* на первую публикацию игнорируется (второй PUT того же UID тоже
  * 201, объект молча перезаписывается); ETag приходит без кавычек, а
  * If-Match признаётся только в цитированной форме — нормализация на
- * границе транспорта (normalizeEtag). Временные сбои (5xx) не рвут прогон:
- * строка остаётся в очереди, DELETE tombstones всё равно доходят, в
- * настройках остаётся след незавершённого прогона.
+ * границе транспорта (normalizeEtag). Все неизвестные X-свойства при PUT
+ * выбрасываются, включая X-TNOTE-*: иконка/цвет/«скрыть прошлое» при
+ * переписи берутся из локальной строки (applyRemote). Тела text/calendar
+ * уходят с UTF-8 BOM: без него сервер декодирует их как cp1252 и хранит
+ * кракозябры (charset=... он игнорирует во всех формах), а имена, уже
+ * испорченные таким декодированием (чужие клиенты без BOM, старые наши
+ * PUT-ы), чинятся при разборе (repairMojibake). Временные сбои (5xx) не
+ * рвут прогон: строка остаётся в очереди, DELETE tombstones всё равно
+ * доходят, в настройках остаётся след незавершённого прогона.
  */
 @Singleton
 class CaldavSyncEngine @Inject constructor(
@@ -175,8 +181,25 @@ class CaldavSyncEngine @Inject constructor(
 
     /** Перепись строки сервером целиком: идентификаторы и позиция — свои. */
     private suspend fun applyRemote(existing: ScheduledEventEntity, remote: CaldavRemoteEvent, account: CaldavAccountEntity) {
+        // Яндекс выбрасывает все неизвестные X-свойства (проба 2026-11):
+        // его копия собственного события приходит без X-TNOTE-*, и слепая
+        // перепись стёрла бы иконку/цвет/«скрыть прошлое» уже следующей
+        // вычиткой. Пока серверный VEVENT наших свойств не принёс, эти три
+        // поля — локальный выбор пользователя, а не серверные данные:
+        // сохраняем их. Полноценный CalDAV-сервер X-* возвращает — его
+        // копия (metadataFromIcs) переписывает целиком, как раньше.
+        val event = if (remote.metadataFromIcs) {
+            remote.event
+        } else {
+            val local = existing.toDomain()
+            remote.event.copy(
+                icon = local.icon,
+                colorArgb = local.colorArgb,
+                hidePastOccurrences = local.hidePastOccurrences,
+            )
+        }
         eventDao.update(
-            remote.event.toEntity().copy(
+            event.toEntity().copy(
                 id = existing.id,
                 caldavAccountId = existing.caldavAccountId ?: account.id,
                 position = existing.position,

@@ -159,7 +159,23 @@ class CaldavHttpClient @Inject constructor() {
             .header("User-Agent", "T-Note/1.0 CalDAV")
             .method(
                 method,
-                body?.toRequestBody(contentType?.toMediaType()),
+                body?.let { text ->
+                    // Яндекс-квирк (пробы 2026-11): парсер text/calendar
+                    // угадывает кодировку тела — без UTF-8 BOM декодирует
+                    // как cp1252 и хранит кракозябры (charset=... он
+                    // игнорирует во всех формах; единственный «сам»-UTF-8
+                    // случай — байты из дыр cp1252, «А»/«с»/«я»/«Ё», то
+                    // есть угадывание непредсказуемо). BOM включают UTF-8
+                    // достоверно: верно и в веб-Яндексе, и у нас при
+                    // вычитке.
+                    val bytes = if (contentType?.startsWith("text/calendar") == true) {
+                        byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) +
+                            text.toByteArray(Charsets.UTF_8)
+                    } else {
+                        text.toByteArray(Charsets.UTF_8)
+                    }
+                    bytes.toRequestBody(contentType?.toMediaType())
+                },
             )
         ifMatch?.let { value ->
             normalizeEtag(value)?.let { normalized -> builder.header("If-Match", normalized) }
