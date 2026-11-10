@@ -23,6 +23,7 @@ fun ScheduledEventEntity.toDomain(): ScheduledEvent = ScheduledEvent(
     hidePastOccurrences = hidePast,
     position = position,
     caldavAccountId = caldavAccountId,
+    remoteImported = remoteImported,
     createdAt = createdAt,
     modifiedAt = modifiedAt,
 )
@@ -43,6 +44,7 @@ fun ScheduledEvent.toEntity(): ScheduledEventEntity = ScheduledEventEntity(
     hidePast = hidePastOccurrences,
     position = position,
     caldavAccountId = caldavAccountId,
+    remoteImported = remoteImported,
     createdAt = createdAt,
     modifiedAt = modifiedAt,
 )

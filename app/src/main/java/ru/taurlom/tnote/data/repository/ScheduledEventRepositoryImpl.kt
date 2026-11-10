@@ -104,6 +104,13 @@ class ScheduledEventRepositoryImpl @Inject constructor(
             // отвечал бы 412 на каждое сохранение.
             entity = entity.copy(etag = row.etag, serverHref = row.serverHref)
         }
+        existing?.let { row ->
+            // Происхождение переживает правку: снапшот редактора флага не
+            // несёт, «приехало ли содержимое с сервера» — свойство строки.
+            // Без перезаписи здесь сохранившееся значение стёрлось бы
+            // (событие из вычитки после первой правки гасило бы бейдж).
+            entity = entity.copy(remoteImported = row.remoteImported)
+        }
         eventDao.update(entity)
         if (dirty) syncScheduler.requestPush()
     }

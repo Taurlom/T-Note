@@ -314,6 +314,23 @@ object AppDatabaseMigration {
         }
     }
 
+    /**
+     * 23 → 24: флаг происхождения «крайняя версия содержимого приехала
+     * вычиткой» (remoteImported). Различает импорт и собственные события,
+     * отправленные в подписанный календарь: приписка подписке
+     * (caldavAccountId) бывает у тех и других, а бейдж «Яндекс» раньше
+     * смотрел только на неё — маркировались и события, созданные в
+     * приложении. Старым строкам остаётся 0: история происхождения не
+     * восстановима, отсутствие бейджа у таких событий молчаливо.
+     */
+    val MIGRATION_23_24 = object : Migration(23, 24) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE scheduled_events ADD COLUMN remoteImported INTEGER NOT NULL DEFAULT 0",
+            )
+        }
+    }
+
     /** Добавляет в scheduled_events настройки повторения. */
     val MIGRATION_11_12 = object : Migration(11, 12) {
         override fun migrate(db: SupportSQLiteDatabase) {

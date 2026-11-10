@@ -316,4 +316,34 @@ class AppDatabaseMigrationTest {
         }
         db.close()
     }
+
+    /**
+     * 23 → 24: флаг происхождения. Все предшествующие строки получают
+     * remoteImported = 0: история «кто из кого импортирован» на момент
+     * миграции не восстановима — бейдж источника гаснет у старых событий,
+     * дальше движок ставит флаг живой вычиткой.
+     */
+    @Test
+    fun `migrate 23 to 24 starts every event unflagged as remote`() {
+        helper.createDatabase(23).use { db ->
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                    "dirty, etag, serverHref) " +
+                    "VALUES (1, 'uid-1', '2026-11-16', 'Полив', 'REPEATING', 'NOTE', 0, " +
+                    "'WEEKS', 1, 'MO', NULL, NULL, 0, 0, 1, 1, '\"e1\"', '/calendars/x/uid-1.ics')",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            24,
+            listOf(AppDatabaseMigration.MIGRATION_23_24),
+        )
+        // Событие этапа 23 (приписка и очередь) пережило миграцию с нулевым флагом.
+        db.prepare("SELECT remoteImported FROM scheduled_events WHERE id = 1").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(0L, stmt.getLong(0))
+        }
+        db.close()
+    }
 }

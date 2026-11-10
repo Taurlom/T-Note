@@ -214,8 +214,10 @@ private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: ()
             textDecoration = if (isPast) TextDecoration.LineThrough else null,
             modifier = Modifier.weight(1f),
         )
-        if (event.caldavAccountId != null) {
-            // Метка источника: событие приехало из подписанного календаря.
+        if (event.remoteImported) {
+            // Метка источника: крайняя версия содержимого приехала вычиткой
+            // с сервера. Собственное событие, отправленное в подписку, метки
+            // не получает — caldavAccountId у него есть, а происхождение своё.
             Text(
                 text = stringResource(R.string.sync_badge),
                 style = MaterialTheme.typography.labelSmall,

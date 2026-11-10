@@ -111,6 +111,11 @@ class CaldavSyncEngine @Inject constructor(
                             remote.event.toEntity().copy(
                                 id = 0,
                                 caldavAccountId = account.id,
+                                // UID впервые увиден вычиткой — событие чужое:
+                                // это бейдж источника «Яндекс» (собственные
+                                // события появляется в базе раньше вычитки,
+                                // они видят флаг из строки, не с нуля).
+                                remoteImported = true,
                                 position = position,
                                 dirty = false,
                                 etag = remote.etag,
@@ -202,6 +207,11 @@ class CaldavSyncEngine @Inject constructor(
             event.toEntity().copy(
                 id = existing.id,
                 caldavAccountId = existing.caldavAccountId ?: account.id,
+                // Происхождение переписью не трогается: вычитка эхом
+                // возвращает и собственные события (протолкнутые в
+                // подписку), сплошной флаг гасил бы их бейдж. Флаг ставится
+                // один раз — когда UID впервые попадает в базу вычиткой.
+                remoteImported = existing.remoteImported,
                 position = existing.position,
                 // Строка переписана сервером — её локальной правки нет:
                 // очередь чиста, ETag и href — от свежей вычитки.
