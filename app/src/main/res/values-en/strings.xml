@@ -38,6 +38,8 @@
     <string name="sync_section">Sync</string>
     <string name="sync_hint">Connect a Yandex calendar — its events will appear in the app grid and refresh automatically. They are edited on the server; here they are read-only.</string>
     <string name="sync_add_account">Add a Yandex calendar</string>
+    <string name="sync_publish_old">Add old events to the calendar</string>
+    <string name="sync_publish_result">Queued to the calendar: %1$d</string>
     <string name="sync_add_title">Connect a calendar</string>
     <string name="sync_server">Server address</string>
     <string name="sync_login">Yandex login (email)</string>

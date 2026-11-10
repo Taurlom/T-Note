@@ -451,6 +451,7 @@ private fun SectionTitle(text: String) {
 private fun CaldavSyncSection(viewModel: SettingsViewModel) {
     val accounts by viewModel.caldavAccounts.collectAsState()
     val busy by viewModel.caldavBusy.collectAsState()
+    val localOnlyCount by viewModel.localOnlyCount.collectAsState()
     // Аккаунт, ждущий подтверждения отключения; null — диалог закрыт.
     var pendingDisconnect by remember { mutableStateOf<CaldavAccount?>(null) }
 
@@ -466,6 +467,17 @@ private fun CaldavSyncSection(viewModel: SettingsViewModel) {
                 busy = busy,
                 viewModel = viewModel,
                 onDisconnectRequest = { pendingDisconnect = account },
+            )
+        }
+        // Старые события (созданные до подключения подписки) ещё не видны
+        // серверу: кнопка ставит их в очередь отправки. Прячется сама,
+        // когда таких не остаётся.
+        if (accounts.size == 1 && localOnlyCount > 0) {
+            AppTextButton(
+                onClick = { viewModel.publishLocalEvents(accounts[0].id) },
+                textRes = R.string.sync_publish_old,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         // Один сторонний календарь — поддерживаемая пока конфигурация:
@@ -494,6 +506,24 @@ private fun CaldavSyncSection(viewModel: SettingsViewModel) {
 
     CaldavAddAccountDialog(viewModel)
     CaldavSyncResultToast(viewModel)
+    CaldavPublishResultToast(viewModel)
+}
+
+/** Итог «залить старые события» — тост с числом поставленных в очередь. */
+@Composable
+private fun CaldavPublishResultToast(viewModel: SettingsViewModel) {
+    val published by viewModel.caldavPublishResult.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(published) {
+        published?.let {
+            Toast.makeText(
+                context,
+                context.getString(R.string.sync_publish_result, it),
+                Toast.LENGTH_SHORT,
+            ).show()
+            viewModel.caldavPublishResultShown()
+        }
+    }
 }
 
 /** Карточка подписки: имена, последняя синхронизация (или ошибка), кнопки. */

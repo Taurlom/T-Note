@@ -677,6 +677,21 @@ private class FakeEventDao : ScheduledEventDao {
             }
         }
     }
+
+    override fun observeLocalOnlyCount(): Flow<Int> = flowOf(rows.count { it.caldavAccountId == null })
+
+    override suspend fun attributeAll(accountId: Long): Int {
+        var count = 0
+        rows.replaceAll { row ->
+            if (row.caldavAccountId == null) {
+                count++
+                row.copy(caldavAccountId = accountId, dirty = true)
+            } else {
+                row
+            }
+        }
+        return count
+    }
 }
 
 private class FakeNoteDao : CalendarNoteDao {

@@ -124,4 +124,12 @@ class CaldavRepositoryImpl @Inject constructor(
                 onFailure = { acc },
             )
         }
+
+    override fun observeLocalOnlyCount(): Flow<Int> = scheduledEventDao.observeLocalOnlyCount()
+
+    override suspend fun publishLocalOnly(accountId: Long): Int {
+        val count = scheduledEventDao.attributeAll(accountId)
+        if (count > 0) scheduler.requestPush()
+        return count
+    }
 }

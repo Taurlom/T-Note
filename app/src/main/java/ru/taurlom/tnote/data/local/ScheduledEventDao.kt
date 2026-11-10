@@ -21,6 +21,17 @@ interface ScheduledEventDao {
     @Query("SELECT * FROM scheduled_events WHERE type = :type ORDER BY eventDate ASC")
     fun getByType(type: String): Flow<List<ScheduledEventEntity>>
 
+    /** События без приписки подписке — кандидаты «залить старые в календарь». */
+    @Query("SELECT COUNT(*) FROM scheduled_events WHERE caldavAccountId IS NULL")
+    fun observeLocalOnlyCount(): Flow<Int>
+
+    /** Приписка всех неприписанных событий аккаунту и в очередь отправки. */
+    @Query(
+        "UPDATE scheduled_events SET caldavAccountId = :accountId, dirty = 1 " +
+            "WHERE caldavAccountId IS NULL",
+    )
+    suspend fun attributeAll(accountId: Long): Int
+
     @Query("SELECT * FROM scheduled_events WHERE id = :id")
     suspend fun getByIdOnce(id: Long): ScheduledEventEntity?
 

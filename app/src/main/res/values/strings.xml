@@ -53,6 +53,8 @@
     <string name="sync_section">Синхронизация</string>
     <string name="sync_hint">Подключите Яндекс-календарь — его события появятся в сетке приложения и будут обновляться автоматически. Изменяются они на сервере, в приложении только для чтения.</string>
     <string name="sync_add_account">Добавить Яндекс-календарь</string>
+    <string name="sync_publish_old">Добавить старые события в календарь</string>
+    <string name="sync_publish_result">Поставлено в календарь: %1$d</string>
     <string name="sync_add_title">Подключение календаря</string>
     <string name="sync_server">Адрес сервера</string>
     <string name="sync_login">Яндекс-логин (почта)</string>

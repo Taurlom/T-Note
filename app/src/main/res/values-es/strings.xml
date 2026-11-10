@@ -38,6 +38,8 @@
     <string name="sync_section">Sincronización</string>
     <string name="sync_hint">Conecta un calendario de Yandex: sus eventos aparecerán en la cuadrícula de la app y se actualizarán automáticamente. Se editan en el servidor; aquí son de solo lectura.</string>
     <string name="sync_add_account">Agregar calendario de Yandex</string>
+    <string name="sync_publish_old">Añadir eventos antiguos al calendario</string>
+    <string name="sync_publish_result">En cola para el calendario: %1$d</string>
     <string name="sync_add_title">Conectar calendario</string>
     <string name="sync_server">Dirección del servidor</string>
     <string name="sync_login">Usuario de Yandex (correo)</string>

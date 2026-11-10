@@ -42,3 +42,16 @@ class SyncCaldavAccountUseCase @Inject constructor(private val repository: Calda
 class ObserveCaldavAccountsUseCase @Inject constructor(private val repository: CaldavRepository) {
     operator fun invoke(): Flow<List<CaldavAccount>> = repository.observeAccounts()
 }
+
+/** Живое число локальных событий без приписки — показывать ли кнопку «залить старые». */
+class ObserveLocalOnlyEventsCountUseCase @Inject constructor(private val repository: CaldavRepository) {
+    operator fun invoke(): Flow<Int> = repository.observeLocalOnlyCount()
+}
+
+/**
+ * «Залить старые события в календарь»: неприписанные события (созданные
+ * до подключения подписки) приписываются ей и ставятся в очередь отправки.
+ */
+class PublishLocalEventsUseCase @Inject constructor(private val repository: CaldavRepository) {
+    suspend operator fun invoke(accountId: Long): Int = repository.publishLocalOnly(accountId)
+}

@@ -31,6 +31,8 @@ import ru.taurlom.tnote.domain.usecase.DeletePastCalendarUseCase
 import ru.taurlom.tnote.domain.usecase.DisconnectCaldavAccountUseCase
 import ru.taurlom.tnote.domain.usecase.DiscoverCaldavCalendarsUseCase
 import ru.taurlom.tnote.domain.usecase.ObserveCaldavAccountsUseCase
+import ru.taurlom.tnote.domain.usecase.ObserveLocalOnlyEventsCountUseCase
+import ru.taurlom.tnote.domain.usecase.PublishLocalEventsUseCase
 import ru.taurlom.tnote.domain.usecase.SetReminderTimeUseCase
 import ru.taurlom.tnote.domain.usecase.SetRemindersEnabledUseCase
 import ru.taurlom.tnote.domain.usecase.SyncCaldavAccountUseCase
@@ -50,6 +52,8 @@ class SettingsViewModel @Inject constructor(
     private val connectCaldavAccountUseCase: ConnectCaldavAccountUseCase,
     private val disconnectCaldavAccountUseCase: DisconnectCaldavAccountUseCase,
     private val syncCaldavAccountUseCase: SyncCaldavAccountUseCase,
+    private val observeLocalOnlyEventsCountUseCase: ObserveLocalOnlyEventsCountUseCase,
+    private val publishLocalEventsUseCase: PublishLocalEventsUseCase,
 ) : ViewModel() {
 
     private val backupStatus = MutableStateFlow(BackupStatus())
@@ -294,6 +298,10 @@ class SettingsViewModel @Inject constructor(
     val caldavAccounts: StateFlow<List<CaldavAccount>> = observeCaldavAccountsUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Число локальных событий без приписки — показывает кнопку «залить старые». */
+    val localOnlyCount: StateFlow<Int> = observeLocalOnlyEventsCountUseCase()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     private val _caldavBusy = MutableStateFlow(false)
     val caldavBusy: StateFlow<Boolean> = _caldavBusy.asStateFlow()
 
@@ -314,6 +322,21 @@ class SettingsViewModel @Inject constructor(
         // здесь страховка от программных вызовов).
         if (caldavAccounts.value.isNotEmpty()) return
         _caldavAddState.value = CaldavAddState(open = true)
+    }
+
+    /** Итог «залить старые события» — для тоста; экран гасит через shown(). */
+    private val _caldavPublishResult = MutableStateFlow<Int?>(null)
+    val caldavPublishResult: StateFlow<Int?> = _caldavPublishResult.asStateFlow()
+
+    fun caldavPublishResultShown() {
+        _caldavPublishResult.value = null
+    }
+
+    /** Старые события без приписки → в подключённый календарь. */
+    fun publishLocalEvents(accountId: Long) {
+        viewModelScope.launch {
+            _caldavPublishResult.value = publishLocalEventsUseCase(accountId)
+        }
     }
 
     fun closeCaldavDialog() {
