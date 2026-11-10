@@ -346,6 +346,56 @@ class EventIcsMapperTest {
         assertEquals(11 to 12, ScheduledEvent.effectiveBirthdayDate(LocalDate.parse("2026-11-12"), 2028))
     }
 
+    // Живые тела сервера как фикстуры: байты-пробы 2026-11-10 не должны
+    // «уехать» под ногами ни в фиксациях Яндекса, ни в наших правках.
+
+    /** Полный VCALENDAR из пробы сервера: ресурс yandex/&lt;имя&gt;.ics. */
+    private fun foreignResource(name: String): ScheduledEvent? {
+        val text = javaClass.getResourceAsStream("/yandex/$name")
+            ?.readBytes()?.toString(Charsets.UTF_8) ?: error("нет ресурса $name")
+        val calendar = parseIcs(text) ?: error("ICS-текст не разобрался: $name")
+        return calendar.vevents().single().toScheduledEvent()
+    }
+
+    @Test
+    fun `yandex web birthday live fixture converts to birthday type`() {
+        // «День рождения» веб-Яндекса: VEVENT с VTIMEZONE, RRULE
+        // BYMONTH/BYMONTHDAY ровно по якорю и 🎂 в начале SUMMARY —
+        // фикстура держит реальное тело с сервера (2026-11-10).
+        val parsed = foreignResource("web_birthday_clean.ics") ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.BIRTHDAY, parsed.type)
+        assertEquals("Праздник", parsed.title)
+        assertEquals("2026-11-17", parsed.date)
+        assertNull(parsed.repeatUnit)
+        assertNull(parsed.repeatUntil)
+        // Вхождения BIRTHDAY модель считает по месяцу/дню якоря: в 2031-м — 17 ноября.
+        assertEquals(
+            11 to 17,
+            ScheduledEvent.effectiveBirthdayDate(LocalDate.parse("2026-11-17"), 2031),
+        )
+    }
+
+    @Test
+    fun `yandex puts without bom stay clean on the wire (2026-11-10)`() {
+        // Проба 2026-11-10: PUT без BOM с чисто-кириллическим именем сервер
+        // сегодня хранит корректным UTF-8 (раньше жевал до cp1252). Контракт:
+        // корректные байты на входе разбираем как есть, ничего не испортив.
+        val parsed = foreignResource("put_nobom_cyrillic_clean.ics") ?: error("VEVENT не распознан")
+        assertEquals("День рождения — проба без BOM", parsed.title)
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.YEARS, parsed.repeatUnit)
+    }
+
+    @Test
+    fun `yandex-stored cp1252 mojibake is repaired on read (2026-11-10)`() {
+        // Проба 2026-11-10: PUT без BOM с эмодзи в имени сервер хранит
+        // cp1252-прочтением UTF-8 («Ð»-кракозябры). Починка на границе
+        // разбора чинит такое тело живьём и без ложных срабатываний.
+        val parsed = foreignResource("put_nobom_emoji_mangled.ics") ?: error("VEVENT не распознан")
+        assertEquals("Порт 🎂 Портал", parsed.title)
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+    }
+
     @Test
     fun `foreign yearly selector duplicates of anchor become repeating`() {
         // Любое годовое событие веб-Яндекса (не только дни рождения) идёт

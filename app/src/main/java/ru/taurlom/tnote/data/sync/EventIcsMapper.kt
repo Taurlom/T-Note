@@ -30,7 +30,7 @@ import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.io.ByteArrayOutputStream
 import java.io.StringReader
-import java.nio.ByteBuffer
+import java.nio.CharBuffer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.time.DayOfWeek
@@ -220,24 +220,34 @@ private val RepeatUnit.icsFreq: String
  * шаблон обратим: символ строки — это байт корректного UTF-8, их надо
  * собрать обратно и декодировать.
  *
- * Защита от ложной починки: живой текст на кириллице или с эмодзи при
- * cp1252-сборке дал бы '?' на каждой не выразимой букве — рост их числа
- * значит «это не кракозябры, не трогать». Latin-1-тексты («Café») после
- * сборки не образуют валидной UTF-8-последовательности и возвращаются
- * как есть; ложная починка возможна только для текста, случайно похожего
- * на задвоенное UTF-8 («Ã©» → «é») — на живых названиях практически
- * не встречается.
+ * Защита от ложной починки: живой текст на кириллице или с эмодзи не
+ * выразим в cp1252 — строгий энкодер (REPORT) отказывается его кодировать,
+ * и текст возвращается как есть. Реальные кракозябры собраны из байтов
+ * cp1252 читателем сервера и потому всегда кодируются обратно. Строгий
+ * режим обязателен обеим сторонам взаимосвязи, но особенно энкодеру:
+ * замена невыразимых символов нестандартизована — JVM подставляет '?'
+ * (0x3F), Android (ICU) — SUB (0x1A), а байты 0x1A — валидный UTF-8, и
+ * строгий UTF-8-декодер молча возвращает испорченный текст (регрессия
+ * 2026-11-10: все импортированные из Яндекса названия с кириллицей
+ * ложились в базу U+001A и роняли тип BIRTHDAY). Latin-1-тексты («Café»)
+ * после сборки не образуют валидной UTF-8-последовательности и
+ * возвращаются как есть; ложная починка возможна только для текста,
+ * случайно похожего на задвоенное UTF-8 («Ã©» → «é») — на живых
+ * названиях практически не встречается.
  */
 internal fun repairMojibake(text: String): String {
     if (text.none { it.code >= 0x80 }) return text
-    val bytes = text.toByteArray(Charset.forName("windows-1252"))
-    val questionMarks = bytes.count { it == '?'.code.toByte() }
-    if (questionMarks > text.count { it == '?' }) return text
+    val bytes = runCatching {
+        Charset.forName("windows-1252").newEncoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .encode(CharBuffer.wrap(text))
+    }.getOrNull() ?: return text
     return runCatching {
         Charsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
             .onUnmappableCharacter(CodingErrorAction.REPORT)
-            .decode(ByteBuffer.wrap(bytes))
+            .decode(bytes)
             .toString()
     }.getOrDefault(text)
 }
