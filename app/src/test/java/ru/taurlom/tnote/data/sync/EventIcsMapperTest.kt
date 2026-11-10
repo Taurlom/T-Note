@@ -258,6 +258,100 @@ class EventIcsMapperTest {
     }
 
     @Test
+    fun `foreign yandex birthday converts to birthday type`() {
+        // Живая проба (файл-отчёт 2026-11): «день рождения» веб-Яндекса —
+        // годовой VEVENT с 🎂 в начале имени и селекторами BYMONTH/
+        // BYMONTHDAY ровно по якорю. Наш BIRTHDAY — тот же вечный годовой
+        // круг от месяца/дня якоря, по этому признаку и конвертируем.
+        val parsed = foreign(
+            "UID:93k80elgb93zi19oci2yandex.ru",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:\uD83C\uDF82 День рождения",
+            "URL:https://calendar.yandex.ru/event?event_id=442950257772385",
+            "RRULE:FREQ=YEARLY;BYMONTH=11;BYMONTHDAY=12;INTERVAL=1",
+            "TRANSP:TRANSPARENT",
+            "CATEGORIES:T-Note",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.BIRTHDAY, parsed.type)
+        assertEquals("День рождения", parsed.title)
+        assertEquals("2026-11-12", parsed.date)
+        // Правило у BIRTHDAY — часть типа: поля повтора чистые.
+        assertNull(parsed.repeatUnit)
+        assertEquals(1, parsed.repeatInterval)
+        assertTrue(parsed.repeatWeekdays.isEmpty())
+        assertNull(parsed.repeatUntil)
+        // И круг годовой: в 2028-м вхождение — 12 ноября (модель дней
+        // рождения считает по месяцу/дню якоря, occursOn не участвует).
+        assertEquals(11 to 12, ScheduledEvent.effectiveBirthdayDate(LocalDate.parse("2026-11-12"), 2028))
+    }
+
+    @Test
+    fun `foreign yearly selector duplicates of anchor become repeating`() {
+        // Любое годовое событие веб-Яндекса (не только дни рождения) идёт
+        // селекторами-дубликатами якоря: по набору вхождений это голый
+        // YEARLY — представимо, пусть будет REPEATING/YEARS с чистым именем.
+        val parsed = foreign(
+            "UID:foreign-12@example.com",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:Обзор года",
+            "RRULE:FREQ=YEARLY;BYMONTH=11;BYMONTHDAY=12;INTERVAL=1",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.YEARS, parsed.repeatUnit)
+        assertEquals("Обзор года", parsed.title)
+        assertNull(parsed.repeatUntil)
+        assertTrue(parsed.occursOn(LocalDate.parse("2031-11-12")))
+    }
+
+    @Test
+    fun `foreign yearly selectors off anchor fall back to anchor day`() {
+        // BYMONTHDAY=20 при якоре 12-го — селекторы не дублируют якорь:
+        // такую периодичность модель не выражает, правило отбрасываем.
+        val parsed = foreign(
+            "UID:foreign-13@example.com",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:Чужой шаблон",
+            "RRULE:FREQ=YEARLY;BYMONTH=11;BYMONTHDAY=20;INTERVAL=1",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertNull(parsed.repeatUnit)
+    }
+
+    @Test
+    fun `birthday icon with count stays repeating with until`() {
+        // Ограниченное годовое повторение — не наш BIRTHDAY (тот бессрочный):
+        // остаёмся в REPEATING/YEARS с датой последнего вхождения, и имя
+        // не конвертируем — иконка оставалась набранной автором.
+        val parsed = foreign(
+            "UID:foreign-14@example.com",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:\uD83C\uDF82 Юбилей",
+            "RRULE:FREQ=YEARLY;COUNT=3;BYMONTH=11;BYMONTHDAY=12;INTERVAL=1",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.YEARS, parsed.repeatUnit)
+        assertEquals("\uD83C\uDF82 Юбилей", parsed.title)
+        assertEquals("2028-11-12", parsed.repeatUntil)
+    }
+
+    @Test
+    fun `birthday summary export carries cake icon once`() {
+        // Наружу имя дня рождения уходит в форме Яндекса; уже-иконка в
+        // имени не дублируется.
+        val plain = eventCalendar(listOf(birthday().toIcsEvent())).icsText()
+        assertTrue(plain.contains("SUMMARY:\uD83C\uDF82 ДР Маши\r\n"))
+        val preIconted = eventCalendar(
+            listOf(birthday(title = "\uD83C\uDF82 ДР Маши").toIcsEvent()),
+        ).icsText()
+        assertTrue(preIconted.contains("SUMMARY:\uD83C\uDF82 ДР Маши\r\n"))
+        assertFalse(preIconted.contains("\uD83C\uDF82 \uD83C\uDF82"))
+    }
+
+    @Test
     fun `foreign weekly byday becomes repeating with weekdays`() {
         // Главный кейс Яндекса: «повторять по дням недели» — Пн и Ср.
         val parsed = foreign(

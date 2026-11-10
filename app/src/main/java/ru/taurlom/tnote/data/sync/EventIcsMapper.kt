@@ -39,6 +39,14 @@ private const val PROP_ICON = "X-TNOTE-ICON"
 private const val PROP_COLOR = "X-TNOTE-COLOR"
 private const val PROP_HIDE_PAST = "X-TNOTE-HIDEPAST"
 
+/**
+ * 🎂 в начале имени — форма «дня рождения» Яндекса (живая проба: VEVENT
+ * с RRULE FREQ=YEARLY и селекторами BYMONTH/BYMONTHDAY по якорю).
+ * На границе ICS/events она обратимо ставится и снимается, внутри БД
+ * имена дней рождения хранятся чистыми.
+ */
+private const val BIRTHDAY_ICON = "🎂"
+
 /** PRODID обёртки VCALENDAR, которую отдаёт приложение при PUT. */
 private const val PROD_ID = "-//T-Note//iCalendar 1.0//RU"
 
@@ -76,13 +84,20 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *    CREATED → [ScheduledEvent.createdAt], LAST-MODIFIED →
  *    [ScheduledEvent.modifiedAt]; без них — DTSTAMP (он обязателен по RFC);
  *  - день рождения: RRULE FREQ=YEARLY от полного якоря с годом; февральские 29
- *    и високосный год сводит модель (effectiveBirthdayDate), ICS не знает о них;
+ *    и високосный год сводит модель (effectiveBirthdayDate), ICS не знает о них.
+ *    Наружу имя дня рождения уходит с 🎂-префиксом (форма Яндекса:
+ *    «день рождения» в их клиентах узнаваем по иконке в начале имени), внутрь
+ *    храним имя чистым — конвертированное из Яндекса или вернувшееся с
+ *    сервера своё, иконку в БД не таскаем;
  *  - «выходной» (WEEKEND) — генерируемая отметка: наружу не экспортируется,
  *    на входе трактуется как REGULAR.
  *
- * Непредставимые своей моделью чужие RRULE (BYDAY с позициями «вторый вторник
- * месяца», BYMONTHDAY и прочие селекторы) разбираются как REGULAR на якорный
- * день — без попытки угадать.
+ * Годовые селекторы-дубликаты якоря «BYMONTH=<месяц якоря>;
+ * BYMONTHDAY=<день якоря>» (форма годовых событий веб-Яндекса, проверено
+ * живой пробой) по набору вхождений равны голому YEARLY — считаем их
+ * представимыми. Остальные непредставимые чужие RRULE (BYDAY с позициями
+ * «вторый вторник месяца», не совпадающие с якорем селекторы, и прочие)
+ * разбираются как REGULAR на якорный день — без попытки угадать.
  *
  * VEVENT для CalDAV PUT. Битая якорная дата — исключение: движок перед
  * экспортом фильтрует строки, события с «2026-13-40» до PUT не доходят.
@@ -107,7 +122,7 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         // Яндекс на такой PUT отвечает 504.
         properties.add(DtStart(Date(anchor.format(icsDate), "yyyyMMdd")))
         properties.add(DtEnd(Date(anchor.plusDays(1).format(icsDate), "yyyyMMdd")))
-        properties.add(Summary(title))
+        properties.add(Summary(birthdaySummaryForIcs()))
         // RRULE пишут повторения: «выходной» наружу вообще не ходит,
         // и повторение без частоты повторить нечего — идёт без RRULE.
         if (type == ScheduledEventType.REPEATING) {
@@ -157,6 +172,25 @@ private fun ScheduledEvent.recurValue(unit: RepeatUnit, anchor: LocalDate): Stri
     // UNTIL для VALUE=DATE — дата без времени (совпадает с типом DTSTART).
     repeatUntil?.let { parts += "UNTIL=${it.replace("-", "")}" }
     return parts.joinToString(";")
+}
+
+/** Имя дня рождения в ICS: с 🎂-префиксом, если префикса ещё нет. */
+private fun ScheduledEvent.birthdaySummaryForIcs(): String {
+    if (type != ScheduledEventType.BIRTHDAY) return title
+    return if (title.startsWith(BIRTHDAY_ICON)) title else "$BIRTHDAY_ICON $title"
+}
+
+/**
+ * «🎂 Имя» → «Имя» — форма дня рождения Яндекса; null — имя таковым
+ * не является (без иконки в начале). Селектор варианта после иконки
+ * и пробелы-разделители съедаются.
+ */
+private fun birthdayTitleWithoutIcon(summary: String): String? {
+    if (!summary.startsWith(BIRTHDAY_ICON)) return null
+    return summary
+        .removePrefix(BIRTHDAY_ICON)
+        .removePrefix("\uFE0F")
+        .trimStart()
 }
 
 /** Наша единица частоты → FREQ из RFC 5545. */
@@ -247,14 +281,17 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         emptySet()
     }
 
-    // Селекторы BY* (BYMONTH, BYMONTHDAY, BYSETPOS, время внутри дня…)
-    // и BYDAY с позициями нашей моделью не выразить — правило целиком
+    // Селекторы BY* нашей моделью не выразить — правило целиком
     // отбрасывается: якорный день остаётся, остальное не выдумываем.
-    val representable = rule != null && unit != null && rule.isRepresentableByModel(unit)
+    // Исключение — годовые селекторы-дубликаты якоря ниже.
+    val representable = rule != null && unit != null &&
+        rule.isRepresentableByModel(unit, anchor)
 
     // Чей VEVENT: свой (X-TNOTE-TYPE есть) или чужой — тогда тип узнаем
     // по RRULE. Годовой повтор чужого события — не день рождения (подарок
-    // и сдвиг 29 февраля — про людей), а честное REPEATING/YEARS.
+    // и сдвиг 29 февраля — про людей), а честное REPEATING/YEARS; исключение
+    // — форма Яндекса: годовой VEVENT с 🎂 в начале имени и без ограничителей,
+    // это их «день рождения» — конвертируем в наш тип веткой ниже.
     val type = declaredType ?: if (representable) ScheduledEventType.REPEATING else ScheduledEventType.REGULAR
     // Правило имеет смысл только для REPEATING: у BIRTHDAY повторение —
     // часть типа, отдельного правила у нашего события нет.
@@ -285,15 +322,43 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
     // частота DAYS с интервалом 1 и ограничителем на последний день.
     // Отдельное поле endDate не нужно; при живом RRULE правило важнее.
     val multiDayEnd = spanEnd?.takeIf { rule == null && it.isAfter(anchor) }
-    val adapted = if (type == ScheduledEventType.REGULAR && multiDayEnd != null) {
-        resolved.copy(
+
+    // День рождения Яндекса: годовой круг без ограничителей и селекторов-
+    // недубликатов (уже проверено representable выше), имя с 🎂 — наш
+    // тип BIRTHDAY ровно про это: вечный годовой круг от месяца/дня якоря.
+    // Иконку в БД не храним (экспорт вернёт её сам), правило в RRULE-поля
+    // не разлагается — у BIRTHDAY оно часть типа.
+    val birthdayTitle = birthdayTitleWithoutIcon(summary)
+    val isForeignBirthday = birthdayTitle != null &&
+        declaredType == null &&
+        representable &&
+        unit == RepeatUnit.YEARS &&
+        interval == 1 &&
+        resolved.repeatUntil == null
+
+    val adapted = when {
+        isForeignBirthday -> resolved.copy(
+            type = ScheduledEventType.BIRTHDAY,
+            title = birthdayTitle.orEmpty(),
+            repeatUnit = null,
+            repeatInterval = 1,
+            repeatWeekdays = emptySet(),
+            repeatUntil = null,
+        )
+
+        // Свой BIRTHDAY вернулся с сервера: экспорт добавил иконку в
+        // SUMMARY — в БД имя тоже держим чистым, иначе редактор покажет
+        // двойной 🎂 после каждой синхронизации.
+        type == ScheduledEventType.BIRTHDAY && birthdayTitle != null -> resolved.copy(title = birthdayTitle)
+
+        type == ScheduledEventType.REGULAR && multiDayEnd != null -> resolved.copy(
             type = ScheduledEventType.REPEATING,
             repeatUnit = RepeatUnit.DAYS,
             repeatInterval = 1,
             repeatUntil = multiDayEnd.toString(),
         )
-    } else {
-        resolved
+
+        else -> resolved
     }
 
     val icon = properties.byName(PROP_ICON)?.value
@@ -341,19 +406,41 @@ private fun ScheduledEvent.nthOccurrence(count: Int): LocalDate? {
 
 /**
  * Выразимо ли правило нашей моделью: у DAYS и у WEEKS не должно быть иных
- * селекторов BY*, кроме BYDAY (без позиций у WEEKLY); MONTHLY и YEARLY —
- * только совсем без селекторов. Время внутри дня (BYHOUR и родня) не
- * выразимо всегда — наши события дневные метки.
+ * селекторов BY*, кроме BYDAY (без позиций у WEEKLY); MONTHLY — только совсем
+ * без селекторов; YEARLY — без селекторов либо только с селекторами-
+ * дубликатами якоря (см. [yearlySelectorsMatchAnchor]). Время внутри дня
+ * (BYHOUR и родня) не выразимо всегда — наши события дневные метки.
  */
-private fun Recur.isRepresentableByModel(unit: RepeatUnit): Boolean {
+private fun Recur.isRepresentableByModel(unit: RepeatUnit, anchor: LocalDate): Boolean {
     if (hourList.isNotEmpty() || minuteList.isNotEmpty() || secondList.isNotEmpty()) return false
-    if (monthList.isNotEmpty() || monthDayList.isNotEmpty() || yearDayList.isNotEmpty()) return false
     if (setPosList.isNotEmpty() || weekNoList.isNotEmpty()) return false
+    // Селекторы месяца/года допустимы только у YEARLY и только в форме-
+    // дубликате якоря; у прочих частот любое их присутствие не выразимо.
+    if (unit != RepeatUnit.YEARS &&
+        (monthList.isNotEmpty() || monthDayList.isNotEmpty() || yearDayList.isNotEmpty())
+    ) {
+        return false
+    }
     return when (unit) {
         RepeatUnit.DAYS -> dayList.isEmpty()
         RepeatUnit.WEEKS -> dayList.all { it.offset == 0 }
-        RepeatUnit.MONTHS, RepeatUnit.YEARS -> dayList.isEmpty()
+        RepeatUnit.MONTHS -> dayList.isEmpty()
+        RepeatUnit.YEARS -> dayList.isEmpty() && yearlySelectorsMatchAnchor(anchor)
     }
+}
+
+/**
+ * Годовые селекторы, при которых правило по набору вхождений равно голому
+ * YEARLY от [anchor]: селекторов нет вовсе — либо дублирующая форма Яндекса
+ * «BYMONTH=<месяц якоря>;BYMONTHDAY=<день якоря>» (живая проба, ноябрь
+ * 2026: все годовые события веб-Яндекса, включая «день рождения», идут
+ * ею). Не сходящиеся с якорем значения не представимы: правило отбрасываем.
+ */
+private fun Recur.yearlySelectorsMatchAnchor(anchor: LocalDate): Boolean {
+    if (monthList.isEmpty() && monthDayList.isEmpty() && yearDayList.isEmpty()) return true
+    return monthList.size == 1 && monthList.first().monthOfYear == anchor.monthValue &&
+        monthDayList.size == 1 && monthDayList.first() == anchor.dayOfMonth &&
+        yearDayList.isEmpty()
 }
 
 /** Код дня недели ical4j (MO..SU) в java.time. */
