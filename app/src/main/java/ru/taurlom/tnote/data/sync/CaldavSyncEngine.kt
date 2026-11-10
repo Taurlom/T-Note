@@ -10,7 +10,6 @@ import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
-import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
@@ -26,7 +25,7 @@ fun interface SyncTransaction {
 
 /**
  * Итог отправки одной dirty-строки: доехала до сервера / сервер перезаписал
- * нашу правку / строка технически не отправляема (битая дата, WEEKEND) /
+ * нашу правку / строка технически не отправляема (битая дата) /
  * временный сбой сервера — очередь ждёт следующего прогона.
  */
 private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
@@ -274,10 +273,8 @@ class CaldavSyncEngine @Inject constructor(
      */
     private suspend fun pushRow(account: CaldavAccountEntity, row: ScheduledEventEntity, password: String): PushOutcome {
         val event = row.toDomain()
-        // Ничего не выражаемое наружу или гонимое прочь: «выходной» —
-        // генерируемая отметка (границы v1), битая дата не разберётся в
-        // VEVENT. Строки остаются в очереди вместо вечного ретрая.
-        if (event.type == ScheduledEventType.WEEKEND) return PushOutcome.Skipped
+        // Битая дата не разберётся в VEVENT: строка остаётся в очереди
+        // вместо вечного ретрая.
         if (event.dateOrNull() == null) return PushOutcome.Skipped
 
         val href = row.serverHref ?: api.objectHref(account.collectionUrl, row.uid)

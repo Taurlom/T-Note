@@ -50,6 +50,15 @@ private const val PROP_HIDE_PAST = "X-TNOTE-HIDEPAST"
  */
 private const val BIRTHDAY_ICON = "🎂"
 
+/**
+ * ☀️ в начале имени — перенос нашей метки «Выходной» (WEEKEND): событие
+ * на весь день без повторения, наружу — с иконкой (форма та же, что у
+ * «дня рождения»: приёмная сторона узнаёт тип по символу в начале имени).
+ * На границе ICS/events ставится и снимается обратимо, в БД имена
+ * выходных хранятся чистыми.
+ */
+private const val WEEKEND_ICON = "☀"
+
 /** PRODID обёртки VCALENDAR, которую отдаёт приложение при PUT. */
 private const val PROD_ID = "-//T-Note//iCalendar 1.0//RU"
 
@@ -96,8 +105,10 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *    «день рождения» в их клиентах узнаваем по иконке в начале имени), внутрь
  *    храним имя чистым — конвертированное из Яндекса или вернувшееся с
  *    сервера своё, иконку в БД не таскаем;
- *  - «выходной» (WEEKEND) — генерируемая отметка: наружу не экспортируется,
- *    на входе трактуется как REGULAR.
+ *  - метка «Выходной» (WEEKEND) — событие на весь день без повторения;
+ *    наружу уходит с ☀️-префиксом имени (форма переноса, как 🎂 у дня
+ *    рождения), на входе «☀️ Имя» без правила конвертируется в WEEKEND
+ *    с чистым именем.
  *
  * Годовые селекторы-дубликаты якоря «BYMONTH=<месяц якоря>;
  * BYMONTHDAY=<день якоря>» (форма годовых событий веб-Яндекса, проверено
@@ -115,13 +126,10 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
     // Явное строковое имя: у VEvent есть собственное свойство uid (ical4j 3.2),
     // оно затеняет ScheduledEvent.uid внутри лямбды apply.
     val ownUid: String = this.uid
-    // «Выходной» — локальная генерируемая отметка: наружу уходит как
-    // обычное событие, чтобы приёмники с USER-WEEKEND не мучились.
-    val exportType = if (type == ScheduledEventType.WEEKEND) {
-        ScheduledEventType.REGULAR
-    } else {
-        type
-    }
+    // «Выходной» теперь полноценно ездит наружу: тип в X-TNOTE-TYPE пишется
+    // как есть — узнавание у приёмников без X-свойств (Яндекс) идёт по
+    // ☀️-префиксу имени (summaryForIcs).
+    val exportType = type
     return VEvent().apply {
         properties.add(Uid(ownUid))
         // DTSTAMP не добавляем руками: конструктор VEvent сам вставляет
@@ -129,7 +137,7 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         // Яндекс на такой PUT отвечает 504.
         properties.add(DtStart(Date(anchor.format(icsDate), "yyyyMMdd")))
         properties.add(DtEnd(Date(anchor.plusDays(1).format(icsDate), "yyyyMMdd")))
-        properties.add(Summary(birthdaySummaryForIcs()))
+        properties.add(Summary(summaryForIcs()))
         // RRULE пишут повторения: «выходной» наружу вообще не ходит,
         // и повторение без частоты повторить нечего — идёт без RRULE.
         if (type == ScheduledEventType.REPEATING) {
@@ -181,10 +189,29 @@ private fun ScheduledEvent.recurValue(unit: RepeatUnit, anchor: LocalDate): Stri
     return parts.joinToString(";")
 }
 
-/** Имя дня рождения в ICS: с 🎂-префиксом, если префикса ещё нет. */
-private fun ScheduledEvent.birthdaySummaryForIcs(): String {
-    if (type != ScheduledEventType.BIRTHDAY) return title
-    return if (title.startsWith(BIRTHDAY_ICON)) title else "$BIRTHDAY_ICON $title"
+/** Имя события в ICS: типовые иконки-префиксы — форма Яндекса для «дня
+ *  рождения» и договорённый перенос для «Выходного»; если префикс уже
+ *  стоит, он не задваивается. */
+private fun ScheduledEvent.summaryForIcs(): String {
+    val icon = when (type) {
+        ScheduledEventType.BIRTHDAY -> BIRTHDAY_ICON
+        ScheduledEventType.WEEKEND -> "$WEEKEND_ICON\uFE0F"
+        else -> return title
+    }
+    return if (title.startsWith(icon)) title else "$icon $title"
+}
+
+/**
+ * «☀️ Имя» → «Имя» — форма нашей метки «Выходной» на границе ICS; null —
+ * имя таковым не является (без иконки в начале). Селектор варианта после
+ * иконки и пробелы-разделители съедаются.
+ */
+private fun weekendTitleWithoutIcon(summary: String): String? {
+    if (!summary.startsWith(WEEKEND_ICON)) return null
+    return summary
+        .removePrefix(WEEKEND_ICON)
+        .removePrefix("\uFE0F")
+        .trimStart()
 }
 
 /**
@@ -399,6 +426,15 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         interval == 1 &&
         resolved.repeatUntil == null
 
+    // Перенос нашей метки «Выходной»: событие на весь день с ☀️ в начале
+    // имени и без правила (выходной не повторяется). Чужой VEVENT с такой
+    // формой конвертируется в WEEKEND с чистым именем — так же, как
+    // 🎂-годовой круг конвертируется в день рождения.
+    val weekendTitle = weekendTitleWithoutIcon(summary)
+    val isForeignWeekend = weekendTitle != null &&
+        declaredType == null &&
+        !representable
+
     val adapted = when {
         isForeignBirthday -> resolved.copy(
             type = ScheduledEventType.BIRTHDAY,
@@ -413,6 +449,19 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         // SUMMARY — в БД имя тоже держим чистым, иначе редактор покажет
         // двойной 🎂 после каждой синхронизации.
         type == ScheduledEventType.BIRTHDAY && birthdayTitle != null -> resolved.copy(title = birthdayTitle)
+
+        isForeignWeekend -> resolved.copy(
+            type = ScheduledEventType.WEEKEND,
+            title = weekendTitle.orEmpty(),
+            repeatUnit = null,
+            repeatInterval = 1,
+            repeatWeekdays = emptySet(),
+            repeatUntil = null,
+        )
+
+        // Свой WEEKEND вернулся с сервера: экспорт добавил иконку в
+        // SUMMARY — в БД имя держим чистым, как у дня рождения.
+        type == ScheduledEventType.WEEKEND && weekendTitle != null -> resolved.copy(title = weekendTitle)
 
         type == ScheduledEventType.REGULAR && multiDayEnd != null -> resolved.copy(
             type = ScheduledEventType.REPEATING,

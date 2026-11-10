@@ -158,11 +158,51 @@ class EventIcsMapperTest {
     }
 
     @Test
-    fun `weekend marker is never exported as weekend`() {
-        // WEEKEND — местная сгенерированная отметка: наружу — как обычное.
-        val weekend = regular().copy(type = ScheduledEventType.WEEKEND)
-        val parsed = roundTrip(weekend)
-        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+    fun `weekend round-trips with sun prefix`() {
+        // «Выходной» едет наружу событием на весь день с ☀️-префиксом
+        // (форма переноса, как 🎂 у дня рождения) и без RRULE: выходной
+        // не повторяется.
+        val weekend = regular().copy(type = ScheduledEventType.WEEKEND, title = "Пляж")
+        val ics = eventCalendar(listOf(weekend.toIcsEvent())).icsText()
+        val calendar = parseIcs(ics) ?: error("ICS-текст не разобрался: $ics")
+        val vevent = calendar.vevents().single()
+        // Имя-носитель с иконкой, правило отсутствует.
+        assertTrue(vevent.summary.value.startsWith("☀"))
+        assertNull(vevent.getProperty("RRULE"))
+        val parsed = vevent.toScheduledEvent() ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.WEEKEND, parsed.type)
+        assertEquals("Пляж", parsed.title)
+        assertNull(parsed.repeatUnit)
+    }
+
+    @Test
+    fun `foreign sunny all-day event converts to weekend`() {
+        // Чужое событие с ☀️ в начале имени и без правила — перенос нашей
+        // метки «Выходной» с другого устройства: конвертируется в WEEKEND.
+        val parsed = foreign(
+            "UID:foreign-weekend@example.com",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:☀️ Дача",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.WEEKEND, parsed.type)
+        assertEquals("Дача", parsed.title)
+        assertNull(parsed.repeatUnit)
+    }
+
+    @Test
+    fun `sunny title with rrule stays repeating not weekend`() {
+        // ☀️-имя с правилом нашей меткой не считается: выходной не
+        // повторяется, а повторяемое событие не выдумывается.
+        val parsed = foreign(
+            "UID:foreign-sunny-rule@example.com",
+            "DTSTART;VALUE=DATE:20261112",
+            "DTEND;VALUE=DATE:20261113",
+            "SUMMARY:☀️ Пляж",
+            "RRULE:FREQ=DAILY;INTERVAL=3",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals("☀️ Пляж", parsed.title)
     }
 
     // Починка кодировки и флаг наших свойств на границе разбора

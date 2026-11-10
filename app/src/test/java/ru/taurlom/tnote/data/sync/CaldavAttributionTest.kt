@@ -10,8 +10,8 @@ import ru.taurlom.tnote.domain.model.ScheduledEventType
 
 /**
  * Политика приписки (этап 2): единственная подписка забирает события без
- * приписки, WEEKEND всегда остаётся локальным, а при нескольких подписках
- * календарь-получатель не угадывается.
+ * приписки — включая «выходные», при нескольких подписках календарь-
+ * получатель не угадывается.
  */
 class CaldavAttributionTest {
 
@@ -26,6 +26,11 @@ class CaldavAttributionTest {
     @Test
     fun `sole subscription adopts unattributed event`() {
         assertEquals(7L, CaldavAttribution.targetFor(ScheduledEventType.REGULAR, null, listOf(account(7))))
+    }
+
+    @Test
+    fun `sole subscription adopts unattributed weekend too`() {
+        assertEquals(7L, CaldavAttribution.targetFor(ScheduledEventType.WEEKEND, null, listOf(account(7))))
     }
 
     @Test
@@ -44,17 +49,12 @@ class CaldavAttributionTest {
     }
 
     @Test
-    fun `weekend never travels to server`() {
-        assertNull(CaldavAttribution.targetFor(ScheduledEventType.WEEKEND, null, listOf(account(7))))
-        assertNull(CaldavAttribution.targetFor(ScheduledEventType.WEEKEND, 3L, listOf(account(7))))
-    }
-
-    @Test
-    fun `dirty marks only attributed regular rows`() {
+    fun `dirty marks attributed rows`() {
         assertFalse(CaldavAttribution.isDirty(ScheduledEventType.REGULAR, null, null))
         assertTrue(CaldavAttribution.isDirty(ScheduledEventType.REGULAR, 7L, 7L))
         assertTrue(CaldavAttribution.isDirty(ScheduledEventType.REGULAR, null, 7L))
-        // «Выходной» не ставится в очередь, даже если строка была приписана.
-        assertFalse(CaldavAttribution.isDirty(ScheduledEventType.WEEKEND, 7L, null))
+        // «Выходной» едет в подписку наравне с остальными типами.
+        assertTrue(CaldavAttribution.isDirty(ScheduledEventType.WEEKEND, 7L, null))
+        assertTrue(CaldavAttribution.isDirty(ScheduledEventType.WEEKEND, null, 7L))
     }
 }

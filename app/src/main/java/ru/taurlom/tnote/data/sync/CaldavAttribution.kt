@@ -15,21 +15,17 @@ object CaldavAttribution {
     /**
      * Аккаунт, чьей коллекции принадлежит событие: своё (приписанное)
      * остаётся прежним, «безформенное» получает единственную активную
-     * подписку. null — остаётся локальным: подписок нет или несколько,
-     * а также для «выходного» (генерируемая отметка, границы v1 —
-     * наружу не ходит).
+     * подписку. null — остаётся локальным: подписок нет или несколько.
      */
     fun targetFor(type: ScheduledEventType, caldavAccountId: Long?, accounts: List<CaldavAccountEntity>): Long? {
-        if (type == ScheduledEventType.WEEKEND) return null
         caldavAccountId?.let { return it }
         return accounts.singleOrNull()?.id
     }
 
     /**
-     * Ждёт ли строка отправки после правки: у «выходного» сервер не в цене
-     * (он локальная отметка), у остальных — когда событие приписано
-     * подписке (было или стало).
+     * Ждёт ли строка отправки после правки: событие приписано подписке
+     * (было или стало) — значит едет, включая «выходные».
      */
     fun isDirty(type: ScheduledEventType, currentAccountId: Long?, targetAccountId: Long?): Boolean =
-        type != ScheduledEventType.WEEKEND && (currentAccountId != null || targetAccountId != null)
+        currentAccountId != null || targetAccountId != null
 }
