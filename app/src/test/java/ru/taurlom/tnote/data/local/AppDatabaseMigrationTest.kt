@@ -366,12 +366,25 @@ class AppDatabaseMigrationTest {
                     "VALUES ('https://caldav.yandex.ru', 'taur-lom@yandex.ru', " +
                     "'https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/', 'T-Note', 0, NULL)",
             ).use { it.step() }
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position) " +
+                    "VALUES (2, 'local-1', '2026-11-16', 'Выходной', 'WEEKEND', 'NOTE', 0, " +
+                    "NULL, 1, NULL, NULL, NULL, 0, 0)",
+            ).use { it.step() }
         }
         val db = helper.runMigrationsAndValidate(
             25,
             listOf(AppDatabaseMigration.MIGRATION_24_25),
         )
         db.prepare("SELECT caldavAccountId, dirty FROM calendar_notes WHERE eventDate = '2026-11-16'").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(1L, stmt.getLong(0))
+            assertEquals(1L, stmt.getLong(1))
+        }
+        // Старые неприписанные события — тоже в очередь (включая «выходные»).
+        db.prepare("SELECT caldavAccountId, dirty FROM scheduled_events WHERE uid = 'local-1'").use { stmt ->
             assertTrue(stmt.step())
             assertEquals(1L, stmt.getLong(0))
             assertEquals(1L, stmt.getLong(1))
@@ -386,6 +399,13 @@ class AppDatabaseMigrationTest {
             db.prepare(
                 "INSERT INTO calendar_notes (eventDate, text, createdAt, modifiedAt) " +
                     "VALUES ('2026-11-16', 'Полив', 100, 200)",
+            ).use { it.step() }
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position) " +
+                    "VALUES (2, 'local-1', '2026-11-16', 'Выходной', 'WEEKEND', 'NOTE', 0, " +
+                    "NULL, 1, NULL, NULL, NULL, 0, 0)",
             ).use { it.step() }
         }
         val db = helper.runMigrationsAndValidate(

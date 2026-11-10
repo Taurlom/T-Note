@@ -317,9 +317,11 @@ object AppDatabaseMigration {
     /**
      * 24 → 25: заметки дня едут через Яндекса событиями-носителями —
      * обвязка двустороннего обмена (приписка подписке, очередь PUT,
-     * ETag/href от вычитки). Заметки без приписки при наличии единственной
-     * подписки сразу в очередь: их сервер ещё не видел, перенос на другое
-     * устройство не должен требовать правки каждой заметки.
+     * ETag/href от вычитки). Заодно в очередь встают и старые события без
+     * приписки (включая «выходные», которые отныне тоже едут): у них нет
+     * серверного следа, и перенос на другое устройство не должен требовать
+     * правки каждой строки. Приписка — только при единственной подписке;
+     * заметки без подписки остаются локальными.
      */
     val MIGRATION_24_25 = object : Migration(24, 25) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -330,6 +332,10 @@ object AppDatabaseMigration {
             db.execSQL(
                 "UPDATE calendar_notes SET caldavAccountId = (SELECT id FROM caldav_accounts), " +
                     "dirty = 1 WHERE (SELECT COUNT(*) FROM caldav_accounts) = 1",
+            )
+            db.execSQL(
+                "UPDATE scheduled_events SET caldavAccountId = (SELECT id FROM caldav_accounts), " +
+                    "dirty = 1 WHERE caldavAccountId IS NULL AND (SELECT COUNT(*) FROM caldav_accounts) = 1",
             )
         }
     }
