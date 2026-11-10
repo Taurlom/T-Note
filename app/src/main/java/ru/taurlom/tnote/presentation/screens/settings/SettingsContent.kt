@@ -468,12 +468,16 @@ private fun CaldavSyncSection(viewModel: SettingsViewModel) {
                 onDisconnectRequest = { pendingDisconnect = account },
             )
         }
-        AppTextButton(
-            onClick = viewModel::openCaldavDialog,
-            textRes = R.string.sync_add_account,
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Один сторонний календарь — поддерживаемая пока конфигурация:
+        // пока подписка подключена, форма добавления не предлагается.
+        if (accounts.isEmpty()) {
+            AppTextButton(
+                onClick = viewModel::openCaldavDialog,
+                textRes = R.string.sync_add_account,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 
     pendingDisconnect?.let { account ->

@@ -309,6 +309,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun openCaldavDialog() {
+        // Один сторонний календарь — поддерживаемая конфигурация: при
+        // подключённой подписке форма не открывается (кнопка скрыта,
+        // здесь страховка от программных вызовов).
+        if (caldavAccounts.value.isNotEmpty()) return
         _caldavAddState.value = CaldavAddState(open = true)
     }
 
