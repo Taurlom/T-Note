@@ -10,6 +10,7 @@ import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
+import ru.taurlom.tnote.domain.model.ScheduledEvent
 import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
@@ -48,6 +49,12 @@ private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
  *    строки удаляются, dirty — остаются (их PUT воскресит объект;
  *    правка пользователя важнее, чем неизвестный удалитель).
  *
+ * Бэкфилл маркера: события с пользовательской отделкой (иконка/цвет/
+ * «скрыть прошлое»), отправленные старыми версиями без маркера, при
+ * вычитке встают в очередь отправки — PUT добавляет DESCRIPTION-маркер,
+ * и отделка начинает ездить между устройствами через серверы без
+ * X-свойств (needsMarkerBackfill).
+ *
  * Заметки дня едут тем же обменом событиями-носителями (NoteIcsMapper):
  * имя «✍️ Заметка», текст в DESCRIPTION, UID детерминированный от даты
  * (заметка одна на день). В вычитке они расходятся по таблице
@@ -76,8 +83,9 @@ private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
  * 201, объект молча перезаписывается); ETag приходит без кавычек, а
  * If-Match признаётся только в цитированной форме — нормализация на
  * границе транспорта (normalizeEtag). Все неизвестные X-свойства при PUT
- * выбрасываются, включая X-TNOTE-*: иконка/цвет/«скрыть прошлое» при
- * переписи берутся из локальной строки (applyRemote). Тела text/calendar
+ * выбрасываются, включая X-TNOTE-*: иконка/цвет/«скрыть прошлое» едут
+ * маркером в DESCRIPTION (tnoteDescriptionMarker), а при отсутствии и
+ * маркера берутся при переписи из локальной строки (applyRemote). Тела text/calendar
  * уходят с UTF-8 BOM: без него сервер декодирует их как cp1252 и хранит
  * кракозябры (charset=... он игнорирует во всех формах), а имена, уже
  * испорченные таким декодированием (чужие клиенты без BOM, старые наши
@@ -144,6 +152,11 @@ class CaldavSyncEngine @Inject constructor(
                             // Иначе — строка остаётся на отправку push'ем.
                         } else {
                             applyRemote(existing, remote, account)
+                            // Бэкфилл маркера — той же очередью отправки:
+                            // PUT уносит текущее состояние с маркером.
+                            if (existing.caldavAccountId == account.id && needsMarkerBackfill(existing, remote)) {
+                                eventDao.markDirty(existing.id)
+                            }
                             updated++
                         }
                 }
@@ -192,11 +205,8 @@ class CaldavSyncEngine @Inject constructor(
         for (row in noteDao.getDirtyFor(account.id)) {
             when (pushNoteRow(account, row, password)) {
                 PushOutcome.Pushed -> pushed++
-
                 PushOutcome.Overwritten -> overwritten++
-
                 PushOutcome.Skipped -> Unit
-
                 PushOutcome.Deferred -> deferred++
             }
         }
@@ -228,13 +238,40 @@ class CaldavSyncEngine @Inject constructor(
         return CaldavSyncResult(added, updated, removed, pushed, overwritten)
     }
 
+    /**
+     * Нужен ли бэкфилл маркера для строки, переписанной сервером. Серверная
+     * копия без наших метаданных (X-* Яндекс выбросил, DESCRIPTION-маркера
+     * ещё нет — объект последний раз писал старый PUT) и без description
+     * (добавление маркера ничего пользовательского не сотрёт); у локальной
+     * строки при этом есть своя отделка — иконка/цвет/«скрыть прошлое» не
+     * дефолтные, есть что донести до других устройств.
+     *
+     * Верно и обратное: у импортированного события с дефолтной отделкой
+     * синхронизировать нечего, а его перезапись только потеряла бы форму
+     * веб-Яндекса (ссылку события, цвет и категории их веб-формы). Чистые
+     * строки всех устройств и так согласованы (перепись сервером), так что
+     * бэкфилл непустой отделки не спорит с параллельной правкой: конфликт
+     * разрешает обычный LWW. Строка ставится в очередь отправки: PUT
+     * уносит маркер, и следующая вычитка уже видит метаданные
+     * (metadataFromIcs) — бэкфилл сойдётся за один прогон.
+     */
+    private fun needsMarkerBackfill(existing: ScheduledEventEntity, remote: CaldavRemoteEvent): Boolean =
+        !remote.metadataFromIcs && !remote.hasDescription && existing.hasCustomPresentation()
+
+    /** Отделка строки отличается от дефолтной: её выбирал пользователь. */
+    private fun ScheduledEventEntity.hasCustomPresentation(): Boolean =
+        icon != "NOTE" || colorArgb != ScheduledEvent.DEFAULT_COLOR || hidePast
+
     /** Перепись строки сервером целиком: идентификаторы и позиция — свои. */
     private suspend fun applyRemote(existing: ScheduledEventEntity, remote: CaldavRemoteEvent, account: CaldavAccountEntity) {
         // Яндекс выбрасывает все неизвестные X-свойства (проба 2026-11):
         // его копия собственного события приходит без X-TNOTE-*, и слепая
         // перепись стёрла бы иконку/цвет/«скрыть прошлое» уже следующей
-        // вычиткой. Пока серверный VEVENT наших свойств не принёс, эти три
-        // поля — локальный выбор пользователя, а не серверные данные:
+        // вычиткой. Эти три поля едут маркером в DESCRIPTION
+        // (tnoteDescriptionMarker) — его разбор уже в toScheduledEvent,
+        // и «метаданные есть» означает, что серверную копию переписываем
+        // целиком. Без маркера и X-* (чужое событие) иконка/цвет/«скрыть
+        // прошлое» — локальный выбор пользователя, а не серверные данные:
         // сохраняем их. Полноценный CalDAV-сервер X-* возвращает — его
         // копия (metadataFromIcs) переписывает целиком, как раньше.
         val event = if (remote.metadataFromIcs) {
@@ -383,11 +420,7 @@ class CaldavSyncEngine @Inject constructor(
      * предусловиями и LWW; объект-носитель собирается из заметки
      * (NoteIcsMapper), ключ на сервере — детерминированный UID от даты.
      */
-    private suspend fun pushNoteRow(
-        account: CaldavAccountEntity,
-        row: CalendarNoteEntity,
-        password: String,
-    ): PushOutcome {
+    private suspend fun pushNoteRow(account: CaldavAccountEntity, row: CalendarNoteEntity, password: String): PushOutcome {
         val note = row.toDomain()
         val anchor = runCatching { LocalDate.parse(note.date) }.getOrNull()
             ?: return PushOutcome.Skipped
@@ -409,7 +442,6 @@ class CaldavSyncEngine @Inject constructor(
         }
         when (first.code) {
             412, 404 -> Unit
-
             else -> return PushOutcome.Deferred
         }
 

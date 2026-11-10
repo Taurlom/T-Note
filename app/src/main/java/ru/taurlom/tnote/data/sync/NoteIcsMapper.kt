@@ -9,8 +9,8 @@ import net.fortuna.ical4j.model.property.DtStart
 import net.fortuna.ical4j.model.property.LastModified
 import net.fortuna.ical4j.model.property.Summary
 import net.fortuna.ical4j.model.property.Uid
-import ru.taurlom.tnote.data.local.entity.CalendarNoteEntity
 import ru.taurlom.tnote.data.local.entity.CaldavTombstoneEntity
+import ru.taurlom.tnote.data.local.entity.CalendarNoteEntity
 import ru.taurlom.tnote.domain.model.CalendarNote
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -52,8 +52,7 @@ internal fun noteBySummary(title: String): Boolean = title.trimStart().startsWit
  * Свойства DESCRIPTION у объекта может не быть (текст потерян сервером
  * или правился старой версией приложения) — тогда пустая строка.
  */
-internal fun VEvent.noteText(): String =
-    repairMojibake(properties.byName(Property.DESCRIPTION)?.value ?: "")
+internal fun VEvent.noteText(): String = repairMojibake(properties.byName(Property.DESCRIPTION)?.value ?: "")
 
 /**
  * VEVENT-носитель заметки: дневная метка (DTSTART/DTEND — соседние дни),

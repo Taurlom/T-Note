@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.data.sync
 
+import net.fortuna.ical4j.model.component.VEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -811,5 +812,147 @@ class EventIcsMapperTest {
         assertEquals(ScheduledEventType.REGULAR, event.type)
         assertNull(event.repeatUnit)
         assertFalse(event.hidePastOccurrences)
+    }
+
+    // Перенос иконки/цвета маркером в DESCRIPTION (канал для серверов без X-свойств)
+
+    /** Свой VEVENT без X-TNOTE-* — форма, в которой Яндекс хранит наши события (X-* он выбрасывает). */
+    private fun ownWithoutXProperties(event: ScheduledEvent): VEvent = event.toIcsEvent().apply {
+        properties.removeAll { it.name.startsWith("X-TNOTE-") }
+    }
+
+    @Test
+    fun `own metadata rides description marker when x-properties are stripped`() {
+        // Яндекс-канал: X-TNOTE-* выброшены сервером, маркер в DESCRIPTION
+        // остался — иконка, цвет и «скрыть прошлое» восстанавливаются из него.
+        val source = regular(color = 0xFFE53935, hidePast = true)
+        val vevent = ownWithoutXProperties(source)
+        val parsed = parseIcs(eventCalendar(listOf(vevent)).icsText())
+            ?.vevents()?.single()?.toScheduledEvent() ?: error("VEVENT не распознан")
+        assertEquals(EventIcon.BUILD, parsed.icon)
+        assertEquals(0xFFE53935L, parsed.colorArgb)
+        assertTrue(parsed.hidePastOccurrences)
+        assertTrue("маркер — тоже наши метаданные", vevent.hasTnoteMetadata())
+    }
+
+    @Test
+    fun `exported marker carries defaults so resets propagate`() {
+        // Дефолты из маркера не «оптимизируются»: отсутствие ключей значило
+        // бы «метаданных нет» — сброс иконки/цвета не доехал бы до других
+        // устройств. Цвет по умолчанию — ключа нет (форма 1:1 с X-TNOTE-COLOR).
+        val defaults = regular(icon = EventIcon.NOTE).toIcsEvent()
+        assertEquals("[T-Note] icon=NOTE", defaults.properties.byName("DESCRIPTION")?.value)
+        val colored = regular(color = 0xFFE53935).toIcsEvent()
+        assertEquals("[T-Note] icon=BUILD color=#FFE53935", colored.properties.byName("DESCRIPTION")?.value)
+    }
+
+    @Test
+    fun `foreign vevent with marker imports icon color and hide past`() {
+        // Событие, набранное в T-Note на другом телефоне и доехавшее через Яндекс.
+        val parsed = foreign(
+            "UID:foreign-marker@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "SUMMARY:Из другого телефона",
+            "DESCRIPTION:[T-Note] icon=TRAVEL color=#FFE53935 hide=1",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(EventIcon.TRAVEL, parsed.icon)
+        assertEquals(0xFFE53935L, parsed.colorArgb)
+        assertTrue(parsed.hidePastOccurrences)
+    }
+
+    @Test
+    fun `x-properties win over description marker`() {
+        // Полноценный сервер донёс X-* дословно — они старше маркера.
+        // Отсутствующий X-TNOTE-COLOR замещается цветом маркера: каналы
+        // дополняют друг друга по полям.
+        val parsed = foreign(
+            "UID:foreign-both@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "SUMMARY:Оба канала",
+            "DESCRIPTION:[T-Note] icon=TRAVEL color=1",
+            "X-TNOTE-ICON:BUILD",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(EventIcon.BUILD, parsed.icon)
+        assertEquals(1L, parsed.colorArgb)
+    }
+
+    @Test
+    fun `marker is parsed amid user-edited description`() {
+        // Правка в веб-Яндексе: пользователь дописал своё вокруг нашей
+        // строки. Маркер находится в любом месте, ключи — до чужого текста.
+        val parsed = foreign(
+            "UID:foreign-edited@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "SUMMARY:Правка в вебе",
+            "DESCRIPTION:Моя заметка о встрече\\n[T-Note] icon=BEACH color=255\\nдополнение после",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(EventIcon.BEACH, parsed.icon)
+        assertEquals(255L, parsed.colorArgb)
+        assertFalse(parsed.hidePastOccurrences)
+    }
+
+    @Test
+    fun `broken and bare markers keep local fallback`() {
+        // «[T-Note]» без распознаваемых ключей — не метаданные: hasTnoteMetadata
+        // не считает объект своим, движок сохранит локальные поля (keep-local),
+        // а разбор даёт дефолты.
+        val vevent = parseIcs(
+            listOf(
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "BEGIN:VEVENT",
+                "UID:foreign-bare@example.com",
+                "DTSTART;VALUE=DATE:20261117",
+                "SUMMARY:Голый префикс",
+                "DESCRIPTION:[T-Note] без полей",
+                "END:VEVENT",
+                "END:VCALENDAR",
+            ).joinToString("\r\n") + "\r\n",
+        )?.vevents()?.single() ?: error("VEVENT не разобрался")
+        assertFalse(vevent.hasTnoteMetadata())
+        assertNull(tnoteMarkerFrom(vevent.properties.byName("DESCRIPTION")?.value ?: ""))
+        val parsed = vevent.toScheduledEvent() ?: error("VEVENT не распознан")
+        assertEquals(EventIcon.NOTE, parsed.icon)
+    }
+
+    @Test
+    fun `marker with unknown keys and unknown icon stays tolerant`() {
+        // Формат расширяемый: неизвестные ключи будущих версий пропускаются,
+        // незнакомое имя иконки — не крах, а разбор без иконки (NOTE).
+        val parsed = foreign(
+            "UID:foreign-future@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "SUMMARY:Будущая версия",
+            "DESCRIPTION:[T-Note] somekey=abc icon=SPACESHIP color=7",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(EventIcon.NOTE, parsed.icon)
+        assertEquals(7L, parsed.colorArgb)
+    }
+
+    @Test
+    fun `marker is pure ascii and survives cp1252 confusion`() {
+        // Канал без BOM: маркер обязан состоять из одних ASCII, чтобы
+        // пережить cp1252-прочтение байт-в-байт (ASCII в обеих кодировках
+        // совпадает) — repairMojibake его не трогает.
+        val marker = tnoteDescriptionMarker(EventIcon.BUILD, 0xFFE53935, true)
+        assertTrue(marker.all { it.code < 128 })
+        assertEquals(marker, cp1252Mangled(marker))
+        assertEquals("[T-Note] icon=BUILD color=#FFE53935 hide=1", marker)
+    }
+
+    @Test
+    fun `marker color accepts hex rgb and legacy decimal forms`() {
+        // Разбор понимает три формы цвета: полный ARGB-hex (наш экспорт),
+        // короткая RGB-hex (альфа непрозрачности дописывается) и десятичный
+        // ARGB — маркеры самых первых версий после обновления.
+        for (value in listOf("#FFE53935", "#E53935", "4293212469")) {
+            val parsed = foreign(
+                "UID:foreign-color-forms@example.com",
+                "DTSTART;VALUE=DATE:20261117",
+                "SUMMARY:Формы цвета",
+                "DESCRIPTION:[T-Note] icon=BUILD color=$value",
+            ) ?: error("VEVENT не распознан: $value")
+            assertEquals("не разобрано: $value", 0xFFE53935L, parsed.colorArgb)
+        }
     }
 }

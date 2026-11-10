@@ -132,7 +132,10 @@ class CaldavSyncEngineTest {
         )
         val result = engine.sync(account, "pwd")
 
-        assertEquals(CaldavSyncResult(added = 0, updated = 1, removed = 0), result)
+        // Отделка — своя, содержимое — серверное; строка с отделкой уходит
+        // в очередь бэкфилла: маркер донесёт её другим устройствам.
+        assertEquals(CaldavSyncResult(added = 0, updated = 1, removed = 0, pushed = 1), result)
+        assertTrue(api.putCalls.single().ics.contains("[T-Note] icon=FITNESS"))
         fakeEventDao.rows.let { rows ->
             // Содержимое — серверное, отделка — своя: стирать её дефолтами
             // перепись не должна.
@@ -161,6 +164,84 @@ class CaldavSyncEngineTest {
             assertEquals(ScheduledEvent.DEFAULT_COLOR, rows[0].colorArgb)
             assertFalse(rows[0].hidePast)
         }
+    }
+
+    // ── Бэкфилл маркера: отделка старых событий, отправленных без маркера ──
+
+    @Test
+    fun `imported event with custom styling is backfilled on later pull`() = runBlocking {
+        // Живой сценарий: событие создано в клиенте Яндекса, импортировано
+        // (hex-uid), пользователь назначил ему иконку/цвет в T-Note, правка
+        // ушла старой версией без маркера. Вычитка ставит строку в очередь,
+        // PUT донесёт отделку маркером — другим устройствам не обязательно
+        // ждать следующей правки.
+        val uid = "4bd53b9bccd78a2facebf9af85533b9b"
+        val api = FakeApi(CaldavPull(listOf(remoteEvent(uid))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Пользовательская отделка уже на сервере и в базе (правка 1.26.2).
+        fakeEventDao.rows.replaceAll { row ->
+            row.copy(icon = "FITNESS", colorArgb = 0xFFE53935L, hidePast = true)
+        }
+        // Серверная копия без метаданных (X-* Яндекс выбросил, маркера нет).
+        api.pull = CaldavPull(listOf(remoteEvent(uid).copy(metadataFromIcs = false)))
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, updated = 1, removed = 0, pushed = 1), result)
+        val put = api.putCalls.single()
+        assertTrue(put.ics.contains("[T-Note] icon=FITNESS"))
+        assertTrue(put.ics.contains("color=#FFE53935"))
+        assertTrue(put.ics.contains("hide=1"))
+        assertFalse(fakeEventDao.rows.single().dirty)
+    }
+
+    @Test
+    fun `event with default styling is never backfilled`() = runBlocking {
+        // Импортированное событие с дефолтной отделкой: синхронизировать
+        // нечего, а перезапись потеряла бы форму веб-Яндекса — в очередь
+        // строка не встаёт.
+        val api = FakeApi(
+            CaldavPull(listOf(remoteEvent("93k80elgcjxjex0b0y0yandex.ru"))),
+        )
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+        api.pull = CaldavPull(
+            listOf(remoteEvent("93k80elgcjxjex0b0y0yandex.ru").copy(metadataFromIcs = false)),
+        )
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, updated = 1, removed = 0), result)
+        assertTrue(api.putCalls.isEmpty())
+        assertFalse(fakeEventDao.rows.single().dirty)
+    }
+
+    @Test
+    fun `object with user description is never backfilled`() = runBlocking {
+        // DESCRIPTION с текстом набирал человек: PUT стёр бы его маркером,
+        // поэтому бэкфилла нет даже при пользовательской отделке.
+        val api = FakeApi(
+            CaldavPull(
+                listOf(
+                    remoteEvent("4bd53b9bccd78a2facebf9af85533b9c")
+                        .copy(metadataFromIcs = false, hasDescription = true),
+                ),
+            ),
+        )
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+        fakeEventDao.rows.replaceAll { row -> row.copy(icon = "FITNESS", colorArgb = 0xFFE53935L) }
+        api.pull = CaldavPull(
+            listOf(
+                remoteEvent("4bd53b9bccd78a2facebf9af85533b9c")
+                    .copy(metadataFromIcs = false, hasDescription = true),
+            ),
+        )
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, updated = 1, removed = 0), result)
+        assertTrue(api.putCalls.isEmpty())
+        assertFalse(fakeEventDao.rows.single().dirty)
     }
 
     @Test
@@ -474,19 +555,18 @@ class CaldavSyncEngineTest {
     // ── Заметки: обмен событиями-носителями («✍️ Заметка», текст в DESCRIPTION) ──
 
     /** Серверный объект заметки: текст едет рядом с событием (noteText). */
-    private fun remoteNote(date: String = "2026-02-17", text: String = "Молоко", modifiedAt: Long? = null) =
-        CaldavRemoteEvent(
-            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/${noteUidFor(date)}.ics",
-            etag = "\"note-$date\"",
-            event = ScheduledEvent(
-                uid = noteUidFor(date),
-                date = date,
-                title = NOTE_SUMMARY,
-                type = ScheduledEventType.REGULAR,
-                modifiedAt = modifiedAt,
-            ),
-            noteText = text,
-        )
+    private fun remoteNote(date: String = "2026-02-17", text: String = "Молоко", modifiedAt: Long? = null) = CaldavRemoteEvent(
+        href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/${noteUidFor(date)}.ics",
+        etag = "\"note-$date\"",
+        event = ScheduledEvent(
+            uid = noteUidFor(date),
+            date = date,
+            title = NOTE_SUMMARY,
+            type = ScheduledEventType.REGULAR,
+            modifiedAt = modifiedAt,
+        ),
+        noteText = text,
+    )
 
     @Test
     fun `note pull inserts note attributed to account`() = runBlocking {
@@ -672,6 +752,16 @@ private class FakeEventDao : ScheduledEventDao {
         rows.replaceAll { row ->
             if (row.id == id) {
                 row.copy(dirty = false, etag = etag, serverHref = href)
+            } else {
+                row
+            }
+        }
+    }
+
+    override suspend fun markDirty(id: Long) {
+        rows.replaceAll { row ->
+            if (row.id == id) {
+                row.copy(dirty = true)
             } else {
                 row
             }

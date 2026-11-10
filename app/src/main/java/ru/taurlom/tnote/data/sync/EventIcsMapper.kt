@@ -13,6 +13,7 @@ import net.fortuna.ical4j.model.WeekDay
 import net.fortuna.ical4j.model.component.VEvent
 import net.fortuna.ical4j.model.parameter.Value
 import net.fortuna.ical4j.model.property.Created
+import net.fortuna.ical4j.model.property.Description
 import net.fortuna.ical4j.model.property.DtEnd
 import net.fortuna.ical4j.model.property.DtStamp
 import net.fortuna.ical4j.model.property.DtStart
@@ -41,6 +42,12 @@ private const val PROP_TYPE = "X-TNOTE-TYPE"
 private const val PROP_ICON = "X-TNOTE-ICON"
 private const val PROP_COLOR = "X-TNOTE-COLOR"
 private const val PROP_HIDE_PAST = "X-TNOTE-HIDEPAST"
+
+/** Префикс строки-маркера метаданных в DESCRIPTION ([tnoteDescriptionMarker]). */
+private const val MARKER_PREFIX = "[T-Note]"
+
+/** Токен маркера «ключ=значение» без пробелов внутри значения. */
+private val markerToken = Regex("(\\w+)=(\\S+)")
 
 /**
  * 🎂 в начале имени — форма «дня рождения» Яндекса (живая проба: VEVENT
@@ -85,6 +92,12 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *    со всеми неизвестными X-свойствами (проба 2026-11), поэтому копия без
  *    X-TNOTE-* не стирает локальные значения этих полей при переписи
  *    (hasTnoteMetadata → CaldavRemoteEvent.metadataFromIcs → applyRemote);
+ *  - иконка, цвет и «прошлые вхождения скрыты» едут и через серверы без
+ *    X-свойств: экспорт пишет в DESCRIPTION маркер-строку
+ *    «[T-Note] icon=… color=… hide=1» ([tnoteDescriptionMarker]) — стандартное
+ *    свойство Яндекс хранит дословно, как и текст заметок дня (NoteIcsMapper).
+ *    При разборе источники по старшинству: X-TNOTE-* → DESCRIPTION-маркер →
+ *    локальные значения (чужое событие без метаданных);
  *  - повторение: RRULE FREQ=DAILY/WEEKLY/MONTHLY/YEARLY;INTERVAL=N — прямое
  *    отображение на наш якорь [ScheduledEvent.date], частоту и интервал; BYDAY
  *    у WEEKLY — это выбранные дни недели (интерфейс повторения как в Яндексе);
@@ -174,6 +187,12 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         if (hidePastOccurrences) {
             properties.add(XProperty(PROP_HIDE_PAST, "1"))
         }
+        // DESCRIPTION-маркер — тот же набор метаданных запасным каналом,
+        // для серверов, которые X-* выбрасывают (Яндекс). Пишется всегда,
+        // включая дефолты: сброс иконки/цвета доезжает до других устройств
+        // только явным «icon=NOTE» — отсутствие маркера при разборе значит
+        // «метаданных нет» и включает хранение локальных значений.
+        properties.add(Description(tnoteDescriptionMarker(icon, colorArgb, hidePastOccurrences)))
     }
 }
 
@@ -301,15 +320,109 @@ fun parseIcs(text: String): Calendar? = runCatching {
 fun Calendar.vevents(): List<VEvent> = components.filterIsInstance<VEvent>()
 
 /**
- * Есть ли в VEVENT наши свойства X-TNOTE-*. Экспорт всегда пишет
- * X-TNOTE-TYPE и X-TNOTE-ICON, так что полноценный CalDAV-сервер отвечает
- * «да» всегда; «нет» означает, что сервер наши свойства выбросил (Яндекс
- * режет все неизвестные X-*, проба 2026-11) — движок по этому флагу
- * сохраняет при переписи локальные иконку/цвет/«скрыть прошлое».
+ * Строка-маркер метаданных для DESCRIPTION: «[T-Note] icon=TRAVEL color=42
+ * hide=1». Канал для серверов, режущих X-TNOTE-* (Яндекс — проба 2026-11):
+ * DESCRIPTION — стандартное свойство, Яндекс хранит его дословно (текст
+ * заметок дня уже ездит им, NoteIcsMapper). Маркер составлен из одних
+ * ASCII-символов и потому неуязвим для cp1252-прочтения тел без BOM —
+ * ASCII в cp1252 и UTF-8 это одни и те же байты, repairMojibake его не
+ * трогает.
+ *
+ * Пишется всегда, включая дефолты: отсутствие маркера при разборе значит
+ * «метаданных нет» (чужое событие), поэтому сброс иконки/цвета доезжает
+ * до других устройств только явным «icon=NOTE». Цвет — Android-шестнад-
+ * цатеричный ARGB («#FFE53935»); ключи color/hide опускаются при значении
+ * по умолчанию — та же условность, что у экспорта X-свойств.
+ */
+internal fun tnoteDescriptionMarker(icon: EventIcon, colorArgb: Long, hidePast: Boolean): String = buildString {
+    append(MARKER_PREFIX)
+    append(" icon=").append(icon.name)
+    if (colorArgb != ScheduledEvent.DEFAULT_COLOR) {
+        append(" color=")
+        if (colorArgb > 0) {
+            // Читаемая форма для веб-Яндекса: Android-шестнадцатеричный
+            // ARGB («#FFE53935» = непрозрачный красный «E53935»).
+            append('#').append(colorArgb.toString(16).padStart(8, '0').uppercase())
+        } else {
+            // Отрицательный ARGB старых данных не выразим hex-формой —
+            // десятичной (разбор понимает обе).
+            append(colorArgb)
+        }
+    }
+    if (hidePast) append(" hide=1")
+}
+
+/**
+ * Значение color-ключа маркера: «#FFE53935»/«#E53935» (шестнадцатеричный
+ * ARGB, у шестизначной RGB-формы альфа непрозрачности дописывается) или
+ * десятичный ARGB — форма маркеров самых первых версий. Неразборчивое — null.
+ */
+private fun markerColor(value: String): Long? {
+    val hex = value.removePrefix("#")
+    return if (hex != value) {
+        when (hex.length) {
+            6 -> hex.toLongOrNull(16)?.or(0xFF000000L)
+            8 -> hex.toLongOrNull(16)
+            else -> null
+        }
+    } else {
+        value.toLongOrNull()
+    }
+}
+
+/** Распознанные поля DESCRIPTION-маркера; null — ключа нет в строке. */
+internal data class TnoteMarker(val icon: EventIcon?, val colorArgb: Long?, val hidePast: Boolean?)
+
+/**
+ * Разбор DESCRIPTION-маркера. Маркер ищется в любом месте текста —
+ * пользователь мог дописать своё вокруг нашей строки в веб-Яндексе;
+ * ключи читаются до первого токена без формы «ключ=значение».
+ * Неизвестные ключи будущих версий пропускаются, неразборчивые значения
+ * дают null по своему полю. Ни одного распознанного ключа (в том числе
+ * у голого префикса) — null: «маркера нет».
+ */
+internal fun tnoteMarkerFrom(description: String): TnoteMarker? {
+    val start = description.indexOf(MARKER_PREFIX).takeIf { it >= 0 } ?: return null
+    var icon: EventIcon? = null
+    var color: Long? = null
+    var hide: Boolean? = null
+    for (token in description.substring(start + MARKER_PREFIX.length).trimStart().split(Regex("\\s+"))) {
+        val match = markerToken.matchEntire(token) ?: break
+        val (key, value) = match.destructured
+        when (key) {
+            "icon" -> icon = EventIcon.entries.find { it.name == value }
+
+            "color" -> color = markerColor(value)
+
+            "hide" -> hide = value == "1"
+
+            // Ключи будущих версий не мешают разбору известных полей.
+            else -> Unit
+        }
+    }
+    return if (icon == null && color == null && hide == null) null else TnoteMarker(icon, color, hide)
+}
+
+/**
+ * Есть ли у VEVENT непустое DESCRIPTION. Для решения о бэкфилле маркера:
+ * у старых событий нашего экспорта description нет вовсе — их перезапись
+ * ничего пользовательского не сотрёт; текст у события мог набрать только
+ * человек в другом клиенте (наш маркер-строка — не текст, но при его
+ * наличии у события уже есть метаданные и бэкфилл не обсуждается).
+ */
+internal fun VEvent.hasDescriptionText(): Boolean = properties.byName(Property.DESCRIPTION)?.value?.isNotBlank() == true
+
+/**
+ * Есть ли в VEVENT наши метаданные — X-TNOTE-* или DESCRIPTION-маркер.
+ * Экспорт всегда пишет X-TNOTE-TYPE и X-TNOTE-ICON, так что полноценный
+ * CalDAV-сервер отвечает «да» всегда; «нет» означает, что сервер наши
+ * свойства выбросил (Яндекс режет все неизвестные X-*, проба 2026-11) и
+ * маркера в DESCRIPTION не осталось — движок по этому флагу сохраняет
+ * при переписи локальные иконку/цвет/«скрыть прошлое».
  */
 internal fun VEvent.hasTnoteMetadata(): Boolean = properties.any {
     it.name == PROP_TYPE || it.name == PROP_ICON || it.name == PROP_COLOR || it.name == PROP_HIDE_PAST
-}
+} || tnoteMarkerFrom(properties.byName(Property.DESCRIPTION)?.value ?: "") != null
 
 /**
  * Разбор серверного VEVENT в доменную модель. null — если это вовсе не
@@ -473,12 +586,25 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         else -> resolved
     }
 
+    // Маркер в DESCRIPTION — запасной канал метаданных для серверов без
+    // X-свойств (Яндекс). X-TNOTE-* старше: сервер, донёсший их дословно,
+    // донёс и маркер — расхождения между каналами нет, а при неполной
+    // потере X-свойств именно они точнее.
+    val marker = tnoteMarkerFrom(properties.byName(Property.DESCRIPTION)?.value ?: "")
+
+    // Старшинство источников: X-TNOTE-* → маркер DESCRIPTION → дефолт.
+    // «Скрыть прошлое» различает и явное «0» у X-свойства (присутствует,
+    // но ложь) от отсутствия свойства (тогда решает маркер).
     val icon = properties.byName(PROP_ICON)?.value
         ?.let { value -> EventIcon.entries.find { it.name == value } }
+        ?: marker?.icon
         ?: EventIcon.NOTE
     val color = properties.byName(PROP_COLOR)?.value?.toLongOrNull()
+        ?: marker?.colorArgb
         ?: ScheduledEvent.DEFAULT_COLOR
-    val hidePast = properties.byName(PROP_HIDE_PAST)?.value == "1"
+    val hidePast = properties.byName(PROP_HIDE_PAST)?.let { it.value == "1" }
+        ?: marker?.hidePast
+        ?: false
 
     return adapted.copy(
         icon = icon,

@@ -99,4 +99,8 @@ interface ScheduledEventDao {
         "UPDATE scheduled_events SET dirty = 0, etag = :etag, serverHref = :href WHERE id = :id",
     )
     suspend fun markPushed(id: Long, etag: String?, href: String)
+
+    /** Бэкфилл маркера: строка встаёт в очередь отправки без правки данных. */
+    @Query("UPDATE scheduled_events SET dirty = 1 WHERE id = :id")
+    suspend fun markDirty(id: Long)
 }

@@ -28,12 +28,13 @@ data class CaldavRemoteEvent(
     val etag: String?,
     val event: ScheduledEvent,
     /**
-     * Пришли ли в VEVENT наши свойства X-TNOTE-*. Экспорт всегда пишет
-     * X-TNOTE-TYPE/ICON, поэтому полноценный CalDAV-сервер возвращает их
-     * всегда, а Яндекс выбрасывает все неизвестные X-свойства при PUT
-     * (проба 2026-11) — его копии приходят без метаданных, и при переписи
-     * движок сохраняет локальные иконку/цвет/«скрыть прошлое» (applyRemote),
-     * вместо того чтобы стирать их дефолтами уже на следующей вычитке.
+     * Пришли ли в VEVENT наши метаданные: свойства X-TNOTE-* или маркер
+     * в DESCRIPTION («[T-Note] icon=…», tnoteMarkerFrom). Экспорт всегда
+     * пишет X-TNOTE-TYPE/ICON и маркер, поэтому полноценный CalDAV-сервер
+     * возвращает их всегда, а Яндекс выбрасывает все неизвестные X-свойства
+     * при PUT (проба 2026-11) — DESCRIPTION он хранит, так что маркер доехал;
+     * без обоих каналов (чужое событие) при переписи движок сохраняет
+     * локальные иконку/цвет/«скрыть прошлое» (applyRemote).
      */
     val metadataFromIcs: Boolean = true,
     /**
@@ -43,6 +44,13 @@ data class CaldavRemoteEvent(
      * объекты в calendar_notes, минуя scheduled_events.
      */
     val noteText: String? = null,
+    /**
+     * Непустое DESCRIPTION у серверного объекта. Движку решает судьбу
+     * бэкфилла маркера: у старых событий нашего экспорта description нет
+     * вовсе (перезапись с добавлением маркера безопасна), текст же значит,
+     * что объект наполнялся человеком — его PUT не переписывает.
+     */
+    val hasDescription: Boolean = false,
 )
 
 /**
@@ -191,6 +199,7 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
                         event = mapped,
                         metadataFromIcs = vevent.hasTnoteMetadata(),
                         noteText = vevent.noteText(),
+                        hasDescription = vevent.hasDescriptionText(),
                     )
                 } else {
                     events += CaldavRemoteEvent(
@@ -198,6 +207,7 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
                         etag = entry.etag,
                         event = mapped,
                         metadataFromIcs = vevent.hasTnoteMetadata(),
+                        hasDescription = vevent.hasDescriptionText(),
                     )
                 }
                 Unit
@@ -266,6 +276,7 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
             event = event,
             metadataFromIcs = vevent.hasTnoteMetadata(),
             noteText = if (noteBySummary(event.title)) vevent.noteText() else null,
+            hasDescription = vevent.hasDescriptionText(),
         )
     }
 
