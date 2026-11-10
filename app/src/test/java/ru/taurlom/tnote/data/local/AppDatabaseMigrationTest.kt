@@ -346,4 +346,57 @@ class AppDatabaseMigrationTest {
         }
         db.close()
     }
+
+    /**
+     * 24 → 25: заметки получают обвязку двустороннего обмена. С единственной
+     * подпиской старые заметки приписываются ей и встают в очередь PUT
+     * (сервер их ещё не видел — перенос не должен требовать правки каждой);
+     * без подписки или с несколькими заметки остаются локальными.
+     */
+    @Test
+    fun `migrate 24 to 25 attributes notes to the single account`() {
+        helper.createDatabase(24).use { db ->
+            db.prepare(
+                "INSERT INTO calendar_notes (eventDate, text, createdAt, modifiedAt) " +
+                    "VALUES ('2026-11-16', 'Полив', 100, 200)",
+            ).use { it.step() }
+            db.prepare(
+                "INSERT INTO caldav_accounts (serverUrl, username, collectionUrl, " +
+                    "collectionName, lastSyncAt, lastError) " +
+                    "VALUES ('https://caldav.yandex.ru', 'taur-lom@yandex.ru', " +
+                    "'https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/', 'T-Note', 0, NULL)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            25,
+            listOf(AppDatabaseMigration.MIGRATION_24_25),
+        )
+        db.prepare("SELECT caldavAccountId, dirty FROM calendar_notes WHERE eventDate = '2026-11-16'").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(1L, stmt.getLong(0))
+            assertEquals(1L, stmt.getLong(1))
+        }
+        db.close()
+    }
+
+    /** Без подписки заметки остаются локальными: некуда и незачем ехать. */
+    @Test
+    fun `migrate 24 to 25 keeps notes local without accounts`() {
+        helper.createDatabase(24).use { db ->
+            db.prepare(
+                "INSERT INTO calendar_notes (eventDate, text, createdAt, modifiedAt) " +
+                    "VALUES ('2026-11-16', 'Полив', 100, 200)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            25,
+            listOf(AppDatabaseMigration.MIGRATION_24_25),
+        )
+        db.prepare("SELECT caldavAccountId, dirty FROM calendar_notes WHERE eventDate = '2026-11-16'").use { stmt ->
+            assertTrue(stmt.step())
+            assertTrue(stmt.isNull(0))
+            assertEquals(0L, stmt.getLong(1))
+        }
+        db.close()
+    }
 }

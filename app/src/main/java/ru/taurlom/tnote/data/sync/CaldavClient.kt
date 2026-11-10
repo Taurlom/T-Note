@@ -9,7 +9,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Этап вычитки: разобранные объекты (с адресом и ETag) и число нечитаемых тел. */
-data class CaldavPull(val events: List<CaldavRemoteEvent>, val unreadable: Int = 0)
+data class CaldavPull(
+    val events: List<CaldavRemoteEvent>,
+    /** События-носители заметок («✍️ …» в имени) — движок ведёт их в calendar_notes. */
+    val notes: List<CaldavRemoteEvent> = emptyList(),
+    val unreadable: Int = 0,
+)
 
 /**
  * Объект с сервера в транспортной обёртке: разобранное событие плюс
@@ -31,6 +36,13 @@ data class CaldavRemoteEvent(
      * вместо того чтобы стирать их дефолтами уже на следующей вычитке.
      */
     val metadataFromIcs: Boolean = true,
+    /**
+     * Текст заметки из DESCRIPTION — только у событий-носителей заметок
+     * («✍️ …» в имени); у обычных событий null. Модель ScheduledEvent
+     * описания не имеет, поэтому текст едет рядом, а движок ведёт такие
+     * объекты в calendar_notes, минуя scheduled_events.
+     */
+    val noteText: String? = null,
 )
 
 /**
@@ -153,6 +165,7 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
         )
         var unreadable = 0
         val events = mutableListOf<CaldavRemoteEvent>()
+        val notes = mutableListOf<CaldavRemoteEvent>()
         for (entry in entries) {
             val data = entry.calendarData ?: continue
             // XML-нормализация сжимает CRLF до LF; возвращаем RFC-шный вид,
@@ -168,13 +181,29 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
             val href = resolve(collectionUrl, entry.href)
             // Одно событие-объект может вернуть и мастер, и его overrides;
             // храним мастера: ровно то, что показывал read-only этап 1.
-            events += calendar.vevents().mapNotNull { vevent ->
-                vevent.toScheduledEvent()?.let {
-                    CaldavRemoteEvent(href, entry.etag, it, metadataFromIcs = vevent.hasTnoteMetadata())
+            calendar.vevents().mapNotNull { vevent ->
+                val mapped = vevent.toScheduledEvent() ?: return@mapNotNull null
+                // Заметка едет своим списком: маркер — ✍ в починенном имени.
+                if (noteBySummary(mapped.title)) {
+                    notes += CaldavRemoteEvent(
+                        href = href,
+                        etag = entry.etag,
+                        event = mapped,
+                        metadataFromIcs = vevent.hasTnoteMetadata(),
+                        noteText = vevent.noteText(),
+                    )
+                } else {
+                    events += CaldavRemoteEvent(
+                        href = href,
+                        etag = entry.etag,
+                        event = mapped,
+                        metadataFromIcs = vevent.hasTnoteMetadata(),
+                    )
                 }
+                Unit
             }
         }
-        return CaldavPull(events, unreadable)
+        return CaldavPull(events, notes, unreadable)
     }
 
     override suspend fun putEvent(
@@ -236,6 +265,7 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
             etag = entry.etag,
             event = event,
             metadataFromIcs = vevent.hasTnoteMetadata(),
+            noteText = if (noteBySummary(event.title)) vevent.noteText() else null,
         )
     }
 

@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import ru.taurlom.tnote.data.local.CaldavDao
 import ru.taurlom.tnote.data.local.CaldavTombstoneDao
+import ru.taurlom.tnote.data.local.CalendarNoteDao
 import ru.taurlom.tnote.data.local.ScheduledEventDao
 import ru.taurlom.tnote.data.local.entity.CaldavAccountEntity
 import ru.taurlom.tnote.data.mapper.toDomain
@@ -33,6 +34,7 @@ import javax.inject.Singleton
 class CaldavRepositoryImpl @Inject constructor(
     private val caldavDao: CaldavDao,
     private val scheduledEventDao: ScheduledEventDao,
+    private val noteDao: CalendarNoteDao,
     private val tombstoneDao: CaldavTombstoneDao,
     private val api: CaldavApi,
     private val engine: CaldavSyncEngine,
@@ -67,6 +69,10 @@ class CaldavRepositoryImpl @Inject constructor(
         )
         passwordStore.save(username, password)
         scheduler.ensurePeriodic()
+        // Локальные заметки (никогда не гулявшие по серверу) приписываются
+        // новой подписке и едут первым же пушем — перенос заметок на другое
+        // устройство не требует их правки.
+        noteDao.attributeAll(id)
 
         // Первая синхронизация сразу же: успех — события уже на сетке,
         // отказ — честная запись в lastError, аккаунт остаётся подключённым.

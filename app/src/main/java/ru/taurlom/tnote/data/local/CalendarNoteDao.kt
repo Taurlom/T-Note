@@ -32,4 +32,43 @@ interface CalendarNoteDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(note: CalendarNoteEntity): Long
+
+    /** Приписанные подписке заметки — tombstones при полной чистке календаря. */
+    @Query("SELECT * FROM calendar_notes WHERE caldavAccountId IS NOT NULL")
+    suspend fun getAttributed(): List<CalendarNoteEntity>
+
+    /** Приписанные заметки до [cutoff] («yyyy-MM-dd») — tombstones чистки прошлого. */
+    @Query("SELECT * FROM calendar_notes WHERE caldavAccountId IS NOT NULL AND eventDate < :cutoff")
+    suspend fun getAttributedBefore(cutoff: String): List<CalendarNoteEntity>
+
+    /** Ждут PUT: заметки, приписанные этому аккаунту (приписка — у репозитория). */
+    @Query(
+        "SELECT * FROM calendar_notes WHERE dirty = 1 " +
+            "AND caldavAccountId = :accountId " +
+            "ORDER BY eventDate ASC",
+    )
+    suspend fun getDirtyFor(accountId: Long): List<CalendarNoteEntity>
+
+    /** PUT доехал: очередь чиста, ETag и href обновлены. */
+    @Query(
+        "UPDATE calendar_notes SET dirty = 0, etag = :etag, serverHref = :href WHERE eventDate = :date",
+    )
+    suspend fun markPushed(date: String, etag: String?, href: String)
+
+    /**
+     * Заметка пропала на сервере, локальных правок нет (dirty = 0) —
+     * вычитка знает лучший состав коллекции.
+     */
+    @Query(
+        "DELETE FROM calendar_notes WHERE caldavAccountId = :accountId " +
+            "AND dirty = 0 AND eventDate NOT IN (:dates)",
+    )
+    suspend fun deleteNotInDates(accountId: Long, dates: List<String>): Int
+
+    /** Подключение подписки: локальные заметки приписываются ей и едут первым пушем. */
+    @Query(
+        "UPDATE calendar_notes SET caldavAccountId = :accountId, dirty = 1 " +
+            "WHERE caldavAccountId IS NULL",
+    )
+    suspend fun attributeAll(accountId: Long): Int
 }

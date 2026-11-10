@@ -2,14 +2,17 @@ package ru.taurlom.tnote.data.sync
 
 import ru.taurlom.tnote.data.local.CaldavDao
 import ru.taurlom.tnote.data.local.CaldavTombstoneDao
+import ru.taurlom.tnote.data.local.CalendarNoteDao
 import ru.taurlom.tnote.data.local.ScheduledEventDao
 import ru.taurlom.tnote.data.local.entity.CaldavAccountEntity
+import ru.taurlom.tnote.data.local.entity.CalendarNoteEntity
 import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.Clock
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,6 +49,12 @@ private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
  *    строки удаляются, dirty — остаются (их PUT воскресит объект;
  *    правка пользователя важнее, чем неизвестный удалитель).
  *
+ * Заметки дня едут тем же обменом событиями-носителями (NoteIcsMapper):
+ * имя «✍️ Заметка», текст в DESCRIPTION, UID детерминированный от даты
+ * (заметка одна на день). В вычитке они расходятся по таблице
+ * calendar_notes, минуя события; пропавшие на сервере заметки удаляются
+ * той же разницей, dirty-заметки — очередь PUT с тем же LWW.
+ *
  * Push — очередь локальных изменений:
  *  - dirty-строки аккаунта → PUT по serverHref (или «<uid>.ics», если
  *    объект ещё не гулял по серверу), If-Match по ETag из вычитки /
@@ -80,6 +89,7 @@ private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred }
 @Singleton
 class CaldavSyncEngine @Inject constructor(
     private val eventDao: ScheduledEventDao,
+    private val noteDao: CalendarNoteDao,
     private val caldavDao: CaldavDao,
     private val tombstoneDao: CaldavTombstoneDao,
     private val api: CaldavApi,
@@ -139,7 +149,31 @@ class CaldavSyncEngine @Inject constructor(
                         }
                 }
             }
-            removed = eventDao.deleteNotInUids(account.id, pulled.events.map { it.event.uid })
+            // Заметки-носители («✍️ …») идут своей таблицей: та же разница
+            // и тот же LWW, ключ — детерминированный UID от даты.
+            for (remoteNote in pulled.notes) {
+                if (tombstones.containsKey(remoteNote.event.uid)) continue
+
+                when (val existing = noteDao.getByDateOnce(remoteNote.event.date)) {
+                    null -> {
+                        noteDao.insert(remoteNote.toNoteEntity(account.id))
+                        added++
+                    }
+
+                    else ->
+                        if (existing.dirty) {
+                            if (remoteNote.event.modifiedAt.orZero() > existing.modifiedAt.orZero()) {
+                                noteDao.insert(applyNoteRemote(existing, remoteNote, account))
+                                overwritten++
+                            }
+                        } else {
+                            noteDao.insert(applyNoteRemote(existing, remoteNote, account))
+                            updated++
+                        }
+                }
+            }
+            removed = eventDao.deleteNotInUids(account.id, pulled.events.map { it.event.uid }) +
+                noteDao.deleteNotInDates(account.id, pulled.notes.map { it.event.date })
         }
 
         // ── Push правок: сеть по строке, запись — короткая транзакция ──
@@ -154,6 +188,17 @@ class CaldavSyncEngine @Inject constructor(
 
                 // нечему отправляться — очередь ждёт
                 PushOutcome.Deferred -> deferred++ // временный сбой — до следующего прогона
+            }
+        }
+        for (row in noteDao.getDirtyFor(account.id)) {
+            when (pushNoteRow(account, row, password)) {
+                PushOutcome.Pushed -> pushed++
+
+                PushOutcome.Overwritten -> overwritten++
+
+                PushOutcome.Skipped -> Unit
+
+                PushOutcome.Deferred -> deferred++
             }
         }
 
@@ -304,4 +349,106 @@ class CaldavSyncEngine @Inject constructor(
 
     /** null-минусы старых версий: метка неизвестна — младше любой известной. */
     private fun Long?.orZero(): Long = this ?: 0L
+
+    /** Перепись заметки сервером: ключ (день) и момент создания — свои. */
+    private fun applyNoteRemote(
+        existing: CalendarNoteEntity,
+        remote: CaldavRemoteEvent,
+        account: CaldavAccountEntity,
+    ): CalendarNoteEntity = CalendarNoteEntity(
+        eventDate = existing.eventDate,
+        // DESCRIPTION сервер мог не донести — текст не выдумываем.
+        text = remote.noteText ?: existing.text,
+        createdAt = existing.createdAt.takeIf { it > 0 } ?: remote.event.createdAt.orZero(),
+        modifiedAt = remote.event.modifiedAt.orZero(),
+        caldavAccountId = existing.caldavAccountId ?: account.id,
+        // Строка переписана сервером — локальной правки нет: очередь чиста,
+        // ETag и href — от свежей вычитки.
+        dirty = false,
+        etag = remote.etag,
+        serverHref = remote.href,
+    )
+
+    /** Первая вычитка заметки: строка рождается серверной копией. */
+    private fun CaldavRemoteEvent.toNoteEntity(accountId: Long): CalendarNoteEntity = CalendarNoteEntity(
+        eventDate = event.date,
+        text = noteText.orEmpty(),
+        createdAt = event.createdAt.orZero(),
+        modifiedAt = event.modifiedAt.orZero(),
+        caldavAccountId = accountId,
+        dirty = false,
+        etag = etag,
+        serverHref = href,
+    )
+
+    /**
+     * Доведение dirty-заметки до сервера — зеркало [pushRow] с теми же
+     * предусловиями и LWW; объект-носитель собирается из заметки
+     * (NoteIcsMapper), ключ на сервере — детерминированный UID от даты.
+     */
+    private suspend fun pushNoteRow(
+        account: CaldavAccountEntity,
+        row: CalendarNoteEntity,
+        password: String,
+    ): PushOutcome {
+        val note = row.toDomain()
+        val anchor = runCatching { LocalDate.parse(note.date) }.getOrNull()
+            ?: return PushOutcome.Skipped
+
+        val href = row.serverHref ?: api.objectHref(account.collectionUrl, noteUidFor(note.date))
+        val ics = eventCalendar(listOf(note.toIcsEvent())).icsText()
+
+        val first = api.putEvent(
+            url = href,
+            ics = ics,
+            username = account.username,
+            password = password,
+            etag = row.etag,
+            createIfAbsent = row.serverHref == null,
+        )
+        if (first.code in 200..299) {
+            noteDao.markPushed(row.eventDate, first.etag, href)
+            return PushOutcome.Pushed
+        }
+        when (first.code) {
+            412, 404 -> Unit
+
+            else -> return PushOutcome.Deferred
+        }
+
+        // Конфликт: серверный объект уже не тот (412) или исчез (404).
+        val fresh = api.pullEvent(href, account.username, password)
+        if (fresh == null) {
+            val recreate = api.putEvent(
+                url = href,
+                ics = ics,
+                username = account.username,
+                password = password,
+                etag = null,
+                createIfAbsent = true,
+            )
+            if (recreate.code !in 200..299) {
+                return PushOutcome.Deferred
+            }
+            noteDao.markPushed(row.eventDate, recreate.etag, href)
+            return PushOutcome.Pushed
+        }
+        if (fresh.event.modifiedAt.orZero() > row.modifiedAt.orZero()) {
+            noteDao.insert(applyNoteRemote(row, fresh, account))
+            return PushOutcome.Overwritten
+        }
+        val retry = api.putEvent(
+            url = href,
+            ics = ics,
+            username = account.username,
+            password = password,
+            etag = fresh.etag,
+            createIfAbsent = false,
+        )
+        if (retry.code !in 200..299) {
+            return PushOutcome.Deferred
+        }
+        noteDao.markPushed(row.eventDate, retry.etag, href)
+        return PushOutcome.Pushed
+    }
 }

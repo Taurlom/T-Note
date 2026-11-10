@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import ru.taurlom.tnote.data.local.AppDatabase
+import ru.taurlom.tnote.data.local.CaldavDao
 import ru.taurlom.tnote.data.local.CaldavTombstoneDao
 import ru.taurlom.tnote.data.local.CalendarNoteDao
 import ru.taurlom.tnote.data.local.ScheduledEventDao
@@ -12,6 +13,8 @@ import ru.taurlom.tnote.data.local.entity.toTombstone
 import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
 import ru.taurlom.tnote.data.sync.CaldavSyncScheduler
+import ru.taurlom.tnote.data.sync.noteUidFor
+import ru.taurlom.tnote.data.sync.toNoteTombstone
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.repository.CalendarRepository
 import ru.taurlom.tnote.domain.repository.PastCalendarCleanup
@@ -23,6 +26,7 @@ class CalendarRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val noteDao: CalendarNoteDao,
     private val eventDao: ScheduledEventDao,
+    private val caldavDao: CaldavDao,
     private val tombstoneDao: CaldavTombstoneDao,
     private val syncScheduler: CaldavSyncScheduler,
     private val clock: Clock,
@@ -38,22 +42,34 @@ class CalendarRepositoryImpl @Inject constructor(
         // первой известной правки.
         val existing = noteDao.getByDateOnce(note.date)
         val now = clock.millis()
+        // Этап 2: заметка едет в Яндекса событием-носителем — приписка
+        // единственной подписке, как у событий (CaldavAttribution); правка
+        // приписанной остаётся в её коллекции. ETag/href переживают правку:
+        // без них каждая правка уходила бы первой публикацией.
+        val accountId = existing?.caldavAccountId ?: caldavDao.getAll().singleOrNull()?.id
         noteDao.insert(
             note.toEntity().copy(
                 createdAt = existing?.createdAt?.takeIf { it > 0 } ?: now,
                 modifiedAt = now,
+                caldavAccountId = accountId,
+                dirty = accountId != null,
+                etag = existing?.etag,
+                serverHref = existing?.serverHref,
             ),
         )
+        if (accountId != null) syncScheduler.requestPush()
     }
 
     /**
      * Три DAO в одной транзакции: день не должен остаться очищенным
      * наполовину (заметка стёрта, события остались — или наоборот).
-     * Импортированные события уходят и через tombstone-очередь: иначе
-     * подтянутая вычитка вернёт их до того, как доедет серверный DELETE.
+     * Импортированные события и приписанные заметки уходят и через
+     * tombstone-очередь: иначе подтянутая вычитка вернёт их до того,
+     * как доедет серверный DELETE.
      */
     override suspend fun deleteDayData(date: String) {
-        val tombstones = eventDao.getByDateOnce(date).mapNotNull { it.toTombstone(clock.millis()) }
+        val tombstones = eventDao.getByDateOnce(date).mapNotNull { it.toTombstone(clock.millis()) } +
+            listOfNotNull(noteDao.getByDateOnce(date)?.toNoteTombstone(clock.millis()))
         database.withTransaction {
             tombstones.forEach { tombstoneDao.insert(it) }
             noteDao.deleteByDate(date)
@@ -63,7 +79,8 @@ class CalendarRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clearCalendar() {
-        val tombstones = eventDao.getAttributed().mapNotNull { it.toTombstone(clock.millis()) }
+        val tombstones = eventDao.getAttributed().mapNotNull { it.toTombstone(clock.millis()) } +
+            noteDao.getAttributed().mapNotNull { it.toNoteTombstone(clock.millis()) }
         database.withTransaction {
             tombstones.forEach { tombstoneDao.insert(it) }
             noteDao.deleteAll()
@@ -86,13 +103,17 @@ class CalendarRepositoryImpl @Inject constructor(
 
         var tombstones: List<CaldavTombstoneEntity> = emptyList()
         val cleanup = database.withTransaction {
+            // Tombstones собираются до удаления: приписанные заметки дня
+            // должны доехать до сервера тем же DELETE-очередём.
+            val staleNotes = noteDao.getAttributedBefore(cutoff)
             val notes = noteDao.deleteBefore(cutoff)
             val removable = eventDao
                 .getByDateBefore(cutoff)
                 .map { it.toDomain() }
                 .filter { it.isOverBefore(cutoffDate) }
             val entities = removable.map { it.toEntity() }
-            tombstones = entities.mapNotNull { it.toTombstone(clock.millis()) }
+            tombstones = entities.mapNotNull { it.toTombstone(clock.millis()) } +
+                staleNotes.mapNotNull { it.toNoteTombstone(clock.millis()) }
             tombstones.forEach { tombstoneDao.insert(it) }
             eventDao.delete(entities)
             PastCalendarCleanup(events = removable.size, notes = notes)

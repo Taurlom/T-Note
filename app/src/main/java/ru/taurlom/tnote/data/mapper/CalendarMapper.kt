@@ -8,6 +8,10 @@ fun CalendarNoteEntity.toDomain(): CalendarNote = CalendarNote(
     text = text,
     createdAt = createdAt,
     modifiedAt = modifiedAt,
+    caldavAccountId = caldavAccountId,
+    dirty = dirty,
+    etag = etag,
+    serverHref = serverHref,
 )
 
 fun CalendarNote.toEntity(): CalendarNoteEntity = CalendarNoteEntity(
@@ -15,4 +19,8 @@ fun CalendarNote.toEntity(): CalendarNoteEntity = CalendarNoteEntity(
     text = text,
     createdAt = createdAt,
     modifiedAt = modifiedAt,
+    caldavAccountId = caldavAccountId,
+    dirty = dirty,
+    etag = etag,
+    serverHref = serverHref,
 )

@@ -10,9 +10,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ru.taurlom.tnote.data.local.CaldavDao
 import ru.taurlom.tnote.data.local.CaldavTombstoneDao
+import ru.taurlom.tnote.data.local.CalendarNoteDao
 import ru.taurlom.tnote.data.local.ScheduledEventDao
 import ru.taurlom.tnote.data.local.entity.CaldavAccountEntity
 import ru.taurlom.tnote.data.local.entity.CaldavTombstoneEntity
+import ru.taurlom.tnote.data.local.entity.CalendarNoteEntity
 import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
@@ -38,11 +40,13 @@ class CaldavSyncEngineTest {
     )
 
     private val fakeEventDao = FakeEventDao()
+    private val fakeNoteDao = FakeNoteDao()
     private val fakeCaldavDao = FakeCaldavDao()
     private val fakeTombstoneDao = FakeTombstoneDao()
 
     private fun engine(api: FakeApi) = CaldavSyncEngine(
         eventDao = fakeEventDao,
+        noteDao = fakeNoteDao,
         caldavDao = fakeCaldavDao,
         tombstoneDao = fakeTombstoneDao,
         api = api,
@@ -466,6 +470,135 @@ class CaldavSyncEngineTest {
         assertEquals(CaldavSyncResult(added = 0, updated = 0, removed = 0), result)
         assertEquals(1234567890L, fakeCaldavDao.lastSyncAt)
     }
+
+    // ── Заметки: обмен событиями-носителями («✍️ Заметка», текст в DESCRIPTION) ──
+
+    /** Серверный объект заметки: текст едет рядом с событием (noteText). */
+    private fun remoteNote(date: String = "2026-02-17", text: String = "Молоко", modifiedAt: Long? = null) =
+        CaldavRemoteEvent(
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/${noteUidFor(date)}.ics",
+            etag = "\"note-$date\"",
+            event = ScheduledEvent(
+                uid = noteUidFor(date),
+                date = date,
+                title = NOTE_SUMMARY,
+                type = ScheduledEventType.REGULAR,
+                modifiedAt = modifiedAt,
+            ),
+            noteText = text,
+        )
+
+    @Test
+    fun `note pull inserts note attributed to account`() = runBlocking {
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(remoteNote(text = "Молоко"))))
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(added = 1, updated = 0, removed = 0), result)
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("2026-02-17", note.eventDate)
+            assertEquals("Молоко", note.text)
+            assertEquals(42L, note.caldavAccountId)
+            assertFalse(note.dirty)
+            assertTrue(note.serverHref!!.endsWith(".ics"))
+            assertEquals("\"note-2026-02-17\"", note.etag)
+        }
+        // Заметка не протекает в события: таблицы не смешиваются.
+        assertTrue(fakeEventDao.rows.isEmpty())
+    }
+
+    @Test
+    fun `dirty note newer on server is overwritten`() = runBlocking {
+        val api = FakeApi(CaldavPull(emptyList()))
+        val engine = engine(api)
+
+        // Локальная правка в очереди (старее серверной).
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Локальная заметка",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+        )
+        api.putResults += CaldavWriteResponse(412, null)
+        api.cannedPullEvent = remoteNote(text = "Серверная заметка", modifiedAt = 999)
+
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0, 0, overwritten = 1), result)
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("Серверная заметка", note.text)
+            assertFalse(note.dirty)
+            assertEquals(999L, note.modifiedAt)
+        }
+    }
+
+    @Test
+    fun `dirty note is uploaded as carrier event with description`() = runBlocking {
+        val api = FakeApi(CaldavPull(emptyList()))
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Молоко и хлеб",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+        )
+        api.putResults += CaldavWriteResponse(204, "\"put-note\"")
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        val put = api.putCalls.single()
+        // Ключ на сервере — детерминированный UID от даты (в href @ кодируется).
+        assertEquals(
+            "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/note-2026-02-17%40taurlom.ics",
+            put.url,
+        )
+        assertTrue(put.createIfAbsent)
+        assertTrue(put.ics.contains("✍\uFE0F Заметка"))
+        assertTrue(put.ics.contains("Молоко и хлеб"))
+        // Очередь чиста, href/ETag запомнены для следующего If-Match.
+        fakeNoteDao.rows.single().let { note ->
+            assertFalse(note.dirty)
+            assertEquals("\"put-note\"", note.etag)
+            assertTrue(note.serverHref!!.endsWith("note-2026-02-17%40taurlom.ics"))
+        }
+    }
+
+    @Test
+    fun `note absent on server is removed, local note survives`() = runBlocking {
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(remoteNote())))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Локальная заметка без приписки движку не принадлежит.
+        fakeNoteDao.rows += CalendarNoteEntity(eventDate = "2026-03-01", text = "Моя")
+        api.pull = CaldavPull(emptyList())
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, removed = 1), result)
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("2026-03-01", note.eventDate)
+            assertNull(note.caldavAccountId)
+        }
+    }
+
+    @Test
+    fun `pulled note with tombstone uid is not resurrected`() = runBlocking {
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = noteUidFor("2026-02-17"),
+            accountId = 42L,
+            deletedAt = 1,
+        )
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(remoteNote())))
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        // DELETE по выведенному из UID адресу состоялся — очередь пуста.
+        assertEquals(1, api.deleteCalls.size)
+        assertTrue(fakeNoteDao.rows.isEmpty())
+    }
 }
 
 private class FakeEventDao : ScheduledEventDao {
@@ -543,6 +676,74 @@ private class FakeEventDao : ScheduledEventDao {
                 row
             }
         }
+    }
+}
+
+private class FakeNoteDao : CalendarNoteDao {
+    val rows = mutableListOf<CalendarNoteEntity>()
+
+    override fun getByMonthPrefix(monthPrefix: String): Flow<List<CalendarNoteEntity>> = flowOf(emptyList())
+
+    override suspend fun deleteByDate(date: String) {
+        rows.removeAll { it.eventDate == date }
+    }
+
+    override suspend fun getByDateOnce(date: String): CalendarNoteEntity? = rows.firstOrNull { it.eventDate == date }
+
+    override suspend fun deleteBefore(cutoff: String): Int {
+        val before = rows.size
+        rows.removeAll { it.eventDate < cutoff }
+        return before - rows.size
+    }
+
+    override suspend fun deleteAll() {
+        rows.clear()
+    }
+
+    override suspend fun insert(note: CalendarNoteEntity): Long {
+        rows.removeAll { it.eventDate == note.eventDate }
+        rows.add(note)
+        return 1
+    }
+
+    override suspend fun getAttributed(): List<CalendarNoteEntity> = rows.filter { it.caldavAccountId != null }
+
+    override suspend fun getAttributedBefore(cutoff: String): List<CalendarNoteEntity> =
+        rows.filter { it.caldavAccountId != null && it.eventDate < cutoff }
+
+    override suspend fun getDirtyFor(accountId: Long): List<CalendarNoteEntity> =
+        rows.filter { it.dirty && it.caldavAccountId == accountId }
+
+    override suspend fun markPushed(date: String, etag: String?, href: String) {
+        rows.replaceAll { row ->
+            if (row.eventDate == date) {
+                row.copy(dirty = false, etag = etag, serverHref = href)
+            } else {
+                row
+            }
+        }
+    }
+
+    override suspend fun deleteNotInDates(accountId: Long, dates: List<String>): Int {
+        val before = rows.size
+        val keep = dates.toSet()
+        rows.removeAll {
+            it.caldavAccountId == accountId && !it.dirty && it.eventDate !in keep
+        }
+        return before - rows.size
+    }
+
+    override suspend fun attributeAll(accountId: Long): Int {
+        var count = 0
+        rows.replaceAll { row ->
+            if (row.caldavAccountId == null) {
+                count++
+                row.copy(caldavAccountId = accountId, dirty = true)
+            } else {
+                row
+            }
+        }
+        return count
     }
 }
 

@@ -315,6 +315,26 @@ object AppDatabaseMigration {
     }
 
     /**
+     * 24 → 25: заметки дня едут через Яндекса событиями-носителями —
+     * обвязка двустороннего обмена (приписка подписке, очередь PUT,
+     * ETag/href от вычитки). Заметки без приписки при наличии единственной
+     * подписки сразу в очередь: их сервер ещё не видел, перенос на другое
+     * устройство не должен требовать правки каждой заметки.
+     */
+    val MIGRATION_24_25 = object : Migration(24, 25) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN caldavAccountId INTEGER")
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN etag TEXT")
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN serverHref TEXT")
+            db.execSQL(
+                "UPDATE calendar_notes SET caldavAccountId = (SELECT id FROM caldav_accounts), " +
+                    "dirty = 1 WHERE (SELECT COUNT(*) FROM caldav_accounts) = 1",
+            )
+        }
+    }
+
+    /**
      * 23 → 24: флаг происхождения «крайняя версия содержимого приехала
      * вычиткой» (remoteImported). Различает импорт и собственные события,
      * отправленные в подписанный календарь: приписка подписке

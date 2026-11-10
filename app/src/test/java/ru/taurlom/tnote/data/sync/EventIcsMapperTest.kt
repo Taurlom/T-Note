@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.model.EventIcon
 import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
@@ -695,5 +696,80 @@ class EventIcsMapperTest {
         // парсером ICS (null-календарь) или разбором DTSTART (null-событие).
         val calendar = parseIcs(body)
         assertNull(calendar?.vevents()?.firstOrNull()?.toScheduledEvent())
+    }
+
+    // Перенос заметок: событие-носитель «✍️ Заметка», текст в DESCRIPTION
+
+    private fun note(date: String = "2026-02-17", text: String = "Молоко, хлеб") = CalendarNote(
+        date = date,
+        text = text,
+        createdAt = 1_000L,
+        modifiedAt = 2_000L,
+    )
+
+    private fun noteRoundTrip(note: CalendarNote): Pair<ScheduledEvent, String> {
+        val ics = eventCalendar(listOf(note.toIcsEvent())).icsText()
+        val calendar = parseIcs(ics) ?: error("ICS-текст не разобрался: $ics")
+        val events = calendar.vevents()
+        assertEquals(1, events.size)
+        val parsed = events[0].toScheduledEvent() ?: error("VEVENT не распознан: $ics")
+        return parsed to events[0].noteText()
+    }
+
+    @Test
+    fun `note round-trips as carrier event with description text`() {
+        val (event, text) = noteRoundTrip(note(text = "Первая строка\nВторая строка"))
+
+        // Имя — маркер заметки, по нему приёмная сторона узнаёт носитель.
+        assertTrue(noteBySummary(event.title))
+        assertEquals(NOTE_SUMMARY, event.title)
+        assertEquals("2026-02-17", event.date)
+        assertEquals("Первая строка\nВторая строка", text)
+        assertEquals(2_000L, event.modifiedAt)
+        assertEquals(1_000L, event.createdAt)
+        // UID детерминированный: правка того же дня перепишет свой объект.
+        assertEquals(noteUidFor("2026-02-17"), event.uid)
+    }
+
+    @Test
+    fun `note marker is recognized with and without variant selector`() {
+        assertTrue(noteBySummary("✍️ Заметка"))
+        assertTrue(noteBySummary("✍ Заметка"))
+        assertTrue(noteBySummary("  ✍️ Заметка"))
+        assertFalse(noteBySummary("Заметка"))
+        assertFalse(noteBySummary("Ремонт"))
+        // Праздничный 🎂 — маркер дня рождения, не заметки.
+        assertFalse(noteBySummary("🎂 Имя"))
+    }
+
+    @Test
+    fun `note without description parses as empty text`() {
+        val vevent = note().toIcsEvent().apply {
+            properties.removeAll { it.name == "DESCRIPTION" }
+        }
+        val ics = eventCalendar(listOf(vevent)).icsText()
+        val calendar = parseIcs(ics) ?: error("ICS-текст не разобрался")
+        assertEquals("", calendar.vevents()[0].noteText())
+    }
+
+    @Test
+    fun `mangled note text is repaired on import`() {
+        val mangled = CalendarNote(
+            date = "2026-02-17",
+            text = cp1252Mangled("Молоко"),
+        ).toIcsEvent()
+        val ics = eventCalendar(listOf(mangled)).icsText()
+        val calendar = parseIcs(ics) ?: error("ICS-текст не разобрался")
+        assertEquals("Молоко", calendar.vevents()[0].noteText())
+    }
+
+    @Test
+    fun `carrier event is not confused with user event types`() {
+        // Носитель не имеет ни RRULE, ни X-TNOTE-*: приёмник без заметок
+        // видит простое дневное событие, наш разбор — REGULAR без повторов.
+        val (event, _) = noteRoundTrip(note())
+        assertEquals(ScheduledEventType.REGULAR, event.type)
+        assertNull(event.repeatUnit)
+        assertFalse(event.hidePastOccurrences)
     }
 }

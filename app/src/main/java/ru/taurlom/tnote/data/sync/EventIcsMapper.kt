@@ -518,4 +518,4 @@ private fun weekdayOf(day: WeekDay.Day): DayOfWeek? = when (day) {
 }
 
 /** Поиск первого свойства по имени: ical4j getProperty бросается, мы не хотим. */
-private fun PropertyList<Property>.byName(name: String): Property? = firstOrNull { it.name == name }
+internal fun PropertyList<Property>.byName(name: String): Property? = firstOrNull { it.name == name }
