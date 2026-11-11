@@ -5,15 +5,22 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import ru.taurlom.tnote.domain.model.CaldavAccount
+import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.model.EventExpander
 import ru.taurlom.tnote.domain.model.ScheduledEvent
+import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import ru.taurlom.tnote.domain.usecase.AddScheduledEventUseCase
 import ru.taurlom.tnote.domain.usecase.DeleteCalendarDayUseCase
 import ru.taurlom.tnote.domain.usecase.DeleteScheduledEventUseCase
@@ -22,7 +29,9 @@ import ru.taurlom.tnote.domain.usecase.GetCalendarNotesByMonthUseCase
 import ru.taurlom.tnote.domain.usecase.GetRepeatingEventsUseCase
 import ru.taurlom.tnote.domain.usecase.GetScheduledEventsByMonthUseCase
 import ru.taurlom.tnote.domain.usecase.GetWeekendDatesUseCase
+import ru.taurlom.tnote.domain.usecase.ObserveCaldavAccountsUseCase
 import ru.taurlom.tnote.domain.usecase.SaveCalendarNoteUseCase
+import ru.taurlom.tnote.domain.usecase.SyncCaldavAccountUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateScheduledEventUseCase
 import ru.taurlom.tnote.presentation.error.launchCatching
 import java.time.LocalDate
@@ -40,6 +49,8 @@ class CalendarViewModel @Inject constructor(
     private val addEventUseCase: AddScheduledEventUseCase,
     private val updateEventUseCase: UpdateScheduledEventUseCase,
     private val deleteEventUseCase: DeleteScheduledEventUseCase,
+    private val observeCaldavAccountsUseCase: ObserveCaldavAccountsUseCase,
+    private val syncCaldavAccountUseCase: SyncCaldavAccountUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -137,6 +148,53 @@ class CalendarViewModel @Inject constructor(
     private fun deleteEvent(event: ScheduledEvent) {
         launchCatching {
             deleteEventUseCase(event)
+        }
+    }
+
+    // ── Ручная синхронизация подписки из шапки календаря ──
+
+    /**
+     * Подключённый календарь. Один сторонний календарь — поддерживаемая
+     * конфигурация (как в настройках), поэтому берём первый; null — кнопка
+     * синхронизации в шапке не показывается.
+     */
+    val caldavAccount: StateFlow<CaldavAccount?> = observeCaldavAccountsUseCase()
+        .map { accounts -> accounts.firstOrNull() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _caldavBusy = MutableStateFlow(false)
+    val caldavBusy: StateFlow<Boolean> = _caldavBusy.asStateFlow()
+
+    /** Итог ручной синхронизации — для тоста; экран гасит через shown(). */
+    private val _caldavResult = MutableStateFlow<CaldavSyncResult?>(null)
+    val caldavResult: StateFlow<CaldavSyncResult?> = _caldavResult.asStateFlow()
+
+    /** Причина отказа ручной синхронизации — для тоста ошибки. */
+    private val _caldavError = MutableStateFlow<CaldavSyncException?>(null)
+    val caldavError: StateFlow<CaldavSyncException?> = _caldavError.asStateFlow()
+
+    /** Экран показал результат (тост) — убираем его из состояния. */
+    fun caldavResultShown() {
+        _caldavResult.value = null
+        _caldavError.value = null
+    }
+
+    /**
+     * Кнопка ⇄ в шапке — та же ручная синхронизация, что «Обновить»
+     * в настройках. Отказ доходит тостом: у календаря нет карточки
+     * аккаунта, которая показывала бы lastError сама.
+     */
+    fun syncCaldav() {
+        val account = caldavAccount.value ?: return
+        if (_caldavBusy.value) return
+        viewModelScope.launch {
+            _caldavBusy.value = true
+            try {
+                _caldavResult.value = syncCaldavAccountUseCase(account.id)
+            } catch (e: CaldavSyncException) {
+                _caldavError.value = e
+            }
+            _caldavBusy.value = false
         }
     }
 }

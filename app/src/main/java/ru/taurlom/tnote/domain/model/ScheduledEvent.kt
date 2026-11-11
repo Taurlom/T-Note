@@ -44,6 +44,9 @@ enum class EventIcon {
     CALL,
     SHOPPING_CART,
     SCHOOL,
+    MARTIAL_ARTS,
+    CHESS_QUEEN,
+    PALETTE,
 }
 
 /**

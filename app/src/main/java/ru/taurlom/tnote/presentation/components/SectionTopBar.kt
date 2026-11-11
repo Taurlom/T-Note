@@ -34,6 +34,9 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * кнопка 🔍 показывается только если колбэк передан. В календаре поиска пока
  * нет (кандидат на будущее: фильтр событий/заметок по тексту), поэтому он
  * колбэк не передаёт и иконку не получает.
+ *
+ * [onSyncClick] — ручная синхронизация CalDAV из шапки (иконка ⇄): календарь
+ * передаёт её, когда подписка подключена; остальным разделам кнопка не нужна.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +44,7 @@ fun SectionTopBar(
     title: String,
     showBrandHeader: Boolean,
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    onSyncClick: (() -> Unit)? = null,
     onImportLists: (() -> Unit)? = null,
     onSearchClick: (() -> Unit)? = null,
     onArchiveClick: (() -> Unit)? = null,
@@ -59,6 +63,15 @@ fun SectionTopBar(
         // логотип и «T-Note», имя раздела своё у обычной шапки.
         AppBrandHeader(
             actions = {
+                if (onSyncClick != null) {
+                    IconButton(onClick = onSyncClick) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_directory_sync),
+                            contentDescription = stringResource(R.string.sync_refresh),
+                            tint = AppTheme.colors.brandTitle,
+                        )
+                    }
+                }
                 if (onSearchClick != null) {
                     IconButton(onClick = onSearchClick) {
                         Icon(
@@ -76,6 +89,14 @@ fun SectionTopBar(
             title = title,
             scrollBehavior = scrollBehavior,
             actions = {
+                if (onSyncClick != null) {
+                    IconButton(onClick = onSyncClick) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_directory_sync),
+                            contentDescription = stringResource(R.string.sync_refresh),
+                        )
+                    }
+                }
                 if (onSearchClick != null) {
                     IconButton(onClick = onSearchClick) {
                         Icon(

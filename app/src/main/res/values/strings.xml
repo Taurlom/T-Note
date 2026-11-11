@@ -235,6 +235,9 @@
     <string name="icon_call">Звонок</string>
     <string name="icon_shoppingcart">Покупки</string>
     <string name="icon_school">Учёба</string>
+    <string name="icon_martialarts">Боевые искусства</string>
+    <string name="icon_chessqueen">Шахматы</string>
+    <string name="icon_palette">Творчество</string>
 
     <string name="event_delete_description">Удалить событие</string>
 

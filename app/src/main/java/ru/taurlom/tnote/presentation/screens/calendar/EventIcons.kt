@@ -96,6 +96,9 @@ val EventIcon.drawableRes: Int
         EventIcon.CALL -> R.drawable.ic_event_call
         EventIcon.SHOPPING_CART -> R.drawable.ic_event_shoppingcart
         EventIcon.SCHOOL -> R.drawable.ic_event_school
+        EventIcon.MARTIAL_ARTS -> R.drawable.ic_event_martialarts
+        EventIcon.CHESS_QUEEN -> R.drawable.ic_event_chessqueen
+        EventIcon.PALETTE -> R.drawable.ic_event_palette
     }
 
 /** Подпись иконки события. */
@@ -125,4 +128,7 @@ val EventIcon.labelRes: Int
         EventIcon.CALL -> R.string.icon_call
         EventIcon.SHOPPING_CART -> R.string.icon_shoppingcart
         EventIcon.SCHOOL -> R.string.icon_school
+        EventIcon.MARTIAL_ARTS -> R.string.icon_martialarts
+        EventIcon.CHESS_QUEEN -> R.string.icon_chessqueen
+        EventIcon.PALETTE -> R.string.icon_palette
     }

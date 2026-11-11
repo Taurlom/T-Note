@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.screens.calendar
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -22,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -39,10 +42,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.taurlom.tnote.R
+import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.model.EventIcon
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
+import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import ru.taurlom.tnote.presentation.components.SectionTopBar
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import java.time.DayOfWeek
@@ -52,8 +57,12 @@ import java.time.LocalDate
 @Composable
 fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val caldavAccount by viewModel.caldavAccount.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDate by remember { mutableStateOf<CalendarDate?>(null) }
+
+    // Итог кнопки ⇄ в шапке — тост, как у «Обновить» в настройках.
+    CaldavSyncResultToast(viewModel)
 
     // Дистанция вертикального свайпа, после которой меняется месяц.
     val monthSwipeDistancePx = with(LocalDensity.current) { 96.dp.toPx() }
@@ -67,6 +76,8 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
                 title = stringResource(R.string.calendar_title),
                 showBrandHeader = showBrandHeader,
                 scrollBehavior = scrollBehavior,
+                // Синхронизация из шапки — только при подключённом календаре.
+                onSyncClick = caldavAccount?.let { { viewModel.syncCaldav() } },
             )
         },
     ) { padding ->
@@ -128,6 +139,41 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
             onUpdateEvent = { viewModel.onEvent(CalendarEvent.UpdateEvent(it)) },
             onDeleteEvent = { viewModel.onEvent(CalendarEvent.DeleteEvent(it)) },
         )
+    }
+}
+
+/**
+ * Итог кнопки ⇄ в шапке — тост с числами (как у «Обновить» в настройках),
+ * а при отказе — причина: у календаря нет карточки аккаунта, которая
+ * показывала бы lastError сама.
+ */
+@Composable
+private fun CaldavSyncResultToast(viewModel: CalendarViewModel) {
+    val result by viewModel.caldavResult.collectAsStateWithLifecycle()
+    val error by viewModel.caldavError.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(result, error) {
+        val text = when {
+            result != null -> context.getString(
+                R.string.sync_result,
+                result?.added ?: 0,
+                result?.updated ?: 0,
+                result?.removed ?: 0,
+                result?.pushed ?: 0,
+            )
+
+            error is CaldavSyncException.Network -> context.getString(R.string.sync_error_network)
+
+            error is CaldavSyncException.Auth -> context.getString(R.string.sync_error_auth)
+
+            error != null -> context.getString(R.string.sync_error_other, error?.message ?: "")
+
+            else -> null
+        }
+        if (text != null) {
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            viewModel.caldavResultShown()
+        }
     }
 }
 
