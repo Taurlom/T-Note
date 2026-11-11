@@ -2,6 +2,7 @@ package ru.taurlom.tnote.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import ru.taurlom.tnote.domain.model.CaldavProvider
 
 /**
  * Подключённый CalDAV-аккаунт (Яндекс первым, схема — из roadmap этапа 1):
@@ -14,11 +15,13 @@ import androidx.room.PrimaryKey
 data class CaldavAccountEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    /** Провайдер: YANDEX (CalDAV) или GOOGLE (Calendar API). */
+    val provider: String = CaldavProvider.YANDEX.name,
     /** Корень сервера, например «https://caldav.yandex.ru». */
     val serverUrl: String,
     /** Логин (для Яндекса — почта), он же ключ пароля в PasswordStore. */
     val username: String,
-    /** Полный URL календаря-коллекции (href из PROPFIND). */
+    /** Полный URL календаря-коллекции (href из PROPFIND) или calendarId. */
     val collectionUrl: String,
     /** Отображаемое имя календаря с сервера (displayname). */
     val collectionName: String,

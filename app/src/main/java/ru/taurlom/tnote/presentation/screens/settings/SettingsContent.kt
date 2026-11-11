@@ -1,9 +1,12 @@
 package ru.taurlom.tnote.presentation.screens.settings
 
 import android.Manifest
+import android.accounts.AccountManager
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberTimePickerState
@@ -35,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,6 +53,7 @@ import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
+import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.presentation.components.AppButton
@@ -557,7 +563,7 @@ private fun CaldavAccountCard(account: CaldavAccount, busy: Boolean, viewModel: 
                 ),
             style = MaterialTheme.typography.labelMedium,
             color = if (errorText != null) {
-                MaterialTheme.colorScheme.error
+                Color(0xFFCC0000)
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
@@ -607,62 +613,138 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
     // пережило пересоздание Activity (смена темы/языка/поворот).
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
+    // Выбор аккаунта Google: результат — адрес аккаунта
+    // (AccountManager.KEY_ACCOUNT_NAME), после него сразу поиск календарей
+    // (он же вызовет диалог согласия, если тот ещё не выдан).
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val account = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+        if (!account.isNullOrBlank()) {
+            viewModel.updateCaldavUsername(account)
+            viewModel.discoverCaldavCalendars()
+        }
+    }
+    // Диалог согласия Google закрыт — поиск календарей повторяется.
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { viewModel.discoverCaldavCalendars() }
+
+    // Намерение согласия показывается, как только попало в состояние.
+    LaunchedEffect(state.consentIntent) {
+        state.consentIntent?.let { intent ->
+            consentLauncher.launch(intent)
+            viewModel.caldavConsentLaunched()
+        }
+    }
+
     AppDialog(
         title = stringResource(R.string.sync_add_title),
         onDismissRequest = viewModel::closeCaldavDialog,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                AppTextField(
-                    value = state.server,
-                    onValueChange = viewModel::updateCaldavServer,
-                    label = stringResource(R.string.sync_server),
-                    singleLine = true,
-                )
-                AppTextField(
-                    value = state.username,
-                    onValueChange = viewModel::updateCaldavUsername,
-                    label = stringResource(R.string.sync_login),
-                    singleLine = true,
-                )
-                AppTextField(
-                    value = state.password,
-                    onValueChange = viewModel::updateCaldavPassword,
-                    label = stringResource(R.string.sync_password),
-                    singleLine = true,
-                    visualTransformation = if (passwordVisible) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        // Показываем действие, которое произойдёт по нажатию:
-                        // видимый пароль — иконка «скрыть», и наоборот.
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                painter = painterResource(
-                                    if (passwordVisible) {
-                                        R.drawable.ic_visibility_off
-                                    } else {
-                                        R.drawable.ic_visibility
-                                    },
-                                ),
-                                contentDescription = stringResource(
-                                    if (passwordVisible) {
-                                        R.string.sync_password_hide
-                                    } else {
-                                        R.string.sync_password_show
-                                    },
-                                ),
-                            )
-                        }
-                    },
-                )
+                // Источник: Яндекс (CalDAV) или Google (Calendar API) —
+                // один активный аккаунт, переключение сбрасывает форму.
                 Text(
-                    text = stringResource(R.string.sync_password_hint),
-                    style = MaterialTheme.typography.labelMedium,
+                    text = stringResource(R.string.sync_provider),
+                    style = MaterialTheme.typography.labelLarge,
                     color = AppTheme.colors.dialogContent,
                 )
+                // Каждый вариант — своей строкой: в узком диалоге два
+                // радио в ряд не помещаются, подпись сжималась в столбик.
+                listOf(
+                    CaldavProvider.YANDEX to R.string.sync_provider_yandex,
+                    CaldavProvider.GOOGLE to R.string.sync_provider_google,
+                ).forEach { (provider, labelRes) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = state.provider == provider,
+                            onClick = { viewModel.selectCaldavProvider(provider) },
+                            // Неактивная радиокнопка на фоне диалога
+                            // терялась — красим и её цветом текста.
+                            colors = radioColors(),
+                        )
+                        Text(
+                            text = stringResource(labelRes),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.dialogContent,
+                        )
+                    }
+                }
+
+                when (state.provider) {
+                    CaldavProvider.YANDEX -> {
+                        AppTextField(
+                            value = state.server,
+                            onValueChange = viewModel::updateCaldavServer,
+                            label = stringResource(R.string.sync_server),
+                            singleLine = true,
+                        )
+                        AppTextField(
+                            value = state.username,
+                            onValueChange = viewModel::updateCaldavUsername,
+                            label = stringResource(R.string.sync_login),
+                            singleLine = true,
+                        )
+                        AppTextField(
+                            value = state.password,
+                            onValueChange = viewModel::updateCaldavPassword,
+                            label = stringResource(R.string.sync_password),
+                            singleLine = true,
+                            visualTransformation = if (passwordVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = {
+                                // Показываем действие, которое произойдёт по нажатию:
+                                // видимый пароль — иконка «скрыть», и наоборот.
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        painter = painterResource(
+                                            if (passwordVisible) {
+                                                R.drawable.ic_visibility_off
+                                            } else {
+                                                R.drawable.ic_visibility
+                                            },
+                                        ),
+                                        contentDescription = stringResource(
+                                            if (passwordVisible) {
+                                                R.string.sync_password_hide
+                                            } else {
+                                                R.string.sync_password_show
+                                            },
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                        Text(
+                            text = stringResource(R.string.sync_password_hint),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AppTheme.colors.dialogContent,
+                        )
+                    }
+
+                    CaldavProvider.GOOGLE -> {
+                        // Пароля нет: токен берётся OAuth'ом у выбранного аккаунта.
+                        Text(
+                            text = if (state.username.isNotBlank()) {
+                                stringResource(R.string.sync_google_account, state.username)
+                            } else {
+                                stringResource(R.string.sync_google_account_none)
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = AppTheme.colors.dialogContent,
+                        )
+                        Text(
+                            text = stringResource(R.string.sync_google_hint),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AppTheme.colors.dialogContent,
+                        )
+                    }
+                }
 
                 if (state.calendars.isEmpty()) {
                     CaldavAddErrorText(state)
@@ -677,6 +759,7 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
                             RadioButton(
                                 selected = calendar.url == state.selectedUrl,
                                 onClick = { viewModel.selectCaldavCalendar(calendar) },
+                                colors = radioColors(),
                             )
                             Text(
                                 text = calendar.name,
@@ -690,24 +773,56 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
             }
         },
         confirmButton = {
-            if (state.calendars.isEmpty()) {
-                AppTextButton(
-                    onClick = viewModel::discoverCaldavCalendars,
-                    textRes = R.string.sync_find,
-                    enabled = state.username.isNotBlank() &&
-                        state.password.isNotBlank() &&
-                        !state.discovering,
-                )
-            } else {
-                AppTextButton(
-                    onClick = viewModel::connectCaldavAccount,
-                    textRes = R.string.sync_connect,
-                    enabled = state.selectedUrl != null && !state.connecting,
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                // У Google до поиска нужен выбранный аккаунт — кнопка выбора
+                // живёт рядом с «Найти календари».
+                if (state.provider == CaldavProvider.GOOGLE && state.calendars.isEmpty()) {
+                    AppTextButton(
+                        onClick = {
+                            val picker = AccountManager.newChooseAccountIntent(
+                                null,
+                                null,
+                                arrayOf("com.google"),
+                                null,
+                                null,
+                                null,
+                                null,
+                            )
+                            accountPickerLauncher.launch(picker)
+                        },
+                        textRes = R.string.sync_google_pick,
+                        enabled = !state.discovering,
+                    )
+                }
+                if (state.calendars.isEmpty()) {
+                    AppTextButton(
+                        onClick = viewModel::discoverCaldavCalendars,
+                        textRes = R.string.sync_find,
+                        enabled = when (state.provider) {
+                            CaldavProvider.GOOGLE -> state.username.isNotBlank() && !state.discovering
+
+                            CaldavProvider.YANDEX ->
+                                state.username.isNotBlank() && state.password.isNotBlank() && !state.discovering
+                        },
+                    )
+                } else {
+                    AppTextButton(
+                        onClick = viewModel::connectCaldavAccount,
+                        textRes = R.string.sync_connect,
+                        enabled = state.selectedUrl != null && !state.connecting,
+                    )
+                }
             }
         },
     )
 }
+
+/** Цвет радиокнопок в диалоге: активная и неактивная — цветом текста. */
+@Composable
+private fun radioColors() = RadioButtonDefaults.colors(
+    selectedColor = AppTheme.colors.dialogContent,
+    unselectedColor = AppTheme.colors.dialogContent,
+)
 
 /** Подпись отказа формы: типизированный вид из [CaldavErrorKind]. */
 @Composable
@@ -717,10 +832,13 @@ private fun CaldavAddErrorText(state: CaldavAddState) {
             CaldavErrorKind.NETWORK -> stringResource(R.string.sync_error_network)
             CaldavErrorKind.AUTH -> stringResource(R.string.sync_error_auth)
             CaldavErrorKind.NO_CALENDARS -> stringResource(R.string.sync_error_no_calendars)
+            CaldavErrorKind.CONSENT -> stringResource(R.string.sync_consent_needed)
             else -> stringResource(R.string.sync_error_other, state.errorMessage.orEmpty())
         },
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
+        // Системный errorColor в тёмной палитре малоконтрастен на фоне
+        // диалога — читаемость важнее формальной темы.
+        color = Color(0xFFCC0000),
     )
 }
 

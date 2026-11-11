@@ -1,8 +1,10 @@
 ﻿package ru.taurlom.tnote.domain.repository
 
+import android.content.Intent
 import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
+import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 
 /**
@@ -18,15 +20,15 @@ interface CaldavRepository {
     /** Живой список подключённых аккаунтов. */
     fun observeAccounts(): Flow<List<CaldavAccount>>
 
-    /** Поиск календарей с событиями (VEVENT) на сервере. */
-    suspend fun discover(server: String, username: String, password: String): List<CaldavCalendarRef>
+    /** Поиск календарей с событиями на сервере выбранного провайдера. */
+    suspend fun discover(provider: CaldavProvider, server: String, username: String, password: String): List<CaldavCalendarRef>
 
     /**
-     * Сохранить аккаунт, пароль и запустить первую синхронизацию (она же
+     * Сохранить аккаунт, секрет и запустить первую синхронизацию (она же
      * проверяет выбранную коллекцию по-настоящему). Ошибка первой синхронизации
      * не отменяет подключение — она пишется в lastError и видна на карточке.
      */
-    suspend fun connect(server: String, username: String, password: String, calendar: CaldavCalendarRef): Long
+    suspend fun connect(provider: CaldavProvider, server: String, username: String, password: String, calendar: CaldavCalendarRef): Long
 
     /** Отключить аккаунт: события этого источника удаляются вместе с ним. */
     suspend fun disconnect(accountId: Long)
@@ -67,3 +69,12 @@ sealed class CaldavSyncException(message: String, cause: Throwable? = null) : Ex
     /** Сервер отвечает, но протокол нарушен (HTTP != 2xx, битый XML/ICS). */
     class Server(message: String) : CaldavSyncException(message)
 }
+
+/**
+ * Согласие Google не выдано (первое подключение или отзыв доступа): в
+ * [intent] — намерение системного диалога («Разрешить T-Note доступ к
+ * календарю»), форма подключения запускает его и повторяет операцию;
+ * прочие места (карточка аккаунта, тосты) видят обычный отказ авторизации.
+ * Живёт рядом с [CaldavSyncException], потому что тот sealed.
+ */
+class CaldavConsentRequired(val intent: Intent?) : CaldavSyncException("Нужно разрешить доступ к календарю")

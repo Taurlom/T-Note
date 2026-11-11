@@ -315,6 +315,19 @@ object AppDatabaseMigration {
     }
 
     /**
+     * 25 → 26: провайдер синхронизации в caldav_accounts — YANDEX (CalDAV)
+     * или GOOGLE (Calendar API v3, этап 3). Аддитивная миграция: все
+     * существующие аккаунты — Яндекс, других до этапа 3 не было.
+     */
+    val MIGRATION_25_26 = object : Migration(25, 26) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE caldav_accounts ADD COLUMN provider TEXT NOT NULL DEFAULT 'YANDEX'",
+            )
+        }
+    }
+
+    /**
      * 24 → 25: заметки дня едут через Яндекса событиями-носителями —
      * обвязка двустороннего обмена (приписка подписке, очередь PUT,
      * ETag/href от вычитки). Заодно в очередь встают и старые события без

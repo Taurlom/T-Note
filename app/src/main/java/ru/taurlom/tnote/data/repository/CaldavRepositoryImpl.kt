@@ -16,8 +16,10 @@ import ru.taurlom.tnote.data.sync.CaldavSyncEngine
 import ru.taurlom.tnote.data.sync.CaldavSyncScheduler
 import ru.taurlom.tnote.data.sync.SyncOverwriteBus
 import ru.taurlom.tnote.data.sync.SyncTransaction
+import ru.taurlom.tnote.data.sync.google.GoogleCalendarApi
 import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
+import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.repository.CaldavRepository
 import ru.taurlom.tnote.domain.repository.CaldavSyncException
@@ -25,10 +27,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * CalDAV-репозиторий: мост между настройками (UI), сетевым клиентом,
- * движком и таблицами БД. Пароль ходит только через [PasswordStore].
- * Подключение/отключение заведует также периодическим воркером, а прогон
- * синка анонсирует перезаписи через [SyncOverwriteBus] («не молча»).
+ * Секрет Google-аккаунтов: OAuth-токен берётся на лету, хранить нечего,
+ * но место пароля в PasswordStore должно быть занято — движок читает
+ * секрет по username, не зная о провайдере.
+ */
+private const val GOOGLE_PASSWORD_PLACEHOLDER = "google-oauth"
+
+/**
+ * Репозиторий синхронизации: мост между настройками (UI), транспортами
+ * провайдеров, движком и таблицами БД. Секрет ходит только через
+ * [PasswordStore]. Подключение/отключение заведует также периодическим
+ * воркером, а прогон синка анонсирует перезаписи через [SyncOverwriteBus]
+ * («не молча»). Транспорт выбирается провайдером аккаунта: Яндекс —
+ * CalDAV, Google — Calendar API (оба — [CaldavApi]).
  */
 @Singleton
 class CaldavRepositoryImpl @Inject constructor(
@@ -37,6 +48,7 @@ class CaldavRepositoryImpl @Inject constructor(
     private val noteDao: CalendarNoteDao,
     private val tombstoneDao: CaldavTombstoneDao,
     private val api: CaldavApi,
+    private val googleApi: GoogleCalendarApi,
     private val engine: CaldavSyncEngine,
     private val passwordStore: PasswordStore,
     private val scheduler: CaldavSyncScheduler,
@@ -53,12 +65,19 @@ class CaldavRepositoryImpl @Inject constructor(
 
     override fun observeAccounts(): Flow<List<CaldavAccount>> = caldavDao.observeAll().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun discover(server: String, username: String, password: String): List<CaldavCalendarRef> =
-        api.discoverCalendars(server, username, password)
+    override suspend fun discover(provider: CaldavProvider, server: String, username: String, password: String): List<CaldavCalendarRef> =
+        transport(provider).discoverCalendars(server, username, password)
 
-    override suspend fun connect(server: String, username: String, password: String, calendar: CaldavCalendarRef): Long {
+    override suspend fun connect(
+        provider: CaldavProvider,
+        server: String,
+        username: String,
+        password: String,
+        calendar: CaldavCalendarRef,
+    ): Long {
         val id = caldavDao.insert(
             CaldavAccountEntity(
+                provider = provider.name,
                 serverUrl = server.trimEnd('/'),
                 username = username,
                 collectionUrl = calendar.url,
@@ -67,7 +86,7 @@ class CaldavRepositoryImpl @Inject constructor(
                 lastError = null,
             ),
         )
-        passwordStore.save(username, password)
+        passwordStore.save(username, password.ifBlank { GOOGLE_PASSWORD_PLACEHOLDER })
         scheduler.ensurePeriodic()
         // Локальные заметки (никогда не гулявшие по серверу) приписываются
         // новой подписке и едут первым же пушем — перенос заметок на другое
@@ -109,11 +128,17 @@ class CaldavRepositoryImpl @Inject constructor(
             // Перезаписи («сервер новее») анонсируются после удачного прогона:
             // пользователь должен увидеть это на любом экране, а не только
             // в настройках.
-            syncLock.withLock { engine.sync(account, password) }
+            syncLock.withLock { engine.sync(account, password, transport(account)) }
                 .also { SyncOverwriteBus.report(it.overwritten) }
         } catch (e: CaldavSyncException) {
             caldavDao.markFailed(account.id, e.message)
             throw e
+        } catch (e: Exception) {
+            // Непредсказуемый сбой (битый JSON и прочее) не должен ронять
+            // приложение и терять причину: переводим в типизированный вид,
+            // карточка покажет.
+            caldavDao.markFailed(account.id, e.message ?: e.javaClass.simpleName)
+            throw CaldavSyncException.Server(e.message ?: e.javaClass.simpleName)
         }
     }
 
@@ -126,6 +151,15 @@ class CaldavRepositoryImpl @Inject constructor(
         }
 
     override fun observeLocalOnlyCount(): Flow<Int> = scheduledEventDao.observeLocalOnlyCount()
+
+    /** Транспорт по провайдеру аккаунта. */
+    private fun transport(provider: CaldavProvider): CaldavApi = when (provider) {
+        CaldavProvider.YANDEX -> api
+        CaldavProvider.GOOGLE -> googleApi
+    }
+
+    private fun transport(account: CaldavAccountEntity): CaldavApi =
+        transport(runCatching { CaldavProvider.valueOf(account.provider) }.getOrDefault(CaldavProvider.YANDEX))
 
     override suspend fun publishLocalOnly(accountId: Long): Int {
         val count = scheduledEventDao.attributeAll(accountId)

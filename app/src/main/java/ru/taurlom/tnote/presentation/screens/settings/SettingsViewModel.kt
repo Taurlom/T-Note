@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.screens.settings
 
+import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
@@ -17,11 +18,13 @@ import kotlinx.coroutines.launch
 import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
+import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
+import ru.taurlom.tnote.domain.repository.CaldavConsentRequired
 import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import ru.taurlom.tnote.domain.repository.PastCalendarCleanup
 import ru.taurlom.tnote.domain.repository.SettingsRepository
@@ -324,6 +327,24 @@ class SettingsViewModel @Inject constructor(
         _caldavAddState.value = CaldavAddState(open = true)
     }
 
+    /** Выбор провайдера сбрасывает форму целиком: поля разных источников не мешаются. */
+    fun selectCaldavProvider(provider: CaldavProvider) {
+        if (_caldavAddState.value.provider == provider) return
+        _caldavAddState.value = CaldavAddState(
+            open = true,
+            provider = provider,
+            server = when (provider) {
+                CaldavProvider.YANDEX -> CaldavCalendarRef.DEFAULT_SERVER
+                CaldavProvider.GOOGLE -> CaldavCalendarRef.GOOGLE_SERVER
+            },
+        )
+    }
+
+    /** Диалог Google «разрешить доступ» закрыт — снимаем намерение. */
+    fun caldavConsentLaunched() {
+        _caldavAddState.update { it.copy(consentIntent = null) }
+    }
+
     /** Итог «залить старые события» — для тоста; экран гасит через shown(). */
     private val _caldavPublishResult = MutableStateFlow<Int?>(null)
     val caldavPublishResult: StateFlow<Int?> = _caldavPublishResult.asStateFlow()
@@ -359,14 +380,21 @@ class SettingsViewModel @Inject constructor(
         _caldavAddState.update { it.copy(selectedUrl = calendar.url) }
     }
 
-    /** Шаг 1 формы: PROPFIND-поиск календарей с событиями на сервере. */
+    /** Шаг 1 формы: PROPFIND-поиск (Яндекс) или calendarList (Google). */
     fun discoverCaldavCalendars() {
         val add = _caldavAddState.value
-        if (add.discovering || add.username.isBlank() || add.password.isBlank()) return
+        val credentialsReady = when (add.provider) {
+            // Google: секрет не нужен, нужен выбранный аккаунт.
+            CaldavProvider.GOOGLE -> add.username.isNotBlank()
+
+            CaldavProvider.YANDEX -> add.username.isNotBlank() && add.password.isNotBlank()
+        }
+        if (add.discovering || !credentialsReady) return
         viewModelScope.launch {
-            _caldavAddState.update { it.copy(discovering = true, error = null) }
+            _caldavAddState.update { it.copy(discovering = true, error = null, errorMessage = null) }
             try {
                 val calendars = discoverCaldavCalendarsUseCase(
+                    add.provider,
                     add.server.trim(),
                     add.username.trim(),
                     add.password,
@@ -382,6 +410,11 @@ class SettingsViewModel @Inject constructor(
                         )
                     }
                 }
+            } catch (e: CaldavConsentRequired) {
+                // Согласие не выдано: экран запустит намерение и повторит поиск.
+                _caldavAddState.update {
+                    it.copy(discovering = false, error = CaldavErrorKind.CONSENT, consentIntent = e.intent)
+                }
             } catch (e: Exception) {
                 _caldavAddState.update {
                     it.copy(discovering = false, error = toCaldavErrorKind(e), errorMessage = e.message)
@@ -395,9 +428,10 @@ class SettingsViewModel @Inject constructor(
         val add = _caldavAddState.value
         val calendar = add.calendars.firstOrNull { it.url == add.selectedUrl } ?: return
         viewModelScope.launch {
-            _caldavAddState.update { it.copy(connecting = true, error = null) }
+            _caldavAddState.update { it.copy(connecting = true, error = null, errorMessage = null) }
             try {
                 connectCaldavAccountUseCase(
+                    add.provider,
                     add.server.trim(),
                     add.username.trim(),
                     add.password,
@@ -405,6 +439,10 @@ class SettingsViewModel @Inject constructor(
                 )
                 // Форма отбрасывается целиком: аккаунт виден в списке.
                 closeCaldavDialog()
+            } catch (e: CaldavConsentRequired) {
+                _caldavAddState.update {
+                    it.copy(connecting = false, error = CaldavErrorKind.CONSENT, consentIntent = e.intent)
+                }
             } catch (e: Exception) {
                 _caldavAddState.update {
                     it.copy(connecting = false, error = toCaldavErrorKind(e), errorMessage = e.message)
@@ -452,6 +490,7 @@ class SettingsViewModel @Inject constructor(
  */
 data class CaldavAddState(
     val open: Boolean = false,
+    val provider: CaldavProvider = CaldavProvider.YANDEX,
     val server: String = CaldavCalendarRef.DEFAULT_SERVER,
     val username: String = "",
     val password: String = "",
@@ -462,6 +501,11 @@ data class CaldavAddState(
     val error: CaldavErrorKind? = null,
     /** Текст исключения — для нестандартных сбоев ([CaldavErrorKind.OTHER]). */
     val errorMessage: String? = null,
+    /**
+     * Намерение диалога согласия Google: экран запускает его, а после
+     * закрытия повторяет поиск ([CaldavErrorKind.CONSENT]).
+     */
+    val consentIntent: Intent? = null,
 )
 
 /** Типизированный отказ формы подключения: экран подбирает подпись. */
@@ -469,5 +513,8 @@ enum class CaldavErrorKind {
     NETWORK,
     AUTH,
     NO_CALENDARS,
+
+    /** Согласие Google не выдано — запустить намерение и повторить. */
+    CONSENT,
     OTHER,
 }

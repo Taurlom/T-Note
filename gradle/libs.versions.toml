@@ -30,6 +30,10 @@ work = "2.12.0"
 coil = "2.7.0"
 # Транспорт CalDAV: OkHttp — протокол WebDAV/CalDAV живёт поверх HTTP.
 okhttp = "4.12.0"
+# OAuth-токены Google Calendar API: GoogleAuthUtil из Play Services
+# (Android-клиент OAuth, package + SHA-1; токен короткоживущий, кеш
+# и обновление — внутри GoogleAuthUtil).
+play-services-auth = "21.3.0"
 # Парсеры, которые тянет вендоренный модуль richeditor-compose
 # (см. README.md модуля): разбор HTML и markdown в RichTextState.
 ksoup = "0.6.0"
@@ -79,6 +83,7 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "play-services-auth" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 # Артефакты для вендоренного модуля richeditor-compose: Compose-части берутся
 # из compose-bom, парсеры — с версиями выше.

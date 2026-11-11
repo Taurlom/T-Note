@@ -104,8 +104,12 @@ class CaldavSyncEngine @Inject constructor(
     private val clock: Clock,
 ) {
 
-    suspend fun sync(account: CaldavAccountEntity, password: String): CaldavSyncResult {
-        val pulled = api.pullEvents(account.collectionUrl, account.username, password)
+    suspend fun sync(account: CaldavAccountEntity, password: String, api: CaldavApi? = null): CaldavSyncResult {
+        // Транспорт выбирается на прогон: Яндекс — CaldavClient, Google —
+        // GoogleCalendarApi (оба реализуют [CaldavApi]); по умолчанию —
+        // транспорт из конструктора (юнит-тесты подставляют фейк так же).
+        val transport = api ?: this.api
+        val pulled = transport.pullEvents(account.collectionUrl, account.username, password)
 
         var added = 0
         var updated = 0
@@ -191,7 +195,7 @@ class CaldavSyncEngine @Inject constructor(
         // ── Push правок: сеть по строке, запись — короткая транзакция ──
         var deferred = 0
         for (row in eventDao.getDirtyFor(account.id)) {
-            when (pushRow(account, row, password)) {
+            when (pushRow(account, row, password, transport)) {
                 PushOutcome.Pushed -> pushed++
 
                 PushOutcome.Overwritten -> overwritten++
@@ -203,7 +207,7 @@ class CaldavSyncEngine @Inject constructor(
             }
         }
         for (row in noteDao.getDirtyFor(account.id)) {
-            when (pushNoteRow(account, row, password)) {
+            when (pushNoteRow(account, row, password, transport)) {
                 PushOutcome.Pushed -> pushed++
                 PushOutcome.Overwritten -> overwritten++
                 PushOutcome.Skipped -> Unit
@@ -213,8 +217,8 @@ class CaldavSyncEngine @Inject constructor(
 
         // ── Push удалений: tombstones подтверждаются сервером ──
         for (tombstone in tombstoneDao.getAllFor(account.id)) {
-            val href = tombstone.href ?: api.objectHref(account.collectionUrl, tombstone.uid)
-            val code = api.deleteEvent(href, account.username, password)
+            val href = tombstone.href ?: transport.objectHref(account.collectionUrl, tombstone.uid)
+            val code = transport.deleteEvent(href, account.username, password)
             when (code) {
                 in 200..299, 404 -> {
                     // 204 — удалено; 404 — «и так нет»: очистка очереди
@@ -308,16 +312,21 @@ class CaldavSyncEngine @Inject constructor(
      * разрешения конфликта — упорный 412 оставит строку dirty до следующей
      * синхронизации. Сетевые вызовы вне транзакций Room.
      */
-    private suspend fun pushRow(account: CaldavAccountEntity, row: ScheduledEventEntity, password: String): PushOutcome {
+    private suspend fun pushRow(
+        account: CaldavAccountEntity,
+        row: ScheduledEventEntity,
+        password: String,
+        transport: CaldavApi,
+    ): PushOutcome {
         val event = row.toDomain()
         // Битая дата не разберётся в VEVENT: строка остаётся в очереди
         // вместо вечного ретрая.
         if (event.dateOrNull() == null) return PushOutcome.Skipped
 
-        val href = row.serverHref ?: api.objectHref(account.collectionUrl, row.uid)
+        val href = row.serverHref ?: transport.objectHref(account.collectionUrl, row.uid)
         val ics = eventCalendar(listOf(event.toIcsEvent())).icsText()
 
-        val first = api.putEvent(
+        val first = transport.putEvent(
             url = href,
             ics = ics,
             username = account.username,
@@ -341,11 +350,11 @@ class CaldavSyncEngine @Inject constructor(
         }
 
         // Конфликт: серверный объект уже не тот (412) или исчез (404).
-        val fresh = api.pullEvent(href, account.username, password)
+        val fresh = transport.pullEvent(href, account.username, password)
         if (fresh == null) {
             // Объект исчез между вычиткой и отправкой: правка важнее —
             // публикуем заново без предусловий.
-            val recreate = api.putEvent(
+            val recreate = transport.putEvent(
                 url = href,
                 ics = ics,
                 username = account.username,
@@ -366,7 +375,7 @@ class CaldavSyncEngine @Inject constructor(
             return PushOutcome.Overwritten
         }
         // Наша правка новее: PUT с живым ETag от свежей перечитки.
-        val retry = api.putEvent(
+        val retry = transport.putEvent(
             url = href,
             ics = ics,
             username = account.username,
@@ -420,15 +429,20 @@ class CaldavSyncEngine @Inject constructor(
      * предусловиями и LWW; объект-носитель собирается из заметки
      * (NoteIcsMapper), ключ на сервере — детерминированный UID от даты.
      */
-    private suspend fun pushNoteRow(account: CaldavAccountEntity, row: CalendarNoteEntity, password: String): PushOutcome {
+    private suspend fun pushNoteRow(
+        account: CaldavAccountEntity,
+        row: CalendarNoteEntity,
+        password: String,
+        transport: CaldavApi,
+    ): PushOutcome {
         val note = row.toDomain()
         val anchor = runCatching { LocalDate.parse(note.date) }.getOrNull()
             ?: return PushOutcome.Skipped
 
-        val href = row.serverHref ?: api.objectHref(account.collectionUrl, noteUidFor(note.date))
+        val href = row.serverHref ?: transport.objectHref(account.collectionUrl, noteUidFor(note.date))
         val ics = eventCalendar(listOf(note.toIcsEvent())).icsText()
 
-        val first = api.putEvent(
+        val first = transport.putEvent(
             url = href,
             ics = ics,
             username = account.username,
@@ -446,9 +460,9 @@ class CaldavSyncEngine @Inject constructor(
         }
 
         // Конфликт: серверный объект уже не тот (412) или исчез (404).
-        val fresh = api.pullEvent(href, account.username, password)
+        val fresh = transport.pullEvent(href, account.username, password)
         if (fresh == null) {
-            val recreate = api.putEvent(
+            val recreate = transport.putEvent(
                 url = href,
                 ics = ics,
                 username = account.username,
@@ -466,7 +480,7 @@ class CaldavSyncEngine @Inject constructor(
             noteDao.insert(applyNoteRemote(row, fresh, account))
             return PushOutcome.Overwritten
         }
-        val retry = api.putEvent(
+        val retry = transport.putEvent(
             url = href,
             ics = ics,
             username = account.username,

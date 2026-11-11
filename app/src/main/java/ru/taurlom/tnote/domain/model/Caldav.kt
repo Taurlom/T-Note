@@ -1,16 +1,36 @@
 package ru.taurlom.tnote.domain.model
 
 /**
- * Подключённый CalDAV-аккаунт на экране настроек: один аккаунт — одна
- * подписка на календарь-коллекцию сервера. События из коллекции появляются
- * в сетке приложения только для чтения (этап 1), правятся они на сервере.
+ * Провайдер синхронизации: один активный аккаунт — один источник.
+ * Яндекс едет CalDAV-транспортом, Google — Calendar API v3; движок синка
+ * и конвертеры общие.
+ */
+enum class CaldavProvider {
+    YANDEX,
+    GOOGLE,
+}
+
+/**
+ * Подключённый аккаунт синхронизации на экране настроек: один аккаунт —
+ * одна подписка на календарь (коллекция CalDAV или календарь Google).
  */
 data class CaldavAccount(
     val id: Long = 0,
+    /** Провайдер: решает транспорт и форму подключения. */
+    val provider: CaldavProvider = CaldavProvider.YANDEX,
     /** Корень сервера, например «https://caldav.yandex.ru». */
     val serverUrl: String,
+    /**
+     * Логин: для Яндекса — почта (ключ пароля в PasswordStore), для
+     * Google — адрес аккаунта (ключ OAuth-токена).
+     */
     val username: String,
+    /**
+     * Идентификатор подписанного календаря: для Яндекса — URL коллекции
+     * (href из PROPFIND), для Google — calendarId.
+     */
     val collectionUrl: String,
+    /** Отображаемое имя календаря с сервера (displayname / summary). */
     val collectionName: String,
     /** Момент последней успешной синхронизации (epoch millis, 0 — никогда). */
     val lastSyncAt: Long = 0,
@@ -18,13 +38,17 @@ data class CaldavAccount(
 )
 
 /**
- * Календарь-коллекция, найденный поиском PROPFIND на этапе подключения.
+ * Календарь-коллекция, найденный на этапе подключения (PROPFIND у Яндекса,
+ * calendarList у Google).
  */
 data class CaldavCalendarRef(val name: String, val url: String) {
     companion object {
 
         /** Сервер по умолчанию: Яндекс (первый этап CalDAV-интеграции). */
         const val DEFAULT_SERVER = "https://caldav.yandex.ru"
+
+        /** Корень Google Calendar API v3 — serverUrl аккаунта Google. */
+        const val GOOGLE_SERVER = "https://www.googleapis.com/calendar/v3"
     }
 }
 

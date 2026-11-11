@@ -51,8 +51,16 @@
 
     <!-- ───── Синхронизация (CalDAV) ───── -->
     <string name="sync_section">Синхронизация</string>
-    <string name="sync_hint">Подключите Яндекс-календарь — его события появятся в сетке приложения и будут обновляться автоматически. Изменяются они на сервере, в приложении только для чтения.</string>
-    <string name="sync_add_account">Добавить Яндекс-календарь</string>
+    <string name="sync_hint">Подключите календарь — его события появятся в сетке приложения и будут обновляться автоматически. Один источник на выбор: Яндекс (CalDAV) или Google (Calendar API).</string>
+    <string name="sync_add_account">Добавить календарь</string>
+    <string name="sync_provider">Источник</string>
+    <string name="sync_provider_yandex">Яндекс Календарь</string>
+    <string name="sync_provider_google">Google Календарь</string>
+    <string name="sync_google_pick">Выбрать аккаунт Google</string>
+    <string name="sync_google_account">Аккаунт Google: %1$s</string>
+    <string name="sync_google_account_none">Аккаунт Google не выбран</string>
+    <string name="sync_google_hint">Выберите аккаунт — приложение запросит у Google доступ к календарю и покажет ваши календари. Название события T-Note в Google не изменится.</string>
+    <string name="sync_consent_needed">Google ждёт вашего разрешения: подтвердите доступ к календарю</string>
     <string name="sync_publish_old">Добавить старые события в календарь</string>
     <string name="sync_publish_result">Поставлено в календарь: %1$d</string>
     <string name="sync_add_title">Подключение календаря</string>

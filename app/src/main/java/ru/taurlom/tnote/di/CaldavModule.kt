@@ -11,6 +11,9 @@ import ru.taurlom.tnote.data.repository.CaldavRepositoryImpl
 import ru.taurlom.tnote.data.sync.CaldavApi
 import ru.taurlom.tnote.data.sync.CaldavClient
 import ru.taurlom.tnote.data.sync.SyncTransaction
+import ru.taurlom.tnote.data.sync.google.GoogleAuthUtilTokenSource
+import ru.taurlom.tnote.data.sync.google.GoogleCalendarApi
+import ru.taurlom.tnote.data.sync.google.GoogleTokenSource
 import ru.taurlom.tnote.domain.repository.CaldavRepository
 import javax.inject.Singleton
 
@@ -44,4 +47,9 @@ abstract class CaldavBindsModule {
     @Binds
     @Singleton
     abstract fun caldavApi(impl: CaldavClient): CaldavApi
+
+    /** Источник OAuth-токенов Google (продакшен — GoogleAuthUtil). */
+    @Binds
+    @Singleton
+    abstract fun googleTokenSource(impl: GoogleAuthUtilTokenSource): GoogleTokenSource
 }
