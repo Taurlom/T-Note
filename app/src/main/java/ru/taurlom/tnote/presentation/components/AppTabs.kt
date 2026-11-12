@@ -20,12 +20,7 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
  * без разделительной линии снизу.
  */
 @Composable
-fun AppTabs(
-    titles: List<String>,
-    selectedTab: Int,
-    onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun AppTabs(titles: List<String>, selectedTab: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     ScrollableTabRow(
         selectedTabIndex = selectedTab,
         modifier = modifier,

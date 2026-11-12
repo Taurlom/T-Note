@@ -17,4 +17,5 @@ val ThemeKind.labelRes: Int
         ThemeKind.OCEAN -> R.string.theme_ocean
         ThemeKind.FOREST -> R.string.theme_forest
         ThemeKind.AUTUMN -> R.string.theme_autumn
+        ThemeKind.ATLAS -> R.string.theme_atlas
     }

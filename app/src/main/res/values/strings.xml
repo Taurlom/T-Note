@@ -293,6 +293,7 @@
     <string name="theme_ocean">Океан</string>
     <string name="theme_forest">Лес</string>
     <string name="theme_autumn">Осень</string>
+    <string name="theme_atlas">Атлас</string>
 
     <!-- Мелкие UI-строки, ранее захардкоженные в коде -->
     <string name="edit">Редактировать</string>
@@ -316,4 +317,3 @@
     <string name="action_failed">Не удалось выполнить действие</string>
 
 </resources>
-

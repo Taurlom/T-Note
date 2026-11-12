@@ -12,6 +12,7 @@ enum class ThemeKind {
     OCEAN,
     FOREST,
     AUTUMN,
+    ATLAS,
     ;
 
     companion object {

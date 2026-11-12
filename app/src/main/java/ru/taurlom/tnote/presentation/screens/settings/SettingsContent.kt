@@ -137,6 +137,7 @@ internal fun SettingsContent(
         ) {
             when (selectedTab) {
                 0 -> PersonalizationTab(uiState, viewModel)
+
                 1 -> CalendarTab(
                     uiState = uiState,
                     viewModel = viewModel,
@@ -146,8 +147,11 @@ internal fun SettingsContent(
                     onShowPastDialogChange = onShowPastDialogChange,
                     onShowClearDialogChange = onShowClearDialogChange,
                 )
+
                 2 -> SecurityTab(uiState, viewModel)
+
                 3 -> DataTab(uiState, exportLauncher, importLauncher)
+
                 else -> AppTab(updateViewModel)
             }
             Spacer(modifier = Modifier.height(24.dp))

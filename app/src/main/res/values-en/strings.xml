@@ -288,6 +288,7 @@
     <string name="theme_ocean">Ocean</string>
     <string name="theme_forest">Forest</string>
     <string name="theme_autumn">Autumn</string>
+    <string name="theme_atlas">Atlas</string>
 
     <!-- Small UI strings -->
     <string name="edit">Edit</string>

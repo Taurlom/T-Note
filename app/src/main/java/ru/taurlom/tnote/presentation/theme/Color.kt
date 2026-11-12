@@ -28,8 +28,30 @@ internal val Fog = Color(0xFF7E879B) // прошедшие (неактуальн
 internal val Paper = Color(0xFFFFFFFF) // текст на Navy / белый фон карточек
 
 // ─── Примитивы светлой темы ───────────────────────────────────────
-internal val Cloud = Color(0xFFF4F1E4) // тёплый светлый фон экрана
-internal val Amber = Color(0xFFB98A2A) // читаемое «золото» на белом
+internal val Cloud = Color(0xFFF5F3ED) // мягкий нейтрально-тёплый фон экрана
+internal val Amber = Color(0xFFA58A55) // приглушённый песочный акцент
+internal val LightInk = Color(0xFF465363) // текст и иконки светлой темы
+internal val LightPrimary = Color(0xFF63768B) // сине-серый для основных действий
+internal val LightHeader = Color(0xFFE7E9E1) // мягкая шалфейно-серая шапка
+internal val LightSurface = Color(0xFFFFFEFB) // тёплая поверхность карточек
+internal val LightNav = Color(0xFFFAF9F5) // слегка отличимый фон навигации
+internal val LightSelected = Color(0xFFE2E5DA) // ненавязчивое выделение
+internal val LightOutline = Color(0xFF92978F) // границы полей и контролов
+internal val LightRed = Color(0xFFB7655A) // приглушённый красный маркер
+internal val LightFab = Color(0xFFE8D19A) // мягкий песочный фон FAB
+
+// ─── Примитивы светлой темы «Атлас» ────────────────────────────────
+internal val AtlasPaper = Color(0xFFF3F0E6) // бумажный фон
+internal val AtlasInk = Color(0xFF46534B) // чернильный серо-зелёный текст
+internal val AtlasSage = Color(0xFF65796A) // шалфейный основной акцент
+internal val AtlasPanel = Color(0xFFE4E8DC) // светлая шалфейная панель
+internal val AtlasSurface = Color(0xFFFCFAF3) // кремовая поверхность карточек
+internal val AtlasNav = Color(0xFFF9F7F0) // светлая нижняя навигация
+internal val AtlasSelected = Color(0xFFDDE3D6) // мягкое выделение
+internal val AtlasOutline = Color(0xFF91988D) // спокойный контур
+internal val AtlasOchre = Color(0xFF987C49) // приглушённая охра
+internal val AtlasTerracotta = Color(0xFFA96F5F) // мягкая терракота
+internal val AtlasFab = Color(0xFFE4C98E) // светлый охристый FAB
 
 // ─── Примитивы темы «Океан» ───────────────────────────────────────
 internal val Abyss = Color(0xFF0C2A33) // глубокий сине-зелёный фон
