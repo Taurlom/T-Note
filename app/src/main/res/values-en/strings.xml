@@ -139,6 +139,16 @@
     <string name="backup_restart_text">Data restored. Restart the app for the changes to take effect.</string>
     <string name="backup_restart_action">Restart</string>
     <string name="app_version">Version %1$s (%2$d)</string>
+    <string name="update_check_button">Check for updates</string>
+    <string name="update_dialog_title">New version available</string>
+    <string name="update_dialog_text">Version %1$s is now published on RuStore. Update the app to get the changes.</string>
+    <string name="update_now">Update</string>
+    <string name="update_skip_version">Skip this version</string>
+    <string name="update_up_to_date">You have the latest version</string>
+    <string name="update_check_failed">Couldn\'t check for updates — check your internet connection</string>
+    <string name="update_notification_channel">App updates</string>
+    <string name="update_notification_title">T-Note update available</string>
+    <string name="update_notification_text">Version %1$s is out — update the app on RuStore</string>
     <string name="share_photo">Share photo</string>
     <string name="share_list">Share list</string>
     <string name="share_list_text">As text (any chat)</string>

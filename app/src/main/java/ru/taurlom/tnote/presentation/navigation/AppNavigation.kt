@@ -67,6 +67,7 @@ import ru.taurlom.tnote.presentation.screens.notes.NotesViewModel
 import ru.taurlom.tnote.presentation.screens.settings.SettingsScreen
 import ru.taurlom.tnote.presentation.screens.settings.SettingsViewModel
 import ru.taurlom.tnote.presentation.screens.tasks.TasksScreen
+import ru.taurlom.tnote.presentation.update.UpdateViewModel
 
 object Routes {
     const val MAIN = "main"
@@ -135,6 +136,10 @@ fun AppNavigation(
     val documentsViewModel: DocumentsViewModel = hiltViewModel(tabViewModelStoreOwner)
     val notesViewModel: NotesViewModel = hiltViewModel(tabViewModelStoreOwner)
     val settingsViewModel: SettingsViewModel = hiltViewModel(tabViewModelStoreOwner)
+
+    // Обновления: та же activity-скоуп VM, что у MainActivity — проверка
+    // при старте одна на процесс, диалог один на приложение.
+    val updateViewModel: UpdateViewModel = hiltViewModel(tabViewModelStoreOwner)
 
     val categoriesState by categoriesViewModel.uiState.collectAsStateWithLifecycle()
     val notesState by notesViewModel.uiState.collectAsStateWithLifecycle()
@@ -253,6 +258,7 @@ fun AppNavigation(
                 documentsViewModel = documentsViewModel,
                 notesViewModel = notesViewModel,
                 settingsViewModel = settingsViewModel,
+                updateViewModel = updateViewModel,
                 documentsLocked = documentsLocked,
                 onDocumentsUnlocked = sectionLockViewModel::onUnlocked,
                 onCategoryClick = { categoryId ->
@@ -413,6 +419,7 @@ private fun MainTabsScreen(
     documentsViewModel: DocumentsViewModel,
     notesViewModel: NotesViewModel,
     settingsViewModel: SettingsViewModel,
+    updateViewModel: UpdateViewModel,
     documentsLocked: Boolean,
     onDocumentsUnlocked: () -> Unit,
     onCategoryClick: (Long) -> Unit,
@@ -516,7 +523,10 @@ private fun MainTabsScreen(
                     viewModel = notesViewModel,
                 )
 
-                BottomNavItem.Settings -> SettingsScreen(viewModel = settingsViewModel)
+                BottomNavItem.Settings -> SettingsScreen(
+                    viewModel = settingsViewModel,
+                    updateViewModel = updateViewModel,
+                )
             }
         }
 

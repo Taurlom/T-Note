@@ -44,6 +44,8 @@ import ru.taurlom.tnote.presentation.screens.settings.SettingsViewModel
 import ru.taurlom.tnote.presentation.splash.SplashScreen
 import ru.taurlom.tnote.presentation.theme.TNoteTheme
 import ru.taurlom.tnote.presentation.theme.fontFamily
+import ru.taurlom.tnote.presentation.update.UpdateDialog
+import ru.taurlom.tnote.presentation.update.UpdateViewModel
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -60,6 +62,10 @@ class MainActivity : AppCompatActivity() {
     // Тот же activity-скоуп, что у AppNavigation: отсюда раздел запирается
     // при уходе приложения в фон, там — разблокируется после подтверждения.
     private val sectionLockViewModel: SectionLockViewModel by viewModels()
+
+    // Диалог «доступна новая версия»: та же activity-скоуп VM, что получит
+    // AppNavigation для настроек; проверка при старте — в init ViewModel.
+    private val updateViewModel: UpdateViewModel by viewModels()
 
     // Compose-состояние вне composition: пишет его onNewIntent, читает AppNavigation.
     private val pendingShareUri = mutableStateOf<Uri?>(null)
@@ -121,6 +127,7 @@ class MainActivity : AppCompatActivity() {
             val selectedTheme by settingsRepository.selectedTheme
                 .collectAsState(initial = ThemeKind.DARK)
             val settingsState by settingsViewModel.uiState.collectAsState()
+            val updateDialog by updateViewModel.dialogState.collectAsState()
 
             // Заставка — оверлей поверх уже композирующегося приложения:
             // ViewModels, Room и DataStore прогреваются ПОД ней (а не после,
@@ -199,6 +206,27 @@ class MainActivity : AppCompatActivity() {
                         )
                         if (splashVisible) {
                             SplashScreen(modifier = Modifier.alpha(splashAlpha))
+                        }
+                        // Диалог «доступна новая версия» — поверх всего,
+                        // включая заставку: проверка успевает отработать,
+                        // пока пользователь ещё смотрит на бренд.
+                        updateDialog?.let { state ->
+                            UpdateDialog(
+                                state = state,
+                                onUpdate = {
+                                    // Страница приложения в RuStore: магазин
+                                    // предложит установку сам (без него ссылка
+                                    // просто откроется в браузере).
+                                    runCatching {
+                                        startActivity(
+                                            Intent(Intent.ACTION_VIEW, Uri.parse(state.storePageUrl)),
+                                        )
+                                    }
+                                    updateViewModel.dismissDialog()
+                                },
+                                onSkip = { updateViewModel.skipVersion() },
+                                onDismiss = { updateViewModel.dismissDialog() },
+                            )
                         }
                     }
                 }

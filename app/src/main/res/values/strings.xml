@@ -164,6 +164,16 @@
     <string name="backup_restart_text">Данные восстановлены. Перезапустите приложение, чтобы они вступили в силу.</string>
     <string name="backup_restart_action">Перезапустить</string>
     <string name="app_version">Версия %1$s (%2$d)</string>
+    <string name="update_check_button">Проверить обновления</string>
+    <string name="update_dialog_title">Доступна новая версия</string>
+    <string name="update_dialog_text">В RuStore опубликована версия %1$s. Обновите приложение, чтобы получить изменения.</string>
+    <string name="update_now">Обновить</string>
+    <string name="update_skip_version">Пропустить эту версию</string>
+    <string name="update_up_to_date">У вас последняя версия</string>
+    <string name="update_check_failed">Не удалось проверить обновления — проверьте подключение к интернету</string>
+    <string name="update_notification_channel">Обновления приложения</string>
+    <string name="update_notification_title">Доступно обновление T-Note</string>
+    <string name="update_notification_text">Вышла версия %1$s — обновите приложение в RuStore</string>
     <string name="share_photo">Поделиться фото</string>
     <string name="share_list">Поделиться списком</string>
     <string name="share_list_text">Текстом (в любой чат)</string>

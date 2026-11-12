@@ -68,6 +68,7 @@ import ru.taurlom.tnote.presentation.lock.rememberDeviceCredentialVerifier
 import ru.taurlom.tnote.presentation.theme.AppTheme
 import ru.taurlom.tnote.presentation.theme.fontFamily
 import ru.taurlom.tnote.presentation.theme.labelRes
+import ru.taurlom.tnote.presentation.update.UpdateViewModel
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -91,6 +92,7 @@ internal fun SettingsContent(
     pendingImport: BackupDescription?,
     pendingImportUri: Uri?,
     viewModel: SettingsViewModel,
+    updateViewModel: UpdateViewModel,
     notificationsBlocked: Boolean,
     notificationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     exportLauncher: androidx.activity.result.ActivityResultLauncher<String>,
@@ -289,6 +291,12 @@ internal fun SettingsContent(
 
         // ── Версия ──
         Spacer(modifier = Modifier.height(32.dp))
+        AppTextButton(
+            onClick = updateViewModel::checkManually,
+            textRes = R.string.update_check_button,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
         val context = LocalContext.current
         Text(
             text = remember(context) {

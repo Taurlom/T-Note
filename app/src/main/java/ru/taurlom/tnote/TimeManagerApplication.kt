@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import ru.taurlom.tnote.data.update.UpdateCheckScheduler
 import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
 import javax.inject.Inject
@@ -20,6 +21,9 @@ class TimeManagerApplication : Application() {
     @Inject
     lateinit var scheduleNextDailyDigest: ScheduleNextDailyDigestUseCase
 
+    @Inject
+    lateinit var updateCheckScheduler: UpdateCheckScheduler
+
     override fun onCreate() {
         super.onCreate()
         // Самовосстановление цепочки сводки: задачи WorkManager переживают
@@ -32,6 +36,12 @@ class TimeManagerApplication : Application() {
             // Ошибка на старте не должна ронять приложение: расписание
             // подлечится при следующем запуске.
             runCatching { scheduleNextDailyDigest(ReminderScheduler.Mode.IF_IDLE) }
+        }
+        // Ежедневная фоновая проверка обновлений (UpdateCheckScheduler):
+        // та же самопомощь расписанию — KEEP не трогает живую задачу и
+        // восстанавливает срезанную.
+        applicationScope.launch {
+            runCatching { updateCheckScheduler.ensureScheduled() }
         }
     }
 }

@@ -5,6 +5,11 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 
+# Ежедневная проверка обновлений — тот же механизм фабрики WorkManager.
+-keep class ru.taurlom.tnote.data.notifications.UpdateCheckWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
 # ical4j ссылается на опциональную зависимость jsonsKema (валидация
 # JSON-схем в StructuredData) — в календаре её нет и не будет: не
 # используемые классы-валидаторы R8 вырежет, предупреждать о них не надо.

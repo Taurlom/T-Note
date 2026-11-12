@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.components.AppTopBar
+import ru.taurlom.tnote.presentation.update.UpdateViewModel
 import kotlin.system.exitProcess
 
 /**
@@ -39,9 +40,10 @@ import kotlin.system.exitProcess
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), updateViewModel: UpdateViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
+    val manualUpdateResult by updateViewModel.manualResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -128,6 +130,28 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         viewModel.backupResultShown()
     }
 
+    // Ручная проверка обновлений без найденного обновления — тост:
+    // «последняя версия» или «нет сети». Найденное обновление живёт
+    // в общем диалоге (MainActivity), тост здесь не нужен.
+    LaunchedEffect(manualUpdateResult) {
+        when (manualUpdateResult) {
+            UpdateViewModel.ManualResult.UpToDate -> Toast.makeText(
+                context,
+                context.getString(R.string.update_up_to_date),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            UpdateViewModel.ManualResult.Unreachable -> Toast.makeText(
+                context,
+                context.getString(R.string.update_check_failed),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            null -> return@LaunchedEffect
+        }
+        updateViewModel.manualResultShown()
+    }
+
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -145,6 +169,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             pendingImport = pendingImport,
             pendingImportUri = pendingImportUri,
             viewModel = viewModel,
+            updateViewModel = updateViewModel,
             notificationsBlocked = notificationsBlocked,
             notificationPermissionLauncher = notificationPermissionLauncher,
             exportLauncher = exportLauncher,
