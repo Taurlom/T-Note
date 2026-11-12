@@ -835,13 +835,16 @@ private fun radioColors() = RadioButtonDefaults.colors(
 /** Подпись отказа формы: типизированный вид из [CaldavErrorKind]. */
 @Composable
 private fun CaldavAddErrorText(state: CaldavAddState) {
+    // Пока ошибки нет — и подписи нет: оба шага формы вызывают функцию
+    // безусловно, свежая форма приходит с error = null.
+    val kind = state.error ?: return
     Text(
-        text = when (state.error) {
+        text = when (kind) {
             CaldavErrorKind.NETWORK -> stringResource(R.string.sync_error_network)
             CaldavErrorKind.AUTH -> stringResource(R.string.sync_error_auth)
             CaldavErrorKind.NO_CALENDARS -> stringResource(R.string.sync_error_no_calendars)
             CaldavErrorKind.CONSENT -> stringResource(R.string.sync_consent_needed)
-            else -> stringResource(R.string.sync_error_other, state.errorMessage.orEmpty())
+            CaldavErrorKind.OTHER -> stringResource(R.string.sync_error_other, state.errorMessage.orEmpty())
         },
         style = MaterialTheme.typography.bodySmall,
         // Системный errorColor в тёмной палитре малоконтрастен на фоне
