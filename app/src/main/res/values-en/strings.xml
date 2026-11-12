@@ -9,6 +9,7 @@
     <string name="task_description">Description</string>
     <string name="copy_to">Copy to</string>
     <string name="copy">Copy</string>
+    <string name="paste">Paste</string>
     <string name="choose_list">Choose a list</string>
     <string name="task_copied">Copied to list \"%1$s\"</string>
     <string name="save">Save</string>
@@ -36,8 +37,16 @@
 
     <!-- ───── Sync (CalDAV) ───── -->
     <string name="sync_section">Sync</string>
-    <string name="sync_hint">Connect a Yandex calendar — its events will appear in the app grid and refresh automatically. They are edited on the server; here they are read-only.</string>
-    <string name="sync_add_account">Add a Yandex calendar</string>
+    <string name="sync_hint">Connect a calendar — its events will appear in the app grid and refresh automatically. One source to choose from: Yandex (CalDAV) or Google (Calendar API).</string>
+    <string name="sync_add_account">Add a calendar</string>
+    <string name="sync_provider">Source</string>
+    <string name="sync_provider_yandex">Yandex Calendar</string>
+    <string name="sync_provider_google">Google Calendar</string>
+    <string name="sync_google_pick">Choose a Google account</string>
+    <string name="sync_google_account">Google account: %1$s</string>
+    <string name="sync_google_account_none">No Google account selected</string>
+    <string name="sync_google_hint">Choose an account — the app will request calendar access from Google and show your calendars. T-Note event titles in Google will not change.</string>
+    <string name="sync_consent_needed">Google is waiting for your permission: confirm calendar access</string>
     <string name="sync_publish_old">Add old events to the calendar</string>
     <string name="sync_publish_result">Queued to the calendar: %1$d</string>
     <string name="sync_add_title">Connect a calendar</string>
@@ -241,6 +250,9 @@
     <string name="icon_call">Call</string>
     <string name="icon_shoppingcart">Shopping</string>
     <string name="icon_school">School</string>
+    <string name="icon_martialarts">Martial arts</string>
+    <string name="icon_chessqueen">Chess</string>
+    <string name="icon_palette">Creativity</string>
 
     <string name="event_delete_description">Delete event</string>
 

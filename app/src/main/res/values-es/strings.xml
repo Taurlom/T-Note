@@ -9,6 +9,7 @@
     <string name="task_description">Descripción</string>
     <string name="copy_to">Copiar a</string>
     <string name="copy">Copiar</string>
+    <string name="paste">Pegar</string>
     <string name="choose_list">Elige una lista</string>
     <string name="task_copied">Copiado a la lista «%1$s»</string>
     <string name="save">Guardar</string>
@@ -36,8 +37,16 @@
 
     <!-- ───── Sincronización (CalDAV) ───── -->
     <string name="sync_section">Sincronización</string>
-    <string name="sync_hint">Conecta un calendario de Yandex: sus eventos aparecerán en la cuadrícula de la app y se actualizarán automáticamente. Se editan en el servidor; aquí son de solo lectura.</string>
-    <string name="sync_add_account">Agregar calendario de Yandex</string>
+    <string name="sync_hint">Conecta un calendario: sus eventos aparecerán en la cuadrícula de la app y se actualizarán automáticamente. Una sola fuente a elegir: Yandex (CalDAV) o Google (Calendar API).</string>
+    <string name="sync_add_account">Agregar un calendario</string>
+    <string name="sync_provider">Fuente</string>
+    <string name="sync_provider_yandex">Calendario de Yandex</string>
+    <string name="sync_provider_google">Calendario de Google</string>
+    <string name="sync_google_pick">Elegir cuenta de Google</string>
+    <string name="sync_google_account">Cuenta de Google: %1$s</string>
+    <string name="sync_google_account_none">No se ha elegido una cuenta de Google</string>
+    <string name="sync_google_hint">Elige una cuenta: la app pedirá a Google acceso al calendario y mostrará tus calendarios. El título de los eventos de T-Note en Google no cambiará.</string>
+    <string name="sync_consent_needed">Google espera tu permiso: confirma el acceso al calendario</string>
     <string name="sync_publish_old">Añadir eventos antiguos al calendario</string>
     <string name="sync_publish_result">En cola para el calendario: %1$d</string>
     <string name="sync_add_title">Conectar calendario</string>
@@ -241,6 +250,9 @@
     <string name="icon_call">Llamada</string>
     <string name="icon_shoppingcart">Compras</string>
     <string name="icon_school">Estudios</string>
+    <string name="icon_martialarts">Artes marciales</string>
+    <string name="icon_chessqueen">Ajedrez</string>
+    <string name="icon_palette">Creatividad</string>
 
     <string name="event_delete_description">Eliminar evento</string>
 
