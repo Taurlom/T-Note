@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">T-Note</string>
+    <string name="settings_tab_personalization">Персонализация</string>
+    <string name="settings_tab_calendar">Календарь</string>
+    <string name="settings_tab_security">Безопасность</string>
+    <string name="settings_tab_data">Данные</string>
+    <string name="settings_tab_app">Приложение</string>
     <string name="tasks_title">Перечень</string>
     <string name="add_category">Добавить список</string>
     <string name="edit_category">Редактировать список</string>

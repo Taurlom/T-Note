@@ -28,6 +28,11 @@
     <string name="calendar_title">Calendario</string>
     <string name="note_label">Nota</string>
     <string name="settings_title">Ajustes</string>
+    <string name="settings_tab_personalization">Personalización</string>
+    <string name="settings_tab_calendar">Calendario</string>
+    <string name="settings_tab_security">Seguridad</string>
+    <string name="settings_tab_data">Datos</string>
+    <string name="settings_tab_app">Aplicación</string>
     <string name="font_label">Fuente</string>
     <string name="theme_label">Tema</string>
     <string name="clear_calendar">Vaciar calendario</string>

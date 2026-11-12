@@ -75,6 +75,10 @@ data class AppColors(
     val bottomNavIndicator: Color,
     val bottomNavActiveIcon: Color,
     val bottomNavInactiveIcon: Color,
+    // Табы (строка вкладок: настройки и будущие секционные экраны)
+    val tabSelectedContent: Color,
+    val tabContent: Color,
+    val tabIndicator: Color,
     // Календарь
     val calendarCellContainer: Color,
     /** Фон выходных (Сб/Вс и дней, помеченных событием типа «Выходной»). */

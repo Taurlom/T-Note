@@ -28,6 +28,11 @@
     <string name="calendar_title">Calendar</string>
     <string name="note_label">Note</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_tab_personalization">Personalization</string>
+    <string name="settings_tab_calendar">Calendar</string>
+    <string name="settings_tab_security">Security</string>
+    <string name="settings_tab_data">Data</string>
+    <string name="settings_tab_app">App</string>
     <string name="font_label">Font</string>
     <string name="theme_label">Theme</string>
     <string name="clear_calendar">Clear calendar</string>

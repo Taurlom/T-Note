@@ -59,6 +59,7 @@ import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.presentation.components.AppButton
 import ru.taurlom.tnote.presentation.components.AppDialog
 import ru.taurlom.tnote.presentation.components.AppDropdown
+import ru.taurlom.tnote.presentation.components.AppTabs
 import ru.taurlom.tnote.presentation.components.AppTextButton
 import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.AppTimePicker
@@ -108,211 +109,49 @@ internal fun SettingsContent(
     restartApp: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(contentPadding)
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(contentPadding),
     ) {
-        // ── Внешний вид ──
-        SectionTitle(stringResource(R.string.font_label))
-        AppDropdown(
-            label = stringResource(R.string.font_label),
-            selectedLabel = uiState.selectedFont.displayName,
-            options = AppFont.entries.toList(),
-            optionText = { font ->
-                Text(
-                    text = font.displayName,
-                    fontFamily = font.fontFamily,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.dialogContent,
-                )
-            },
-            onSelect = { viewModel.applyFont(it) },
-            onDarkBackground = true,
-            modifier = Modifier.fillMaxWidth(),
+        AppTabs(
+            titles = listOf(
+                stringResource(R.string.settings_tab_personalization),
+                stringResource(R.string.settings_tab_calendar),
+                stringResource(R.string.settings_tab_security),
+                stringResource(R.string.settings_tab_data),
+                stringResource(R.string.settings_tab_app),
+            ),
+            selectedTab = selectedTab,
+            onSelect = { selectedTab = it },
+            modifier = Modifier.padding(top = 8.dp),
         )
-
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionTitle(stringResource(R.string.theme_label))
-        AppDropdown(
-            label = stringResource(R.string.theme_label),
-            selectedLabel = stringResource(uiState.selectedTheme.labelRes),
-            options = ThemeKind.entries.toList(),
-            optionText = { theme ->
-                Text(
-                    text = stringResource(theme.labelRes),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.dialogContent,
-                )
-            },
-            onSelect = { viewModel.applyTheme(it) },
-            onDarkBackground = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-        // Язык: «Как в системе» или явный выбор (пересоздаёт экран).
-        AppDropdown(
-            label = stringResource(R.string.language_label),
-            selectedLabel = stringResource(uiState.selectedLanguage.labelRes),
-            options = AppLanguage.entries.toList(),
-            optionText = { language ->
-                Text(
-                    text = stringResource(language.labelRes),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.dialogContent,
-                )
-            },
-            onSelect = { viewModel.applyLanguage(it) },
-            onDarkBackground = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        // ── Календарь ──
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionTitle(stringResource(R.string.settings_calendar_section))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.reminders_switch_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
+            when (selectedTab) {
+                0 -> PersonalizationTab(uiState, viewModel)
+                1 -> CalendarTab(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    notificationsBlocked = notificationsBlocked,
+                    notificationPermissionLauncher = notificationPermissionLauncher,
+                    onShowTimeDialogChange = onShowTimeDialogChange,
+                    onShowPastDialogChange = onShowPastDialogChange,
+                    onShowClearDialogChange = onShowClearDialogChange,
                 )
-                Text(
-                    text = stringResource(R.string.reminders_switch_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                2 -> SecurityTab(uiState, viewModel)
+                3 -> DataTab(uiState, exportLauncher, importLauncher)
+                else -> AppTab(updateViewModel)
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Switch(
-                checked = uiState.remindersEnabled,
-                enabled = uiState.remindersLoaded,
-                onCheckedChange = { enabled ->
-                    viewModel.applyRemindersEnabled(enabled)
-                    if (enabled && Build.VERSION.SDK_INT >= 33 && notificationsBlocked) {
-                        notificationPermissionLauncher.launch(
-                            Manifest.permission.POST_NOTIFICATIONS,
-                        )
-                    }
-                },
-            )
+            Spacer(modifier = Modifier.height(24.dp))
         }
-        if (uiState.remindersEnabled && notificationsBlocked) {
-            Text(
-                text = stringResource(R.string.reminders_blocked_hint),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        AppButton(
-            onClick = { onShowTimeDialogChange(true) },
-            enabled = uiState.remindersEnabled,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                stringResource(
-                    R.string.reminders_time_value,
-                    formatReminderTime(uiState.reminderTimeMinutes),
-                ),
-            )
-        }
-        if (uiState.remindersEnabled) {
-            Text(
-                text = stringResource(R.string.reminders_battery_hint),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppTextButton(
-                onClick = { onShowPastDialogChange(true) },
-                textRes = R.string.delete_past,
-                modifier = Modifier.weight(1f),
-            )
-            AppTextButton(
-                onClick = { onShowClearDialogChange(true) },
-                textRes = R.string.clear_calendar,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        // ── Синхронизация (CalDAV: Яндекс-календарь, этап 1 — чтение) ──
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionTitle(stringResource(R.string.sync_section))
-        CaldavSyncSection(viewModel)
-
-        // ── Приватность ──
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionTitle(stringResource(R.string.privacy_section))
-        DocumentsLockSwitch(uiState, viewModel)
-
-        // ── Резервная копия ──
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionTitle(stringResource(R.string.backup_section))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppTextButton(
-                onClick = {
-                    exportLauncher.launch("tnote-backup-${LocalDate.now()}.zip")
-                },
-                textRes = R.string.backup_export,
-                enabled = !uiState.isBackupBusy,
-                modifier = Modifier.weight(1f),
-            )
-            AppTextButton(
-                onClick = {
-                    importLauncher.launch(
-                        arrayOf("application/zip", "application/octet-stream"),
-                    )
-                },
-                textRes = R.string.backup_import,
-                enabled = !uiState.isBackupBusy,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        // ── Настройка разделов ──
-        Spacer(modifier = Modifier.height(24.dp))
-        AppTextButton(
-            onClick = { viewModel.openSectionsDialog() },
-            textRes = R.string.sections_button,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        // ── Версия ──
-        Spacer(modifier = Modifier.height(32.dp))
-        AppTextButton(
-            onClick = updateViewModel::checkManually,
-            textRes = R.string.update_check_button,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        val context = LocalContext.current
-        Text(
-            text = remember(context) {
-                val info = context.packageManager.getPackageInfo(context.packageName, 0)
-                context.getString(
-                    R.string.app_version,
-                    info.versionName ?: "?",
-                    PackageInfoCompat.getLongVersionCode(info),
-                )
-            },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
         // ── Диалоги внутри Column ──
 
         if (showClearDialog) {
@@ -913,3 +752,222 @@ private fun formatDateTime(millis: Long): String = SimpleDateFormat("dd.MM.yyyy 
 
 /** «09:00» из минут от полуночи. Локаль фиксирована — разрядность и разделитель стабильны. */
 private fun formatReminderTime(minutes: Int): String = String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60)
+
+// ── Вкладки настроек ──
+
+/** Вкладка «Персонализация»: шрифт, тема, язык, настройка разделов заметок. */
+@Composable
+private fun PersonalizationTab(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    SectionTitle(stringResource(R.string.font_label))
+    AppDropdown(
+        label = stringResource(R.string.font_label),
+        selectedLabel = uiState.selectedFont.displayName,
+        options = AppFont.entries.toList(),
+        optionText = { font ->
+            Text(
+                text = font.displayName,
+                fontFamily = font.fontFamily,
+                style = MaterialTheme.typography.bodyLarge,
+                color = AppTheme.colors.dialogContent,
+            )
+        },
+        onSelect = { viewModel.applyFont(it) },
+        onDarkBackground = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Spacer(modifier = Modifier.height(24.dp))
+    SectionTitle(stringResource(R.string.theme_label))
+    AppDropdown(
+        label = stringResource(R.string.theme_label),
+        selectedLabel = stringResource(uiState.selectedTheme.labelRes),
+        options = ThemeKind.entries.toList(),
+        optionText = { theme ->
+            Text(
+                text = stringResource(theme.labelRes),
+                style = MaterialTheme.typography.bodyLarge,
+                color = AppTheme.colors.dialogContent,
+            )
+        },
+        onSelect = { viewModel.applyTheme(it) },
+        onDarkBackground = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Spacer(modifier = Modifier.height(24.dp))
+    // Язык: «Как в системе» или явный выбор (пересоздаёт экран).
+    AppDropdown(
+        label = stringResource(R.string.language_label),
+        selectedLabel = stringResource(uiState.selectedLanguage.labelRes),
+        options = AppLanguage.entries.toList(),
+        optionText = { language ->
+            Text(
+                text = stringResource(language.labelRes),
+                style = MaterialTheme.typography.bodyLarge,
+                color = AppTheme.colors.dialogContent,
+            )
+        },
+        onSelect = { viewModel.applyLanguage(it) },
+        onDarkBackground = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Spacer(modifier = Modifier.height(24.dp))
+    // Порядок и видимость разделов заметок — тоже про внешний вид интерфейса.
+    AppTextButton(
+        onClick = { viewModel.openSectionsDialog() },
+        textRes = R.string.sections_button,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Вкладка «Календарь»: напоминания, чистки и подключённые синхронизации. */
+@Composable
+private fun CalendarTab(
+    uiState: SettingsUiState,
+    viewModel: SettingsViewModel,
+    notificationsBlocked: Boolean,
+    notificationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    onShowTimeDialogChange: (Boolean) -> Unit,
+    onShowPastDialogChange: (Boolean) -> Unit,
+    onShowClearDialogChange: (Boolean) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.reminders_switch_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.reminders_switch_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Switch(
+            checked = uiState.remindersEnabled,
+            enabled = uiState.remindersLoaded,
+            onCheckedChange = { enabled ->
+                viewModel.applyRemindersEnabled(enabled)
+                if (enabled && Build.VERSION.SDK_INT >= 33 && notificationsBlocked) {
+                    notificationPermissionLauncher.launch(
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    )
+                }
+            },
+        )
+    }
+    if (uiState.remindersEnabled && notificationsBlocked) {
+        Text(
+            text = stringResource(R.string.reminders_blocked_hint),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+    AppButton(
+        onClick = { onShowTimeDialogChange(true) },
+        enabled = uiState.remindersEnabled,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            stringResource(
+                R.string.reminders_time_value,
+                formatReminderTime(uiState.reminderTimeMinutes),
+            ),
+        )
+    }
+    if (uiState.remindersEnabled) {
+        Text(
+            text = stringResource(R.string.reminders_battery_hint),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AppTextButton(
+            onClick = { onShowPastDialogChange(true) },
+            textRes = R.string.delete_past,
+            modifier = Modifier.weight(1f),
+        )
+        AppTextButton(
+            onClick = { onShowClearDialogChange(true) },
+            textRes = R.string.clear_calendar,
+            modifier = Modifier.weight(1f),
+        )
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+    SectionTitle(stringResource(R.string.sync_section))
+    CaldavSyncSection(viewModel)
+}
+
+/** Вкладка «Безопасность»: защита раздела «Документы» биометрией/кодом. */
+@Composable
+private fun SecurityTab(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    DocumentsLockSwitch(uiState, viewModel)
+}
+
+/** Вкладка «Данные»: резервные копии — экспорт и импорт. */
+@Composable
+private fun DataTab(
+    uiState: SettingsUiState,
+    exportLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    importLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+) {
+    SectionTitle(stringResource(R.string.backup_section))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        AppTextButton(
+            onClick = {
+                exportLauncher.launch("tnote-backup-${LocalDate.now()}.zip")
+            },
+            textRes = R.string.backup_export,
+            enabled = !uiState.isBackupBusy,
+            modifier = Modifier.weight(1f),
+        )
+        AppTextButton(
+            onClick = {
+                importLauncher.launch(
+                    arrayOf("application/zip", "application/octet-stream"),
+                )
+            },
+            textRes = R.string.backup_import,
+            enabled = !uiState.isBackupBusy,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** Вкладка «Приложение»: проверка обновлений и версия. */
+@Composable
+private fun AppTab(updateViewModel: UpdateViewModel) {
+    AppTextButton(
+        onClick = updateViewModel::checkManually,
+        textRes = R.string.update_check_button,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    val context = LocalContext.current
+    Text(
+        text = remember(context) {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            context.getString(
+                R.string.app_version,
+                info.versionName ?: "?",
+                PackageInfoCompat.getLongVersionCode(info),
+            )
+        },
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
