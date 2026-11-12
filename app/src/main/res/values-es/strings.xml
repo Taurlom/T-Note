@@ -143,7 +143,7 @@
     <string name="update_dialog_title">Nueva versión disponible</string>
     <string name="update_dialog_text">La versión %1$s ya está publicada en RuStore. Actualiza la aplicación para recibir los cambios.</string>
     <string name="update_now">Actualizar</string>
-    <string name="update_skip_version">Omitir esta versión</string>
+    <string name="update_later">Más tarde</string>
     <string name="update_up_to_date">Tienes la última versión</string>
     <string name="update_check_failed">No se pudo comprobar si hay actualizaciones — comprueba la conexión a Internet</string>
     <string name="update_notification_channel">Actualizaciones de la aplicación</string>

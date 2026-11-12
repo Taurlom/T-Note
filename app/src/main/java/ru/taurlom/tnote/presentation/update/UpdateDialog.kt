@@ -11,11 +11,11 @@ import ru.taurlom.tnote.presentation.theme.AppTheme
 
 /**
  * Диалог «доступна новая версия». «Обновить» открывает страницу
- * приложения в RuStore; крестик — «Позже» (до следующего запуска
- * приложения), «Пропустить эту версию» — навсегда, до выхода следующей.
+ * приложения в RuStore; крестик и «Позже» закрывают диалог до
+ * следующего запуска приложения.
  */
 @Composable
-fun UpdateDialog(state: UpdateViewModel.DialogState, onUpdate: () -> Unit, onSkip: () -> Unit, onDismiss: () -> Unit) {
+fun UpdateDialog(state: UpdateViewModel.DialogState, onUpdate: () -> Unit, onDismiss: () -> Unit) {
     AppDialog(
         title = stringResource(R.string.update_dialog_title),
         onDismissRequest = onDismiss,
@@ -27,6 +27,6 @@ fun UpdateDialog(state: UpdateViewModel.DialogState, onUpdate: () -> Unit, onSki
             )
         },
         confirmButton = { AppTextButton(onClick = onUpdate, textRes = R.string.update_now) },
-        dismissButton = { AppTextButton(onClick = onSkip, textRes = R.string.update_skip_version) },
+        dismissButton = { AppTextButton(onClick = onDismiss, textRes = R.string.update_later) },
     )
 }

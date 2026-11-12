@@ -5,7 +5,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import ru.taurlom.tnote.domain.model.AppUpdateResult
 import ru.taurlom.tnote.domain.repository.AppUpdateRepository
@@ -70,18 +69,7 @@ class UpdateViewModel @Inject constructor(private val appUpdateRepository: AppUp
         _dialogState.value = null
     }
 
-    /** «Пропустить эту версию»: диалог за неё больше не показывается. */
-    fun skipVersion() {
-        val state = _dialogState.value ?: return
-        _dialogState.value = null
-        launchCatching { appUpdateRepository.skip(state.latestVersionName) }
-    }
-
-    private suspend fun showDialog(versionName: String) {
-        // Пропущенная версия не показывается, даже если фоновая проверка
-        // нашла её раньше и сохранила в DataStore.
-        if (appUpdateRepository.skippedVersion.first() != versionName) {
-            _dialogState.value = DialogState(versionName, appUpdateRepository.storePageUrl())
-        }
+    private fun showDialog(versionName: String) {
+        _dialogState.value = DialogState(versionName, appUpdateRepository.storePageUrl())
     }
 }

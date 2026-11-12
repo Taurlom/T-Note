@@ -168,7 +168,7 @@
     <string name="update_dialog_title">Доступна новая версия</string>
     <string name="update_dialog_text">В RuStore опубликована версия %1$s. Обновите приложение, чтобы получить изменения.</string>
     <string name="update_now">Обновить</string>
-    <string name="update_skip_version">Пропустить эту версию</string>
+    <string name="update_later">Позже</string>
     <string name="update_up_to_date">У вас последняя версия</string>
     <string name="update_check_failed">Не удалось проверить обновления — проверьте подключение к интернету</string>
     <string name="update_notification_channel">Обновления приложения</string>

@@ -1,6 +1,5 @@
 package ru.taurlom.tnote.domain.repository
 
-import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.domain.model.AppUpdateResult
 
 /**
@@ -20,10 +19,4 @@ interface AppUpdateRepository {
 
     /** Ссылка на страницу приложения в каталоге RuStore (кнопки «Обновить»). */
     fun storePageUrl(): String
-
-    /** Версия, которую пользователь попросил больше не показывать (или пусто). */
-    val skippedVersion: Flow<String>
-
-    /** Запомнить версию как «пропущенную»: диалог за неё не показывается. */
-    suspend fun skip(versionName: String)
 }

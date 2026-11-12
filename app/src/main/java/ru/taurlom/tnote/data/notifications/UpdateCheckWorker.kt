@@ -9,14 +9,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
 import ru.taurlom.tnote.domain.model.AppUpdateResult
 import ru.taurlom.tnote.domain.repository.AppUpdateRepository
 
 /**
  * Ежедневная фоновая проверка «вышла ли новая версия». Функция тихая:
  * обновление найдено → уведомление, не найдено или сбой → тишина.
- * Пропущенную пользователем версию уведомлением не тревожим.
  *
  * Конструктор (Context, WorkerParameters) — контракт фабрики WorkManager:
  * она строит воркеров рефлексией именно через него (см. keep-правило
@@ -32,9 +30,7 @@ class UpdateCheckWorker(appContext: Context, params: WorkerParameters) : Corouti
         try {
             val repository = dependencies.appUpdateRepository()
             val result = repository.check(force = false)
-            if (result is AppUpdateResult.Available &&
-                result.versionName != repository.skippedVersion.first()
-            ) {
+            if (result is AppUpdateResult.Available) {
                 dependencies
                     .updateNotifier()
                     .postUpdateAvailable(result.versionName, repository.storePageUrl())

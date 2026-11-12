@@ -224,7 +224,6 @@ class MainActivity : AppCompatActivity() {
                                     }
                                     updateViewModel.dismissDialog()
                                 },
-                                onSkip = { updateViewModel.skipVersion() },
                                 onDismiss = { updateViewModel.dismissDialog() },
                             )
                         }

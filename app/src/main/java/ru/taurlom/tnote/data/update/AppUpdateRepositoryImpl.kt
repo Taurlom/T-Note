@@ -9,9 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -77,13 +75,6 @@ class AppUpdateRepositoryImpl @Inject constructor(
 
     override fun storePageUrl(): String = CATALOG_URL_PREFIX + context.packageName
 
-    override val skippedVersion: Flow<String> =
-        dataStore.data.map { it[SKIPPED_KEY] ?: "" }
-
-    override suspend fun skip(versionName: String) {
-        dataStore.edit { it[SKIPPED_KEY] = versionName }
-    }
-
     /**
      * Сохранённый без сетевого обращения результат: «доступная» версия
      * всё ещё актуальна, только если новее текущей установленной.
@@ -119,6 +110,5 @@ class AppUpdateRepositoryImpl @Inject constructor(
 
         val LAST_CHECK_KEY = longPreferencesKey("update_last_check")
         val AVAILABLE_KEY = stringPreferencesKey("update_available_version")
-        val SKIPPED_KEY = stringPreferencesKey("update_skipped_version")
     }
 }
