@@ -18,6 +18,8 @@ import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 
 /**
  * Контракт конвертеров «Google Calendar API v3 ↔ VEVENT»: JSON события
@@ -90,10 +92,30 @@ class GoogleEventJsonTest {
     }
 
     @Test
-    fun `timed multiday google event covers last day`() {
+    fun `timed google event keeps local clock`() {
+        // Момент приводится к зоне устройства: встреча показывается по
+        // местным часам, а не по часам сервера.
+        val event = googleJson(
+            "id" to "11111111-2222-3333-4444-555555555556",
+            "status" to "confirmed",
+            "summary" to "Созвон",
+            "start" to JSONObject().put("dateTime", "2026-11-20T09:00:00+03:00"),
+            "end" to JSONObject().put("dateTime", "2026-11-20T10:00:00+03:00"),
+        )
+        val parsed = googleEventToVEvent(event)?.toScheduledEvent() ?: error("VEVENT не распознан")
+        val local = OffsetDateTime.parse("2026-11-20T09:00:00+03:00")
+            .atZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(local.hour * 60 + local.minute, parsed.startMinutes)
+        val localEnd = OffsetDateTime.parse("2026-11-20T10:00:00+03:00")
+            .atZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(localEnd.hour * 60 + localEnd.minute, parsed.endMinutes)
+    }
+
+    @Test
+    fun `timed multiday google event keeps its span`() {
         // Отпуск с пн по ср с точным временем: конец «среда 17:00» —
-        // среда тоже показывается (энд переводится в эксклюзивную дату
-        // четверга, разбор −1 день возвращает среду).
+        // конец приходит на третий день, событие остаётся обычным
+        // (не повтором) с датой конца в endDate: один объект — один UID.
         val event = googleJson(
             "id" to "11111111-2222-3333-4444-555555555557",
             "status" to "confirmed",
@@ -102,10 +124,11 @@ class GoogleEventJsonTest {
             "end" to JSONObject().put("dateTime", "2026-11-18T17:00:00+03:00"),
         )
         val parsed = googleEventToVEvent(event)?.toScheduledEvent() ?: error("VEVENT не распознан")
-        assertEquals(ScheduledEventType.REPEATING, parsed.type)
-        assertEquals(RepeatUnit.DAYS, parsed.repeatUnit)
-        assertEquals("2026-11-18", parsed.repeatUntil)
-        assertTrue(parsed.occursOn(LocalDate.parse("2026-11-18")))
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertEquals("2026-11-16", parsed.date)
+        assertEquals("2026-11-18", parsed.endDate)
+        assertNull(parsed.repeatUnit)
+        assertNull(parsed.repeatUntil)
     }
 
     @Test
@@ -177,6 +200,33 @@ class GoogleEventJsonTest {
             expected,
             parsed.copy(id = 0, position = 0, createdAt = expected.createdAt, modifiedAt = expected.modifiedAt),
         )
+    }
+
+    @Test
+    fun `timed event goes to google as date time`() {
+        // Событие с часами едет в Google как dateTime с местным смещением —
+        // так его понимает календарь; вседневное остаётся датой.
+        val source = ScheduledEvent(
+            uid = "11111111-2222-3333-4444-555555555555",
+            date = "2026-02-17",
+            title = "Ремонт",
+            type = ScheduledEventType.REGULAR,
+            startMinutes = 10 * 60,
+            endMinutes = 11 * 60,
+        )
+        val ics = eventCalendar(listOf(source.toIcsEvent())).icsText()
+        val vevent = parseIcs(ics)?.vevents()?.single() ?: error("ICS не разобрался")
+        val json = veventToGoogleJson(vevent)
+        val start = json.getJSONObject("start")
+        assertFalse("у события со временем нет формы «date»", start.has("date"))
+        val localStart = OffsetDateTime.parse(start.getString("dateTime"))
+            .atZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(10, localStart.hour)
+        assertEquals(0, localStart.minute)
+        val localEnd = OffsetDateTime.parse(json.getJSONObject("end").getString("dateTime"))
+            .atZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(11, localEnd.hour)
+        assertEquals(0, localEnd.minute)
     }
 
     @Test

@@ -35,8 +35,12 @@ import java.nio.CharBuffer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val PROP_TYPE = "X-TNOTE-TYPE"
 private const val PROP_ICON = "X-TNOTE-ICON"
@@ -69,7 +73,26 @@ private const val WEEKEND_ICON = "☀"
 /** PRODID обёртки VCALENDAR, которую отдаёт приложение при PUT. */
 private const val PROD_ID = "-//T-Note//iCalendar 1.0//RU"
 
+/** Минут в сутках — границы времени события. */
+private const val MINUTES_PER_DAY = 24 * 60
+
+/**
+ * Длительность события по умолчанию, когда задан только час начала: конец
+ * на час позже. Событие нулевой длительности другие календари не показывают.
+ */
+private const val DEFAULT_DURATION_MINUTES = 60
+
+/** Время события в ICS: начало, конец и сдвиг дня конца (через полночь). */
+private data class TimedSpan(
+    val startMinutes: Int,
+    val endMinutes: Int,
+    val endDayOffset: Long,
+)
+
 private val icsDate = DateTimeFormatter.BASIC_ISO_DATE
+
+/** Формат чисел в датах — locale не влияет на запись ICS. */
+private val LOCALE = Locale.US
 
 /** Защитный предел разворота COUNT (дней вперёд) — примерно 270 лет. */
 private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
@@ -77,12 +100,19 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
 /**
  * Мост «событие T-Note ↔ iCalendar (VEVENT)» — фундамент CalDAV-синхронизации:
  * свои события экспортируются как VEVENT (CalDAV PUT), серверные разбираются
- * в доменную модель (REPORT/multiget). Наши события — дневные метки без времени,
- * поэтому обмен договорён так:
+ * в доменную модель (REPORT/multiget). Событие без времени — дневная метка,
+ * событие со временем — событие с часами; обмен договорён так:
  *
- *  - DTSTART — VALUE=DATE (дневная метка), DTEND — следующий день (эксклюзивный
- *    по RFC 5545). Чужое событие с точным временем импортируется по календарному
- *    дню, время суток отбрасывается: внутри дня планировщик ничего не рисует;
+ *  - DTSTART без времени — VALUE=DATE (дневная метка), DTEND — следующий день
+ *    (эксклюзивный по RFC 5545);
+ *  - DTSTART со временем — DATE-TIME локального времени пользователя без
+ *    зоны («плавающее» время, DTSTART:20260305T100000), DTEND — конец
+ *    события тем же способом (событие через полночь заканчивается на
+ *    следующий день). Зона не пишется: VTIMEZONE мы не объявляем, а
+ *    смещение зоны устройства — его настройка, не свойство события;
+ *  - чужое событие с точным временем импортируется с часами: момент
+ *    приводится к зоне устройства, иначе встреча в другой стране показывалась
+ *    бы по чужим часам; без времени — по календарному дню, как было.
  *  - [ScheduledEvent.position] — локальная сортировка, в ICS не экспортируется:
  *    очередность восстанавливается из локальной копии, сопоставленной по UID,
  *    а не с сервера;
@@ -105,10 +135,18 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *    последнего вхождения);
  *  - EXDATE — отменённые вхождения повтора («5 марта отменено»): вычёркивают
  *    даты из набора, включая якорную;
- *  - многодневное чужое событие (DTEND на день позже якоря и больше) —
- *    адаптируется в готовую механику «каждый день до последнего дня»
- *    (частота DAYS, интервал 1, ограничитель DTEND − 1): визуально в сетке
- *    это тот же непрерывный ряд дней, отдельное поле endDate не нужно;
+ *  - многодневное чужое событие без времени (DTEND на день позже якоря и
+ *    больше) — адаптируется в готовую механику «каждый день до последнего
+ *    дня» (частота DAYS, интервал 1, ограничитель последним днём): визуально
+ *    в сетке это тот же непрерывный ряд дней, отдельное поле endDate не
+ *    нужно; часы события при этом сохраняются — они одинаковы для всех дней
+ *    ряда;
+ *  - многодневное чужое событие с часами («23:30 → 00:30», «1 марта 10:00 →
+ *    5 марта 18:00») — остаётся обычным событием с датой конца в endDate
+ *    (часы конца — от полуночи дня endDate). Повтором оно не становится:
+ *    один UID — один объект, без дублей при обратной отправке. В календаре
+ *    такое событие показывается по дням с обрезанными часами («23:30 – 24:00»
+ *    и «00:00 – 00:30»);
  *  - метки времени для конфликтов (этап 2, «последняя правка побеждает»):
  *    CREATED → [ScheduledEvent.createdAt], LAST-MODIFIED →
  *    [ScheduledEvent.modifiedAt]; без них — DTSTAMP (он обязателен по RFC);
@@ -148,8 +186,8 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         // DTSTAMP не добавляем руками: конструктор VEvent сам вставляет
         // момент создания, а его дубль делает тело невалидным по RFC 5545 —
         // Яндекс на такой PUT отвечает 504.
-        properties.add(DtStart(Date(anchor.format(icsDate), "yyyyMMdd")))
-        properties.add(DtEnd(Date(anchor.plusDays(1).format(icsDate), "yyyyMMdd")))
+        properties.add(DtStart(icsStart(anchor)))
+        properties.add(icsEnd(anchor))
         properties.add(Summary(summaryForIcs()))
         // RRULE пишут повторения: «выходной» наружу вообще не ходит,
         // и повторение без частоты повторить нечего — идёт без RRULE.
@@ -194,6 +232,88 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         // «метаданных нет» и включает хранение локальных значений.
         properties.add(Description(tnoteDescriptionMarker(icon, colorArgb, hidePastOccurrences)))
     }
+}
+
+/**
+ * DTSTART события: с временем — DATE-TIME локального времени пользователя,
+ * без времени — дневная метка (VALUE=DATE).
+ */
+private fun ScheduledEvent.icsStart(anchor: LocalDate): Date {
+    val span = timedSpan() ?: return Date(anchor.format(icsDate), "yyyyMMdd")
+    return icsDateTime(anchor, span.startMinutes)
+}
+
+/**
+ * DTEND события. Дневная метка — следующий день (эксклюзивный конец по
+ * RFC 5545). Событие со временем — конец в тот же день или на следующий
+ * (событие через полночь). Событие длиннее суток (у него есть endDate) —
+ * конец на дату endDate, своими часами: так объект остаётся один и
+ * описывает всю длительность.
+ */
+private fun ScheduledEvent.icsEnd(anchor: LocalDate): DtEnd {
+    val span = timedSpan()
+        ?: return DtEnd(Date(anchor.plusDays(1).format(icsDate), "yyyyMMdd"))
+    val endDay = endDateOrNull()
+    val endTime = endMinutes
+    if (endDay != null && endTime != null) {
+        return DtEnd(icsDateTime(endDay, endTime))
+    }
+    return DtEnd(icsDateTime(anchor.plusDays(span.endDayOffset), span.endMinutes))
+}
+
+/**
+ * Время события в минутах от полуночи якорного дня и сдвиг дня конца.
+ * null — у события нет времени, это дневная метка.
+ *
+ * Правила краёв: задан только конец — начало считается полночью; задан
+ * только начало — конец равен началу плюс час (событие нулевой длительности
+ * другие календари не показывают вовсе); конец раньше начала — событие идёт
+ * через полночь, конец приходит на следующий день.
+ */
+private fun ScheduledEvent.timedSpan(): TimedSpan? {
+    val start = startMinutes
+    val end = endMinutes
+    if (start == null && end == null) return null
+    val from = start ?: 0
+    val rawEnd = end ?: (from + DEFAULT_DURATION_MINUTES)
+    val overnight = end != null && end < from
+    val overflow = if (rawEnd >= MINUTES_PER_DAY) 1L else 0L
+    return TimedSpan(
+        startMinutes = from,
+        endMinutes = rawEnd % MINUTES_PER_DAY,
+        endDayOffset = if (overnight) 1L else overflow,
+    )
+}
+
+/**
+ * DATE-TIME без зоны — «плавающее» время по RFC 5545: DTSTART:20260305T100000.
+ * Зону не объявляем: VTIMEZONE в теле CalDAV мы не описываем, а смещение
+ * зоны устройства — настройка телефона, а не свойство события. Разбор такой
+ * строки обратно даёт то же местное время (см. [localDateTimeOf]).
+ */
+internal fun icsDateTime(day: LocalDate, minutes: Int): DateTime = DateTime(
+    String.format(
+        LOCALE,
+        "%04d%02d%02dT%02d%02d00",
+        day.year,
+        day.monthValue,
+        day.dayOfMonth,
+        minutes / 60,
+        minutes % 60,
+    ),
+    "yyyyMMdd'T'HHmmss",
+    false,
+)
+
+/**
+ * Момент времени свойства в зоне устройства; null — у свойства нет времени
+ * (дневная метка). «Плавающее» время ical4j разбирает в зоне устройства,
+ * UTC — с переводом в неё, чужой TZID — тоже: чужое событие показывается
+ * по местным часам пользователя.
+ */
+private fun localDateTimeOf(value: Date?): LocalDateTime? {
+    val dateTime = value as? DateTime ?: return null
+    return LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime.time), ZoneId.systemDefault())
 }
 
 /** RRULE-значение нашего повторения: FREQ, INTERVAL, BYDAY (недели), UNTIL. */
@@ -431,16 +551,36 @@ internal fun VEvent.hasTnoteMetadata(): Boolean = properties.any {
 fun VEvent.toScheduledEvent(): ScheduledEvent? {
     val uid = properties.byName(Property.UID)?.value ?: return null
     val dtStart = properties.byName(Property.DTSTART) as? DtStart ?: return null
-    // VALUE=DATE — «yyyyMMdd»; чужое событие с точным временем
-    // («...T090000Z» и родственные формы) берём по календарному дню.
-    val anchor = icsDay(dtStart.value) ?: return null
+    // DTSTART с временем (DATE-TIME) приводим к местному времени устройства:
+    // чужое событие показывается по часам пользователя, а его дата — по
+    // локальной дате того же момента (UTC-полночь в другой зоне — уже
+    // следующий день). Дневная метка (VALUE=DATE) читается как была.
+    val startMoment = localDateTimeOf(dtStart.getDate())
+    val anchor = startMoment?.toLocalDate() ?: icsDay(dtStart.value) ?: return null
+    val startMinutes = startMoment?.let { it.hour * 60 + it.minute }
+    // DTEND с временем — конец события в минутах от полуночи; без времени
+    // (дневная метка) конца по времени у события нет.
+    val endMoment = (properties.byName(Property.DTEND) as? DtEnd)?.let { localDateTimeOf(it.getDate()) }
+    val endMinutes = endMoment?.let { it.hour * 60 + it.minute }
     // Имя могло доехать в «cp1252-прочтении» UTF-8 (Яндекс без BOM —
     // см. repairMojibake): восстанавливаем до разбора типа и правил.
     val summary = repairMojibake(properties.byName(Property.SUMMARY)?.value ?: "")
 
-    // DTEND — эксклюзивная дата конца (RFC 5545): минус день даёт последний
-    // показанный день. Однодневное событие имеет DTEND = якорь + 1.
-    val spanEnd = (properties.byName(Property.DTEND) as? DtEnd)?.value?.let(::icsDay)?.minusDays(1)
+    // DTEND: у дневной метки — эксклюзивная дата конца (RFC 5545), минус
+    // день даёт последний показанный день; у события со временем — точный
+    // момент, и последним показанным днём становится его дата.
+    val dtEnd = properties.byName(Property.DTEND) as? DtEnd
+    // Событие с часами длиннее суток: конец приходит на другой день
+    // («23:30 → 00:30», «1 марта 10:00 → 5 марта 18:00»). Такое событие
+    // остаётся одним объектом с одним UID, а его конец хранится в endDate:
+    // в календаре событие разворачивается по дням с обрезанными часами
+    // (см. ScheduledEvent.windowOn).
+    val timedEndDate = endMoment?.toLocalDate()?.takeIf { it.isAfter(anchor) }
+    val spanEnd = if (endMoment != null) {
+        endMoment.toLocalDate()
+    } else {
+        dtEnd?.value?.let(::icsDay)?.minusDays(1)
+    }
 
     // Отменённые вхождения повтора (EXDATE): могут идти несколькими строками
     // и с перечислением через запятую; VALUE=DATE и точное время — обе формы.
@@ -510,6 +650,12 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         repeatUnit = effectiveUnit,
         repeatInterval = interval,
         repeatWeekdays = effectiveWeekdays,
+        startMinutes = startMinutes,
+        endMinutes = endMinutes,
+        // Конец на другом дне — событие длиннее суток: дата конца в
+        // отдельном поле, тип при этом остаётся REGULAR (повтором такое
+        // событие быть не может).
+        endDate = timedEndDate?.toString(),
     )
 
     // Границы повторения: UNTIL — как есть (только дата), COUNT — датой
@@ -520,11 +666,13 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         draft
     }
 
-    // Многодневное чужое событие без RRULE (DTEND на день позже якоря и
+    // Многодневное чужое событие без времени (DTEND на день позже якоря и
     // больше): визуально это непрерывный ряд дней — ровно то, что даёт
     // частота DAYS с интервалом 1 и ограничителем на последний день.
     // Отдельное поле endDate не нужно; при живом RRULE правило важнее.
-    val multiDayEnd = spanEnd?.takeIf { rule == null && it.isAfter(anchor) }
+    // Событие с часами сюда не попадает: у него есть endDate, и повтором
+    // оно не становится (одна строка — один объект на сервере).
+    val multiDayEnd = spanEnd?.takeIf { endMoment == null && rule == null && it.isAfter(anchor) }
 
     // День рождения Яндекса: годовой круг без ограничителей и селекторов-
     // недубликатов (уже проверено representable выше), имя с 🎂 — наш

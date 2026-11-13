@@ -37,6 +37,19 @@ data class ScheduledEventEntity(
     val exdates: String? = null,
     @ColumnInfo(defaultValue = "0")
     val hidePast: Boolean,
+    /**
+     * Время начала события — минуты от полуночи (см.
+     * ScheduledEvent.startMinutes). null — дневная метка, времени нет.
+     */
+    val startMinutes: Int? = null,
+    /** Время завершения события — минуты от полуночи; null — конец не задан. */
+    val endMinutes: Int? = null,
+    /**
+     * Дата конца события ("yyyy-MM-dd"); null — событие в один день.
+     * Только чужие (Google, Яндекс) события длиннее суток: у них конец
+     * приходит на другой день (см. ScheduledEvent.endDate).
+     */
+    val endDate: String? = null,
     val position: Int = 0,
 
     /** CalDAV-аккаунт-источник (null — локальное событие, см. ScheduledEvent). */

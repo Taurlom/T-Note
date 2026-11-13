@@ -315,6 +315,26 @@ object AppDatabaseMigration {
     }
 
     /**
+     * 26 → 27: время события. Событию добавляются три nullable-колонки:
+     * startMinutes и endMinutes (минуты от полуночи) и endDate (дата конца
+     * события, "yyyy-MM-dd"). Существующие события остаются дневными
+     * метками — времени у них нет (NULL), данные не затрагиваются. Значения
+     * по умолчанию не нужны: колонки nullable, валидация Room требует именно
+     * отсутствие DEFAULT.
+     *
+     * endDate — конец события длиннее суток (у чужих: Google, Яндекс):
+     * «1 марта 10:00 — 5 марта 18:00» хранится одной строкой, а в календаре
+     * разворачивается по дням (см. ScheduledEvent.windowOn).
+     */
+    val MIGRATION_26_27 = object : Migration(26, 27) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN startMinutes INTEGER")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN endMinutes INTEGER")
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN endDate TEXT")
+        }
+    }
+
+    /**
      * 25 → 26: провайдер синхронизации в caldav_accounts — YANDEX (CalDAV)
      * или GOOGLE (Calendar API v3, этап 3). Аддитивная миграция: все
      * существующие аккаунты — Яндекс, других до этапа 3 не было.

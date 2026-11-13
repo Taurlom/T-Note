@@ -231,6 +231,18 @@
     <string name="event_color">Color</string>
     <string name="color_default">Default</string>
 
+    <!-- Event time -->
+    <string name="event_time_start">Start</string>
+    <string name="event_time_end">End</string>
+    <string name="event_time_unset">Not set</string>
+    <string name="event_time_pick">Pick a time…</string>
+    <string name="event_time_clear">Clear time</string>
+    <string name="event_time_dialog_start">Start time</string>
+    <string name="event_time_dialog_end">End time</string>
+    <string name="event_time_range">%1$s – %2$s</string>
+    <string name="event_time_until">until %1$s</string>
+    <string name="event_time_range_invalid">End time cannot be earlier than start time</string>
+
     <string name="icon_note">Note</string>
     <string name="icon_hospital">Hospital</string>
     <string name="icon_travel">Travel</string>

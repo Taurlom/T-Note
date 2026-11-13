@@ -234,6 +234,18 @@
     <string name="event_color">Цвет</string>
     <string name="color_default">По умолчанию</string>
 
+    <!-- Время события -->
+    <string name="event_time_start">Начало</string>
+    <string name="event_time_end">Завершение</string>
+    <string name="event_time_unset">Не задано</string>
+    <string name="event_time_pick">Выбрать время…</string>
+    <string name="event_time_clear">Убрать время</string>
+    <string name="event_time_dialog_start">Время начала</string>
+    <string name="event_time_dialog_end">Время завершения</string>
+    <string name="event_time_range">%1$s – %2$s</string>
+    <string name="event_time_until">до %1$s</string>
+    <string name="event_time_range_invalid">Время завершения не может быть раньше времени начала</string>
+
     <string name="icon_note">Заметка</string>
     <string name="icon_hospital">Больница</string>
     <string name="icon_travel">Путешествие</string>

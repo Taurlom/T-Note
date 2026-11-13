@@ -46,7 +46,7 @@ class DailyDigestWorker(appContext: Context, params: WorkerParameters) : Corouti
                 // Пустой день — тишина: сводка не спамит, но цепочка ниже
                 // продолжается на завтра.
                 if (events.isNotEmpty()) {
-                    dependencies.notifier().postDailyDigest(events)
+                    dependencies.notifier().postDailyDigest(events, today)
                 }
             }
         } catch (e: CancellationException) {

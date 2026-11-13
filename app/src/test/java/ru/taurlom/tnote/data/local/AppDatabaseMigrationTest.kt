@@ -392,6 +392,60 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /**
+     * 26 → 27: время события. Событию добавляются три nullable-колонки
+     * (начало и завершение в минутах от полуночи, дата конца — для событий
+     * длиннее суток). Старые события остаются дневными метками — времени
+     * у них нет, данные не затрагиваются.
+     */
+    @Test
+    fun `migrate 26 to 27 adds event time columns`() {
+        helper.createDatabase(26).use { db ->
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                    "remoteImported, dirty, etag, serverHref, createdAt, modifiedAt) " +
+                    "VALUES (1, 'uid-1', '2026-11-16', 'Полив', 'REPEATING', 'NOTE', 0, " +
+                    "'WEEKS', 1, 'MO', NULL, NULL, 0, 0, NULL, 0, 0, NULL, NULL, 100, 200)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            27,
+            listOf(AppDatabaseMigration.MIGRATION_26_27),
+        )
+        db.prepare(
+            "SELECT title, startMinutes, endMinutes, endDate FROM scheduled_events WHERE id = 1",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("Полив", stmt.getText(0))
+            // Времени у старого события нет — колонки пустые.
+            assertTrue(stmt.isNull(1))
+            assertTrue(stmt.isNull(2))
+            assertTrue(stmt.isNull(3))
+        }
+        // Новое событие с часами занимает все три колонки.
+        db.prepare(
+            "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                "remoteImported, dirty, etag, serverHref, createdAt, modifiedAt, " +
+                "startMinutes, endMinutes, endDate) " +
+                "VALUES (2, 'uid-2', '2026-11-17', 'Созвон', 'REGULAR', 'NOTE', 0, " +
+                "NULL, 1, NULL, NULL, NULL, 0, 0, NULL, 0, 0, NULL, NULL, 100, 200, 540, 600, NULL)",
+        ).use { it.step() }
+        db.prepare(
+            "SELECT startMinutes, endMinutes, endDate FROM scheduled_events WHERE id = 2",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(540L, stmt.getLong(0))
+            assertEquals(600L, stmt.getLong(1))
+            // Дата конца у события в одни сутки не заполнена.
+            assertTrue(stmt.isNull(2))
+        }
+        db.close()
+    }
+
     /** Без подписки заметки остаются локальными: некуда и незачем ехать. */
     @Test
     fun `migrate 24 to 25 keeps notes local without accounts`() {

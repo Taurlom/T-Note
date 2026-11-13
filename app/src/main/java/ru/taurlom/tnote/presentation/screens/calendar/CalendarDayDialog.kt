@@ -14,12 +14,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -44,6 +46,7 @@ import ru.taurlom.tnote.domain.model.EventIcon
 import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
+import ru.taurlom.tnote.domain.util.formatEventClock
 import ru.taurlom.tnote.presentation.components.AppButton
 import ru.taurlom.tnote.presentation.components.AppCheckbox
 import ru.taurlom.tnote.presentation.components.AppColorPicker
@@ -53,8 +56,10 @@ import ru.taurlom.tnote.presentation.components.AppOutlinedButton
 import ru.taurlom.tnote.presentation.components.AppSaveButton
 import ru.taurlom.tnote.presentation.components.AppTextButton
 import ru.taurlom.tnote.presentation.components.AppTextField
+import ru.taurlom.tnote.presentation.components.AppTimePicker
 import ru.taurlom.tnote.presentation.components.ColorSwatchOption
 import ru.taurlom.tnote.presentation.theme.AppTheme
+import ru.taurlom.tnote.presentation.util.eventTimeLabel
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -187,6 +192,9 @@ fun CalendarDayDialog(
 private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: () -> Unit, onDelete: () -> Unit) {
     val isPast = remember(event, day) { event.isPastOccurrence(day) }
     val titleColor = if (isPast) AppTheme.colors.dialogContent.copy(alpha = 0.45f) else AppTheme.colors.dialogContent
+    // Часы — по окну показываемого дня: у события длиннее суток в каждый
+    // день своя часть («23:30 – 24:00», «00:00 – 00:30»).
+    val window = remember(event, day) { event.windowOn(day) }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -207,6 +215,18 @@ private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: ()
             tint = eventIconColor(event.colorArgb, isPast, AppTheme.colors.dialogContent),
             modifier = Modifier.size(20.dp),
         )
+        // Часы события — между иконкой и названием: «10:00 – 11:30 Ремонт».
+        eventTimeLabel(window)?.let { label ->
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isPast) {
+                    AppTheme.colors.dialogContent.copy(alpha = 0.45f)
+                } else {
+                    AppTheme.colors.dialogContentMuted
+                },
+            )
+        }
         Text(
             text = event.title,
             style = MaterialTheme.typography.bodyLarge,
@@ -242,8 +262,10 @@ private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: ()
  * день как выходной.
  * У повторяющегося события настраиваются интервал «раз в N дней»,
  * скрытие прошедших вхождений и длительность повторения.
+ * Время (начало и завершение) задают обычные и повторяющиеся события —
+ * выбор часов тот же, что у напоминания в настройках.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ScheduledEventEditorDialog(
     original: ScheduledEvent?,
@@ -281,10 +303,29 @@ private fun ScheduledEventEditorDialog(
     var untilText by rememberSaveable { mutableStateOf(original?.repeatUntil.orEmpty()) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var hidePast by rememberSaveable { mutableStateOf(original?.hidePastOccurrences ?: false) }
+    // Время события: обычное и повторяющееся могут иметь часы, день рождения
+    // и «Выходной» остаются дневными метками. Минуты от полуночи, -1 —
+    // времени нет (в модели это null).
+    var startMinutes by rememberSaveable { mutableStateOf(original?.startMinutes ?: NO_TIME) }
+    var endMinutes by rememberSaveable { mutableStateOf(original?.endMinutes ?: NO_TIME) }
+    // Какое из полей сейчас выбирают: null — пикер закрыт.
+    var timeTarget by remember { mutableStateOf<TimeTarget?>(null) }
 
     val interval = intervalText.toIntOrNull()?.takeIf { it > 0 }
     val untilDate = untilText.takeIf { it.isNotBlank() }
         ?.let { value -> runCatching { LocalDate.parse(value) }.getOrNull() }
+    // Время события в модели — null, а в состоянии редактора — -1 (см. NO_TIME).
+    val startTime = startMinutes.takeIf { it >= 0 }
+    val endTime = endMinutes.takeIf { it >= 0 }
+    // Порядок времени: завершение раньше начала в одних сутках — ошибка
+    // ввода, сохранить такое событие нельзя. У чужого события длиннее
+    // суток конец приходит на другой день — это не ошибка.
+    val timeRangeInvalid = isTimeRangeInvalid(
+        date = original?.date ?: defaultDate,
+        startMinutes = startTime,
+        endMinutes = endTime,
+        endDate = original?.endDate,
+    )
     // Повторяющемуся событию нужны частота, интервал и (если заполнено)
     // разборчивая дата-ограничитель.
     val repeatConfigured = type != ScheduledEventType.REPEATING ||
@@ -440,6 +481,30 @@ private fun ScheduledEventEditorDialog(
             // Иконку и её цвет выбирают обычные и повторяющиеся события:
             // день рождения отмечается подарком, «Выходной» — подсветкой дня.
             if (type == ScheduledEventType.REGULAR || type == ScheduledEventType.REPEATING) {
+                // Время события: тот же выбор часов, что у напоминания в
+                // настройках (пикер времени в отдельном диалоге).
+                EventTimeDropdown(
+                    label = stringResource(R.string.event_time_start),
+                    value = startTime,
+                    onPick = { timeTarget = TimeTarget.START },
+                    onClear = { startMinutes = NO_TIME },
+                )
+                EventTimeDropdown(
+                    label = stringResource(R.string.event_time_end),
+                    value = endTime,
+                    onPick = { timeTarget = TimeTarget.END },
+                    onClear = { endMinutes = NO_TIME },
+                )
+                // Ошибка ввода времени — под полями: завершение раньше
+                // начала в одних сутках сохранить нельзя.
+                if (timeRangeInvalid) {
+                    Text(
+                        text = stringResource(R.string.event_time_range_invalid),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
                 Text(
                     text = stringResource(R.string.event_icon),
                     style = MaterialTheme.typography.labelLarge,
@@ -522,13 +587,21 @@ private fun ScheduledEventEditorDialog(
                             exdates = original?.exdates ?: emptySet(),
                             createdAt = original?.createdAt,
                             modifiedAt = original?.modifiedAt,
+                            // Время — только у обычных и повторяющихся: день
+                            // рождения и «Выходной» остаются дневными метками.
+                            startMinutes = if (type.hasClockTime()) startTime else null,
+                            endMinutes = if (type.hasClockTime()) endTime else null,
+                            // Дата конца — серверные данные: правка не должна
+                            // их терять (как отмены вхождений). Свои события
+                            // в одних сутках — у них даты конца нет.
+                            endDate = original?.endDate,
                             hidePastOccurrences =
                             type == ScheduledEventType.REPEATING && hidePast,
                             position = original?.position ?: 0,
                         ),
                     )
                 },
-                enabled = title.isNotBlank() && repeatConfigured,
+                enabled = title.isNotBlank() && repeatConfigured && !timeRangeInvalid,
             )
         },
         dismissButton = if (original != null) {
@@ -571,6 +644,141 @@ private fun ScheduledEventEditorDialog(
             DatePicker(state = pickerState)
         }
     }
+
+    timeTarget?.let { target ->
+        // Выбор часов события — тот же пикер, что у напоминания в настройках.
+        val current = when (target) {
+            TimeTarget.START -> startTime
+            TimeTarget.END -> endTime
+        }
+        // Значение по умолчанию: начало — 09:00, конец — час после начала
+        // (у события без начала конец отсчитывается от девяти).
+        val fallback = when (target) {
+            TimeTarget.START -> DEFAULT_START_MINUTES
+            TimeTarget.END -> ((startTime ?: DEFAULT_START_MINUTES) + 60) % MINUTES_PER_DAY
+        }
+        val initial = current ?: fallback
+        val timeState = rememberTimePickerState(
+            initialHour = initial / 60,
+            initialMinute = initial % 60,
+            is24Hour = true,
+        )
+        AppDialog(
+            title = stringResource(
+                if (target == TimeTarget.START) {
+                    R.string.event_time_dialog_start
+                } else {
+                    R.string.event_time_dialog_end
+                },
+            ),
+            onDismissRequest = { timeTarget = null },
+            confirmButton = {
+                AppTextButton(
+                    onClick = {
+                        val picked = timeState.hour * 60 + timeState.minute
+                        when (target) {
+                            TimeTarget.START -> startMinutes = picked
+                            TimeTarget.END -> endMinutes = picked
+                        }
+                        timeTarget = null
+                    },
+                    textRes = R.string.done,
+                )
+            },
+            // Время снимается тем же диалогом — отдельной кнопки «Убрать»
+            // в редакторе не нужно.
+            dismissButton = if (current != null) {
+                {
+                    AppTextButton(
+                        onClick = {
+                            when (target) {
+                                TimeTarget.START -> startMinutes = NO_TIME
+                                TimeTarget.END -> endMinutes = NO_TIME
+                            }
+                            timeTarget = null
+                        },
+                        textRes = R.string.event_time_clear,
+                    )
+                }
+            } else {
+                null
+            },
+            text = {
+                AppTimePicker(state = timeState)
+            },
+        )
+    }
+}
+
+/**
+ * Какое из полей времени редактируется: начало или завершение события.
+ */
+private enum class TimeTarget { START, END }
+
+/**
+ * Час по умолчанию для начала события — 09:00.
+ */
+private const val DEFAULT_START_MINUTES = 9 * 60
+
+/** Минут в сутках — границы времени события. */
+private const val MINUTES_PER_DAY = 24 * 60
+
+/**
+ * В состоянии редактора время хранится как минуты от полуночи, а -1 означает
+ * «времени нет» (в модели это null). rememberSaveable не умеет хранить
+ * null как Int, поэтому пустое значение — sentinel.
+ */
+private const val NO_TIME = -1
+
+/**
+ * Умеет ли тип события часы: обычное и повторяющееся — да, день рождения и
+ * «Выходной» остаются дневными метками.
+ */
+private fun ScheduledEventType.hasClockTime(): Boolean =
+    this == ScheduledEventType.REGULAR || this == ScheduledEventType.REPEATING
+
+/**
+ * Поле времени события: выбранные часы или «Не задано». Раскрывающийся
+ * список — тот же приём, что у «Повторять до»: «Убрать время» снимает
+ * часы, «Выбрать время…» открывает диалог с пикером.
+ */
+@Composable
+private fun EventTimeDropdown(
+    label: String,
+    value: Int?,
+    onPick: () -> Unit,
+    onClear: () -> Unit,
+) {
+    // Без времени снимать нечего — в меню только выбор нового.
+    val options = if (value == null) {
+        listOf(TimeChoice.PICK)
+    } else {
+        listOf(TimeChoice.CLEAR, TimeChoice.PICK)
+    }
+    AppDropdown(
+        label = label,
+        selectedLabel = value?.let { formatEventClock(it) } ?: stringResource(R.string.event_time_unset),
+        options = options,
+        optionText = { choice ->
+            Text(
+                text = stringResource(choice.labelRes),
+                color = AppTheme.colors.dialogContent,
+            )
+        },
+        onSelect = { choice ->
+            when (choice) {
+                TimeChoice.CLEAR -> onClear()
+                TimeChoice.PICK -> onPick()
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Пункты меню поля времени. */
+private enum class TimeChoice(val labelRes: Int) {
+    CLEAR(R.string.event_time_clear),
+    PICK(R.string.event_time_pick),
 }
 
 /** Кружок выбора дня недели — в размере и стилистике палитры цветов. */
@@ -637,3 +845,24 @@ internal fun ScheduledEvent.isPastOccurrence(day: LocalDate, today: LocalDate = 
     }
     return day.isBefore(today)
 }
+
+/**
+ * Ошибка ввода времени события: «Завершение» раньше «Начала» в одних
+ * сутках — сохранить такое событие нельзя.
+ *
+ * Закон доменный ([ru.taurlom.tnote.domain.model.ScheduledEvent.hasValidTimeRange]):
+ * у чужого события длиннее суток конец приходит на другой день (endDate) —
+ * это не ошибка, а его длительность.
+ */
+internal fun isTimeRangeInvalid(
+    date: String,
+    startMinutes: Int?,
+    endMinutes: Int?,
+    endDate: String? = null,
+): Boolean = !ScheduledEvent(
+    date = date,
+    title = "",
+    startMinutes = startMinutes,
+    endMinutes = endMinutes,
+    endDate = endDate,
+).hasValidTimeRange()

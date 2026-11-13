@@ -12,6 +12,13 @@ import java.util.Locale
  * сегодняшнее вхождение видно). Якорные вхождения не задваиваются:
  * они уже приходят в месячной выборке.
  *
+ * Событие длиннее суток (у чужих — Google, Яндекс) в каждый покрытый день
+ * показывается своим куском: первый день — до полуночи, последний — от
+ * полуночи до своего конца, средние — целиком (см.
+ * [ScheduledEvent.windowOn]). Само событие при этом одно и то же: одна
+ * строка базы, один UID, а тап открывает редактор исходного события
+ * целиком, а не его куска.
+ *
  * Правила общие для сетки календаря (forMonth) и сводки дня
  * (forDate через GetEventsForDateUseCase): изменение закона —
  * одна правка, а не две синхронные.
@@ -26,23 +33,26 @@ object EventExpander {
         date: LocalDate,
         today: LocalDate,
     ): List<ScheduledEvent> {
-        val dateKey = date.toString()
         // Якоря повторов приходят в месячной выборке, а их вхождения
         // генерируются ниже целиком — иначе якорь задублировался бы.
         // Отменённый день (EXDATE) не показывается вовсе.
         val result = monthEvents.filterTo(mutableListOf()) {
-            it.date == dateKey && it.type != ScheduledEventType.REPEATING && !it.isExcludedOn(date)
+            it.type != ScheduledEventType.REPEATING &&
+                !it.isExcludedOn(date) &&
+                // Событие идёт в этот день: у обычного — только в свой,
+                // у много-дневного — в каждый покрытый день.
+                it.windowOn(date) != null
         }
         birthdays.forEach { birthday ->
             birthdayOccurrence(birthday, date.year)?.let { (month, day) ->
                 if (month == date.monthValue && day == date.dayOfMonth) {
-                    result += birthday.copy(date = dateKey)
+                    result += birthday.copy(date = date.toString())
                 }
             }
         }
         repeating.forEach { event ->
             if (event.occursOn(date) && event.isVisibleOn(date, today)) {
-                result += event.copy(date = dateKey)
+                result += event.copy(date = date.toString())
             }
         }
         return result.sortedWith(EVENT_ORDER)
@@ -57,11 +67,29 @@ object EventExpander {
         month: Int,
         today: LocalDate,
     ): Map<String, List<ScheduledEvent>> {
-        val byDate = monthEvents
+        val first = LocalDate.of(year, month, 1)
+        val lastExclusive = first.plusMonths(1)
+        val byDate = LinkedHashMap<String, MutableList<ScheduledEvent>>()
+        monthEvents
             .filterNot { it.type == ScheduledEventType.REPEATING }
             // Отменённый якорный день (EXDATE) не показывается вовсе.
             .filterNot { event -> event.dateOrNull()?.let(event::isExcludedOn) == true }
-            .groupByTo(LinkedHashMap()) { it.date }
+            .forEach { event ->
+                val anchor = event.dateOrNull()
+                val last = event.endDateOrNull()
+                if (anchor != null && last != null && last.isAfter(anchor)) {
+                    // Событие длиннее суток: в каждый покрытый день месяца
+                    // — то же самое событие (одна строка базы), часы дня
+                    // считаются по окну дня (ScheduledEvent.windowOn).
+                    var cursor = maxOf(anchor, first)
+                    while (cursor.isBefore(lastExclusive) && !cursor.isAfter(last)) {
+                        byDate.getOrPut(cursor.toString()) { mutableListOf() } += event
+                        cursor = cursor.plusDays(1)
+                    }
+                } else {
+                    byDate.getOrPut(event.date) { mutableListOf() } += event
+                }
+            }
         birthdays.forEach { birthday ->
             birthdayOccurrence(birthday, year)?.let { (m, d) ->
                 // Формат ISO-даты не должен зависеть от локали устройства.
@@ -69,8 +97,6 @@ object EventExpander {
                 byDate.getOrPut(key) { mutableListOf() } += birthday.copy(date = key)
             }
         }
-        val first = LocalDate.of(year, month, 1)
-        val lastExclusive = first.plusMonths(1)
         repeating.forEach { event ->
             val anchor = event.dateOrNull() ?: return@forEach
             var cursor = maxOf(anchor, first)

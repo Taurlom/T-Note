@@ -12,8 +12,14 @@ import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 @Dao
 interface ScheduledEventDao {
 
+    /**
+     * События месяца по префиксу даты. Много-дневное событие (у чужих:
+     * Google, Яндекс) попадает в месяц и по дате конца — «1 февраля — 5
+     * марта» должно давать вхождения и в феврале, и в марте.
+     */
     @Query(
         "SELECT * FROM scheduled_events WHERE eventDate LIKE :monthPrefix " +
+            "OR (endDate IS NOT NULL AND endDate LIKE :monthPrefix) " +
             "ORDER BY position ASC, id ASC",
     )
     fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEventEntity>>

@@ -98,6 +98,33 @@ data class ScheduledEvent(
     val exdates: Set<LocalDate> = emptySet(),
     /** Скрывать вхождения до сегодняшней даты («удалять прошедшие»). */
     val hidePastOccurrences: Boolean = false,
+
+    /**
+     * Время начала события — минуты от полуночи (0..1439). null — у события
+     * нет времени: это дневная метка (как было до появления времени).
+     * Время задают обычные и повторяющиеся события; день рождения и
+     * «Выходной» остаются дневными метками.
+     */
+    val startMinutes: Int? = null,
+
+    /**
+     * Время завершения события — минуты от полуночи. null — конец не задан
+     * (событие без длительности или только с началом).
+     */
+    val endMinutes: Int? = null,
+
+    /**
+     * Дата конца события ("yyyy-MM-dd"); null — событие в один день (конец
+     * в тот же день, что и [date]).
+     *
+     * Свои события всегда в одних сутках: конец раньше начала недопустим
+     * (см. редактор события). Чужие (Google, Яндекс) могут длиться дольше
+     * суток — «1 марта 10:00 — 5 марта 18:00»; их конец хранится здесь, а
+     * в календаре такое событие занимает каждый день своей длительности
+     * (см. [EventExpander]).
+     */
+    val endDate: String? = null,
+
     val position: Int = 0,
 
     /**
@@ -134,6 +161,47 @@ data class ScheduledEvent(
 
     /** [repeatUntil] как дата или null (бессрочно / неразборчиво). */
     fun untilOrNull(): LocalDate? = repeatUntil?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    /** [endDate] как дата или null (событие в один день / неразборчиво). */
+    fun endDateOrNull(): LocalDate? = endDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    /**
+     * Порядок начала и конца корректен: конец не раньше начала.
+     *
+     * Сравниваются моменты, а не минуты: конец на следующие сутки (у
+     * чужих событий Google и Яндекса) — не ошибка, а нормальная длительность.
+     * В одних сутках конец раньше начала — ошибка ввода, и редактор её не
+     * пропускает (см. ScheduledEventEditorDialog).
+     */
+    fun hasValidTimeRange(): Boolean {
+        val start = startMinutes ?: return true
+        val end = endMinutes ?: return true
+        val startDay = dateOrNull() ?: return end >= start
+        val endDay = endDateOrNull() ?: startDay
+        // Конец позже начала по дням — порядок задан датами.
+        if (endDay.isAfter(startDay)) return true
+        return end >= start
+    }
+
+    /**
+     * Границы события по суткам: с какого по какое время оно идёт в день
+     * [day].
+     *
+     * Событие длиннее суток (у чужих — Google, Яндекс) в каждый день
+     * показывается своей частью: первый день — до полуночи, последний — от
+     * полуночи до своего конца, средние — целиком. null — событие в этот
+     * день не идёт.
+     */
+    fun windowOn(day: LocalDate): Pair<Int?, Int?>? {
+        val start = dateOrNull() ?: return null
+        val end = endDateOrNull() ?: start
+        if (day.isBefore(start) || day.isAfter(end)) return null
+        // Событие в одни сутки: его часы и есть окно дня.
+        if (end == start) return startMinutes to endMinutes
+        val from = if (day == start) startMinutes else 0
+        val until = if (day == end) endMinutes else MINUTES_PER_DAY
+        return from to until
+    }
 
     /**
      * Происходит ли повторяющееся событие в дату [date]
@@ -191,10 +259,14 @@ data class ScheduledEvent(
      * Бессрочные повторения и дни рождения не заканчиваются никогда —
      * они не кандидат. Битое повторение (без частоты) тоже остаётся:
      * правило не удаляет то, чего не поняло.
+     *
+     * У события длиннее суток «прошло» определяется последним днём
+     * ([endDate]), а не якорем: «1 марта — 5 марта» живёт до конца 5-го.
      */
     fun isOverBefore(today: LocalDate): Boolean {
         val anchor = dateOrNull() ?: return false
-        if (!anchor.isBefore(today)) return false
+        val last = endDateOrNull() ?: anchor
+        if (!last.isBefore(today)) return false
         return when (type) {
             ScheduledEventType.REGULAR, ScheduledEventType.WEEKEND -> true
             ScheduledEventType.BIRTHDAY -> false
@@ -217,6 +289,9 @@ data class ScheduledEvent(
 
         /** Цвет не выбран: иконка красится тематическим цветом приложения. */
         const val DEFAULT_COLOR = 0L
+
+        /** Минут в сутках — граница окна дня для много-дневных событий. */
+        const val MINUTES_PER_DAY = 24 * 60
 
         /** RFC-коды дней недели (BYDAY) — формат хранения в БД и ICS. */
         private val weekdayCodes: Map<DayOfWeek, String> = linkedMapOf(

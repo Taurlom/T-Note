@@ -14,6 +14,9 @@ import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 
 /**
  * Контракт маппера «событие ↔ iCalendar»: свои события переживают ICS-текст
@@ -297,15 +300,35 @@ class EventIcsMapperTest {
     }
 
     @Test
-    fun `foreign timed vevent loses time of day`() {
+    fun `foreign timed vevent keeps local time of day`() {
+        // Чужое событие с часами приезжает с ними: время приводится к зоне
+        // устройства, чтобы встреча показывалась по местным часам.
         val parsed = foreign(
             "UID:foreign-2@example.com",
-            "DTSTART:20261117T090000Z",
-            "DTEND:20261117T100000Z",
+            "DTSTART:20261117T090000",
+            "DTEND:20261117T100000",
             "SUMMARY:Созвон",
         ) ?: error("VEVENT не распознан")
         assertEquals("2026-11-17", parsed.date)
         assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertEquals(9 * 60, parsed.startMinutes)
+        assertEquals(10 * 60, parsed.endMinutes)
+    }
+
+    @Test
+    fun `foreign timed vevent in utc shifts to device timezone`() {
+        // Момент в UTC переводится в зону устройства: 09:00Z — это полдень
+        // по московскому времени, а не девять утра.
+        val parsed = foreign(
+            "UID:foreign-2b@example.com",
+            "DTSTART:20261117T090000Z",
+            "DTEND:20261117T100000Z",
+            "SUMMARY:Созвон",
+        ) ?: error("VEVENT не распознан")
+        val expected = ZonedDateTime.of(2026, 11, 17, 9, 0, 0, 0, ZoneOffset.UTC)
+            .withZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(expected.hour * 60 + expected.minute, parsed.startMinutes)
+        assertEquals(expected.toLocalDate().toString(), parsed.date)
     }
 
     @Test
@@ -698,6 +721,84 @@ class EventIcsMapperTest {
         )
         val parsed = roundTrip(source)
         assertEquals(source.copy(position = 0, id = 0), parsed)
+    }
+
+    // Время события
+
+    @Test
+    fun `timed event round-trips with its clock`() {
+        val source = regular().copy(startMinutes = 10 * 60, endMinutes = 11 * 60 + 30)
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
+    }
+
+    @Test
+    fun `timed event exports as date-time without timezone`() {
+        // DTSTART/DTEND вида DATE-TIME без зоны — «плавающее» локальное время.
+        val ics = eventCalendar(
+            listOf(regular().copy(startMinutes = 9 * 60, endMinutes = 10 * 60).toIcsEvent()),
+        ).icsText()
+        assertTrue("время должно попасть в DTSTART: $ics", ics.contains("DTSTART:20260217T090000"))
+        assertTrue("время должно попасть в DTEND: $ics", ics.contains("DTEND:20260217T100000"))
+        assertFalse("зоны у плавающего времени нет", ics.contains("TZID"))
+    }
+
+    @Test
+    fun `all day event keeps date-only start`() {
+        val ics = eventCalendar(listOf(regular().toIcsEvent())).icsText()
+        val dtStart = ics.lines().first { it.startsWith("DTSTART") }
+        assertTrue("дневная метка — VALUE=DATE: $dtStart", dtStart.contains("VALUE=DATE"))
+        assertFalse("у дневной метки нет времени суток: $dtStart", Regex("T\\d{6}").containsMatchIn(dtStart))
+    }
+
+    @Test
+    fun `event with start only gets an hour of duration on the wire`() {
+        // Конец не задан — на сервере событие должно иметь длительность,
+        // иначе другие календари не покажут его вовсе. Час за полночь —
+        // конец приходится на следующий день.
+        val ics = eventCalendar(
+            listOf(regular().copy(startMinutes = 23 * 60 + 30).toIcsEvent()),
+        ).icsText()
+        assertTrue("начало выгружено: $ics", ics.contains("DTSTART:20260217T233000"))
+        assertTrue("конец через полночь — следующим днём: $ics", ics.contains("DTEND:20260218T003000"))
+    }
+
+    @Test
+    fun `event crossing midnight becomes a two day span`() {
+        // Событие 23:30 → 00:30 — конец приходит на следующий день, то
+        // есть событие длиннее суток: дата конца в endDate, часы конца —
+        // от полуночи этого дня. Повтором оно не становится: объект один.
+        val parsed = foreign(
+            "UID:foreign-17@example.com",
+            "DTSTART:20260301T233000",
+            "DTEND:20260302T003000",
+            "SUMMARY:Ночная смена",
+        ) ?: error("VEVENT не распознан")
+        assertEquals("2026-03-01", parsed.date)
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertEquals(23 * 60 + 30, parsed.startMinutes)
+        assertEquals(30, parsed.endMinutes)
+        assertEquals("2026-03-02", parsed.endDate)
+        // Повтора нет: событие не расползлось на повтор.
+        assertNull(parsed.repeatUnit)
+        assertNull(parsed.repeatUntil)
+    }
+
+    @Test
+    fun `multiday event keeps its span through ics text`() {
+        // Событие 1 марта 10:00 → 5 марта 18:00 переживает ICS-текст:
+        // DTSTART на первом дне, DTEND — на последнем, дата конца в endDate.
+        val source = regular().copy(
+            startMinutes = 10 * 60,
+            endMinutes = 18 * 60,
+            endDate = "2026-03-05",
+        )
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        val ics = eventCalendar(listOf(source.toIcsEvent())).icsText()
+        assertTrue("начало на первом дне: $ics", ics.contains("DTSTART:20260217T100000"))
+        assertTrue("конец на последнем дне: $ics", ics.contains("DTEND:20260305T180000"))
     }
 
     // Непригодное на входе

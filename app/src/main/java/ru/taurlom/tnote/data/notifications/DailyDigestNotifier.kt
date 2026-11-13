@@ -12,6 +12,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import ru.taurlom.tnote.MainActivity
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.domain.model.ScheduledEvent
+import ru.taurlom.tnote.domain.util.formatEventClock
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,6 +21,9 @@ import javax.inject.Singleton
  * Уведомление-сводка событий дня. Тап открывает раздел «Календарь»:
  * сводка всегда о сегодняшнем дне, а календарь стартует с текущего
  * месяца — попасть «в день» несложно и без диплинка на дату.
+ *
+ * В сводке у события с часами они показываются перед названием
+ * («10:00 – 11:30 Встреча»), у дневной метки — только название.
  *
  * MainActivity здесь — единственная активность приложения (оболочка,
  * а не экран): ссылка нужна только для PendingIntent тапа, и завязка
@@ -28,7 +33,11 @@ import javax.inject.Singleton
 @Singleton
 class DailyDigestNotifier @Inject constructor(@ApplicationContext private val context: Context) {
 
-    fun postDailyDigest(events: List<ScheduledEvent>) {
+    /**
+     * @param day день сводки: у события длиннее суток показывается его часть
+     * за этот день, а не весь интервал.
+     */
+    fun postDailyDigest(events: List<ScheduledEvent>, day: LocalDate? = null) {
         if (events.isEmpty()) return
         val manager = NotificationManagerCompat.from(context)
         // Пользователь отключил уведомления приложения или не дал
@@ -43,7 +52,7 @@ class DailyDigestNotifier @Inject constructor(@ApplicationContext private val co
                 .build(),
         )
 
-        val titles = events.map { it.title }
+        val lines = events.map { eventLine(it, day) }
         val count = events.size
         val openCalendar = PendingIntent.getActivity(
             context,
@@ -64,9 +73,9 @@ class DailyDigestNotifier @Inject constructor(@ApplicationContext private val co
                 context.resources.getQuantityString(R.plurals.digest_notification_title, count, count),
             )
             // Свёрнутое — одна строка с перечислением; развёрнутое — список.
-            .setContentText(titles.joinToString(", "))
+            .setContentText(lines.joinToString(", "))
             .setStyle(
-                NotificationCompat.BigTextStyle().bigText(titles.joinToString("\n")),
+                NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")),
             )
             .setContentIntent(openCalendar)
             .setAutoCancel(true)
@@ -81,6 +90,37 @@ class DailyDigestNotifier @Inject constructor(@ApplicationContext private val co
         const val DIGEST_NOTIFICATION_ID = 1001
         const val OPEN_CALENDAR_REQUEST_CODE = 1002
         const val LARGE_ICON_DP = 64
+    }
+
+    /**
+     * Строка события в сводке: с часами — «10:00 – 11:30 Встреча», без
+     * времени — просто название (событие осталось дневной меткой).
+     *
+     * Часы — в том же виде, что в списке событий дня: формат 24-часовой и
+     * не зависит от локали, а текст «до …» (событие только с концом) —
+     * локализованный.
+     *
+     * @param day день сводки: у события длиннее суток показывается его часть
+     * за этот день ([ScheduledEvent.windowOn]), а не весь интервал.
+     */
+    internal fun eventLine(event: ScheduledEvent, day: LocalDate? = null): String {
+        val window = day?.let { event.windowOn(it) } ?: (event.startMinutes to event.endMinutes)
+        val start = window.first
+        val end = window.second
+        val clock = when {
+            start != null && end != null -> context.getString(
+                R.string.event_time_range,
+                formatEventClock(start),
+                formatEventClock(end),
+            )
+
+            start != null -> formatEventClock(start)
+
+            end != null -> context.getString(R.string.event_time_until, formatEventClock(end))
+
+            else -> null
+        }
+        return if (clock == null) event.title else "$clock ${event.title}"
     }
 
     /**
