@@ -103,10 +103,17 @@ class CaldavRepositoryImpl @Inject constructor(
         return id
     }
 
-    override suspend fun disconnect(accountId: Long) {
+    override suspend fun disconnect(accountId: Long, keepEvents: Boolean) {
         val account = caldavDao.getById(accountId) ?: return
         tx.inTransaction {
-            scheduledEventDao.deleteByCaldavAccount(accountId)
+            if (keepEvents) {
+                // События остаются в приложении как локальные: отвязка стирает
+                // приписку и серверную привязку, UID переживает — при повторном
+                // подключении вычитка сопоставит строки по UID без дублей.
+                scheduledEventDao.detachFromAccount(accountId)
+            } else {
+                scheduledEventDao.deleteByCaldavAccount(accountId)
+            }
             // Tombstones этого аккаунта гасятся вместе с подпиской: его
             // события остаются на сервере, а очередь DELETE без подписки
             // превращается в мусор, который некому исполнить.

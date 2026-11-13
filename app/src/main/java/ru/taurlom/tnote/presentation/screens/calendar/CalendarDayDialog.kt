@@ -734,8 +734,7 @@ private const val NO_TIME = -1
  * Умеет ли тип события часы: обычное и повторяющееся — да, день рождения и
  * «Выходной» остаются дневными метками.
  */
-private fun ScheduledEventType.hasClockTime(): Boolean =
-    this == ScheduledEventType.REGULAR || this == ScheduledEventType.REPEATING
+private fun ScheduledEventType.hasClockTime(): Boolean = this == ScheduledEventType.REGULAR || this == ScheduledEventType.REPEATING
 
 /**
  * Поле времени события: выбранные часы или «Не задано». Раскрывающийся
@@ -743,12 +742,7 @@ private fun ScheduledEventType.hasClockTime(): Boolean =
  * часы, «Выбрать время…» открывает диалог с пикером.
  */
 @Composable
-private fun EventTimeDropdown(
-    label: String,
-    value: Int?,
-    onPick: () -> Unit,
-    onClear: () -> Unit,
-) {
+private fun EventTimeDropdown(label: String, value: Int?, onPick: () -> Unit, onClear: () -> Unit) {
     // Без времени снимать нечего — в меню только выбор нового.
     val options = if (value == null) {
         listOf(TimeChoice.PICK)
@@ -854,12 +848,7 @@ internal fun ScheduledEvent.isPastOccurrence(day: LocalDate, today: LocalDate = 
  * у чужого события длиннее суток конец приходит на другой день (endDate) —
  * это не ошибка, а его длительность.
  */
-internal fun isTimeRangeInvalid(
-    date: String,
-    startMinutes: Int?,
-    endMinutes: Int?,
-    endDate: String? = null,
-): Boolean = !ScheduledEvent(
+internal fun isTimeRangeInvalid(date: String, startMinutes: Int?, endMinutes: Int?, endDate: String? = null): Boolean = !ScheduledEvent(
     date = date,
     title = "",
     startMinutes = startMinutes,

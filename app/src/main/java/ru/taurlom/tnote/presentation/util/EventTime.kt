@@ -14,8 +14,7 @@ import ru.taurlom.tnote.domain.util.formatEventClock
  * «до …» — локализованный.
  */
 @Composable
-fun eventTimeLabel(startMinutes: Int?, endMinutes: Int?): String? =
-    eventTimeLabel(startMinutes to endMinutes)
+fun eventTimeLabel(startMinutes: Int?, endMinutes: Int?): String? = eventTimeLabel(startMinutes to endMinutes)
 
 /**
  * Подпись часов окна дня ([ru.taurlom.tnote.domain.model.ScheduledEvent.windowOn]):

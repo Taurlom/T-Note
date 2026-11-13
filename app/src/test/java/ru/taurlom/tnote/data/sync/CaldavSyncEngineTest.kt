@@ -741,6 +741,19 @@ private class FakeEventDao : ScheduledEventDao {
         return before - rows.size
     }
 
+    override suspend fun detachFromAccount(accountId: Long): Int {
+        var detached = 0
+        rows.replaceAll { row ->
+            if (row.caldavAccountId == accountId) {
+                detached++
+                row.copy(caldavAccountId = null, serverHref = null, etag = null, dirty = false)
+            } else {
+                row
+            }
+        }
+        return detached
+    }
+
     override suspend fun getByDateOnce(date: String): List<ScheduledEventEntity> = rows.filter { it.eventDate == date }
 
     override suspend fun getAttributed(): List<ScheduledEventEntity> = rows.filter { it.caldavAccountId != null }

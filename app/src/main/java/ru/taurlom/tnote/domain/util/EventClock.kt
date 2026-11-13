@@ -10,5 +10,4 @@ import java.util.Locale
  * сервере. Часы лежат в [ru.taurlom.tnote.domain.model.ScheduledEvent.startMinutes]
  * и `endMinutes`.
  */
-fun formatEventClock(minutes: Int): String =
-    String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60)
+fun formatEventClock(minutes: Int): String = String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60)

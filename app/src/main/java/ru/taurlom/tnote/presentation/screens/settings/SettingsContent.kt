@@ -350,12 +350,11 @@ private fun CaldavSyncSection(viewModel: SettingsViewModel) {
     }
 
     pendingDisconnect?.let { account ->
-        ConfirmDeleteDialog(
-            title = account.collectionName,
-            text = stringResource(R.string.sync_disconnect_message),
+        CaldavDisconnectDialog(
+            account = account,
             onDismiss = { pendingDisconnect = null },
-            onConfirm = {
-                viewModel.disconnectCaldavAccount(account.id)
+            onDisconnect = { keepEvents ->
+                viewModel.disconnectCaldavAccount(account.id, keepEvents)
                 pendingDisconnect = null
             },
         )
@@ -364,6 +363,39 @@ private fun CaldavSyncSection(viewModel: SettingsViewModel) {
     CaldavAddAccountDialog(viewModel)
     CaldavSyncResultToast(viewModel)
     CaldavPublishResultToast(viewModel)
+}
+
+/**
+ * Диалог отключения календаря: «Отключить» убирает события этого календаря
+ * из приложения (на сервере они остаются), «Отключить и оставить события» —
+ * отвязывает их от подписки, и они остаются как обычные локальные события.
+ * Крестик закрывает без отключения.
+ */
+@Composable
+private fun CaldavDisconnectDialog(account: CaldavAccount, onDismiss: () -> Unit, onDisconnect: (keepEvents: Boolean) -> Unit) {
+    AppDialog(
+        title = account.collectionName,
+        onDismissRequest = onDismiss,
+        text = {
+            Text(
+                text = stringResource(R.string.sync_disconnect_message),
+                style = MaterialTheme.typography.bodyLarge,
+                color = AppTheme.colors.dialogContent,
+            )
+        },
+        dismissButton = {
+            AppTextButton(
+                onClick = { onDisconnect(true) },
+                textRes = R.string.sync_disconnect_keep,
+            )
+        },
+        confirmButton = {
+            AppTextButton(
+                onClick = { onDisconnect(false) },
+                textRes = R.string.sync_disconnect,
+            )
+        },
+    )
 }
 
 /** Итог «залить старые события» — тост с числом поставленных в очередь. */

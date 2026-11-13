@@ -30,8 +30,12 @@ interface CaldavRepository {
      */
     suspend fun connect(provider: CaldavProvider, server: String, username: String, password: String, calendar: CaldavCalendarRef): Long
 
-    /** Отключить аккаунт: события этого источника удаляются вместе с ним. */
-    suspend fun disconnect(accountId: Long)
+    /**
+     * Отключить аккаунт. С [keepEvents] события этого источника остаются
+     * в приложении как локальные (привязка к подписке стирается), иначе
+     * удаляются вместе с ним. На сервере события остаются в обоих случаях.
+     */
+    suspend fun disconnect(accountId: Long, keepEvents: Boolean)
 
     /** Ручная синхронизация одного аккаунта (кнопка «Обновить»). */
     suspend fun sync(accountId: Long): CaldavSyncResult

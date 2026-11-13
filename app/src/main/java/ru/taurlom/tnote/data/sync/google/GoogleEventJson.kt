@@ -247,12 +247,10 @@ private fun localMoment(value: String?): LocalDateTime? {
  * без зоны) ical4j разбирает в зоне устройства, поэтому стенное время
  * сохраняется, а момент с UTC/TZID переводится в местный.
  */
-private fun localMomentOf(date: DateTime): LocalDateTime =
-    LocalDateTime.ofInstant(Instant.ofEpochMilli(date.time), ZoneId.systemDefault())
+private fun localMomentOf(date: DateTime): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(date.time), ZoneId.systemDefault())
 
 /** Местный момент в форме RFC 3339 — как ждёт Google (смещение обязательно). */
-private fun rfc3339Of(moment: LocalDateTime): String =
-    moment.atZone(ZoneId.systemDefault()).format(RFC3339)
+private fun rfc3339Of(moment: LocalDateTime): String = moment.atZone(ZoneId.systemDefault()).format(RFC3339)
 
 private fun googleDayValue(value: String?): LocalDate? {
     if (value.isNullOrEmpty()) return null

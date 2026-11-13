@@ -464,12 +464,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun disconnectCaldavAccount(accountId: Long) {
+    fun disconnectCaldavAccount(accountId: Long, keepEvents: Boolean) {
         if (_caldavBusy.value) return
         viewModelScope.launch {
             _caldavBusy.value = true
             try {
-                disconnectCaldavAccountUseCase(accountId)
+                disconnectCaldavAccountUseCase(accountId, keepEvents)
             } catch (_: Exception) {
                 // Отказ отключить маловероятен; карточка останется и так.
             }

@@ -84,6 +84,19 @@ interface ScheduledEventDao {
     @Query("DELETE FROM scheduled_events WHERE caldavAccountId = :accountId")
     suspend fun deleteByCaldavAccount(accountId: Long): Int
 
+    /**
+     * Отвязка всех событий источника — при отключении аккаунта с
+     * сохранением: события остаются в приложении как локальные. Стираются
+     * приписка, серверная привязка (href, ETag) и очередь отправки; UID
+     * переживает — при повторном подключении того же календаря вычитка
+     * сопоставит строки по UID, дубли не появятся.
+     */
+    @Query(
+        "UPDATE scheduled_events SET caldavAccountId = NULL, serverHref = NULL, " +
+            "etag = NULL, dirty = 0 WHERE caldavAccountId = :accountId",
+    )
+    suspend fun detachFromAccount(accountId: Long): Int
+
     /** События дня (одноразово) — перед удалением дня: собирать tombstones. */
     @Query("SELECT * FROM scheduled_events WHERE eventDate = :date")
     suspend fun getByDateOnce(date: String): List<ScheduledEventEntity>

@@ -33,11 +33,12 @@ class ConnectCaldavAccountUseCase @Inject constructor(private val repository: Ca
 }
 
 /**
- * Отключение аккаунта: события этого источника удаляются из приложения
- * вместе с аккаунтом (на сервере они остаются).
+ * Отключение аккаунта. С [keepEvents] события этого источника остаются
+ * в приложении как локальные события, иначе удаляются вместе с аккаунтом
+ * (на сервере они остаются в обоих случаях).
  */
 class DisconnectCaldavAccountUseCase @Inject constructor(private val repository: CaldavRepository) {
-    suspend operator fun invoke(accountId: Long) = repository.disconnect(accountId)
+    suspend operator fun invoke(accountId: Long, keepEvents: Boolean) = repository.disconnect(accountId, keepEvents)
 }
 
 /** Ручная синхронизация одного аккаунта — кнопка «Обновить». */

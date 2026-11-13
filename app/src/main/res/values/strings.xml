@@ -78,7 +78,8 @@
     <string name="sync_pick">Выберите календарь</string>
     <string name="sync_refresh">Обновить</string>
     <string name="sync_disconnect">Отключить</string>
-    <string name="sync_disconnect_message">События этого календаря будут удалены из приложения (на сервере они останутся). Действие нельзя отменить.</string>
+    <string name="sync_disconnect_keep">Отключить и оставить события</string>
+    <string name="sync_disconnect_message">События этого календаря будут удалены из приложения (на сервере они останутся). «Отключить и оставить события» сохранит их в приложении как обычные локальные события.</string>
     <string name="sync_result">Синхронизировано: добавлено %1$d, обновлено %2$d, удалено %3$d, отправлено %4$d</string>
     <!-- Перезаписи last-write-wins: сервер применил свою более свежую правку —
          локальная уступила; пользователь узнаёт об этом снеком (MainActivity). -->

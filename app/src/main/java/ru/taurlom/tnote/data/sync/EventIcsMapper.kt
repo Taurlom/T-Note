@@ -83,11 +83,7 @@ private const val MINUTES_PER_DAY = 24 * 60
 private const val DEFAULT_DURATION_MINUTES = 60
 
 /** Время события в ICS: начало, конец и сдвиг дня конца (через полночь). */
-private data class TimedSpan(
-    val startMinutes: Int,
-    val endMinutes: Int,
-    val endDayOffset: Long,
-)
+private data class TimedSpan(val startMinutes: Int, val endMinutes: Int, val endDayOffset: Long)
 
 private val icsDate = DateTimeFormatter.BASIC_ISO_DATE
 
