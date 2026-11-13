@@ -1,8 +1,12 @@
 package ru.taurlom.tnote.presentation.screens.calendar
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.taurlom.tnote.R
+import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
@@ -68,5 +72,38 @@ class CalendarDayDialogTest {
     fun `weekend mark never becomes past`() {
         val pastDay = LocalDate.parse("2026-09-15")
         assertFalse(event(ScheduledEventType.WEEKEND, "2026-09-15").isPastOccurrence(pastDay, today))
+    }
+
+    // Бейдж источника: импортированное событие с припиской подписке
+    // показывает провайдера (Яндекс/Google), свои и отвязанные — ничего.
+
+    private fun imported(caldavAccountId: Long?, remoteImported: Boolean) = ScheduledEvent(
+        date = "2026-10-02",
+        title = "Тест",
+        type = ScheduledEventType.REGULAR,
+        caldavAccountId = caldavAccountId,
+        remoteImported = remoteImported,
+    )
+
+    @Test
+    fun `imported attributed event shows provider label`() {
+        val row = imported(caldavAccountId = 1L, remoteImported = true)
+        assertEquals(R.string.sync_badge_yandex, eventSourceLabel(row, CaldavProvider.YANDEX))
+        assertEquals(R.string.sync_badge_google, eventSourceLabel(row, CaldavProvider.GOOGLE))
+    }
+
+    @Test
+    fun `own event pushed to subscription shows no label`() {
+        assertNull(eventSourceLabel(imported(caldavAccountId = 1L, remoteImported = false), CaldavProvider.YANDEX))
+    }
+
+    @Test
+    fun `event kept after disconnect shows no label`() {
+        assertNull(eventSourceLabel(imported(caldavAccountId = null, remoteImported = true), CaldavProvider.YANDEX))
+    }
+
+    @Test
+    fun `no connected provider shows no label`() {
+        assertNull(eventSourceLabel(imported(caldavAccountId = 1L, remoteImported = true), null))
     }
 }

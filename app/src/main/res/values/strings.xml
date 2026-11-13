@@ -91,7 +91,8 @@
     </plurals>
     <string name="sync_last_never">Ещё не синхронизировалось</string>
     <string name="sync_last_at">Последняя синхронизация: %1$s</string>
-    <string name="sync_badge">Яндекс</string>
+    <string name="sync_badge_yandex">Яндекс</string>
+    <string name="sync_badge_google">Google</string>
     <string name="sync_error_network">Нет соединения с сервером</string>
     <string name="sync_error_auth">Неверный логин или пароль приложения</string>
     <string name="sync_error_no_calendars">Календарей с событиями не найдено</string>

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
+import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.CalendarNote
 import ru.taurlom.tnote.domain.model.EventIcon
 import ru.taurlom.tnote.domain.model.RepeatUnit
@@ -79,6 +80,7 @@ fun CalendarDayDialog(
     date: CalendarDate,
     note: CalendarNote?,
     events: List<ScheduledEvent>,
+    provider: CaldavProvider? = null,
     onDismiss: () -> Unit,
     onSaveNote: (String) -> Unit,
     onDeleteDay: () -> Unit,
@@ -122,6 +124,7 @@ fun CalendarDayDialog(
                     ScheduledEventRow(
                         event = event,
                         day = day,
+                        provider = provider,
                         onClick = { editorTarget = event },
                         onDelete = { onDeleteEvent(event) },
                     )
@@ -189,7 +192,13 @@ fun CalendarDayDialog(
 
 /** Строка события в диалоге дня. Прошедшие события приглушены и зачёркнуты. */
 @Composable
-private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun ScheduledEventRow(
+    event: ScheduledEvent,
+    day: LocalDate,
+    provider: CaldavProvider?,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+) {
     val isPast = remember(event, day) { event.isPastOccurrence(day) }
     val titleColor = if (isPast) AppTheme.colors.dialogContent.copy(alpha = 0.45f) else AppTheme.colors.dialogContent
     // Часы — по окну показываемого дня: у события длиннее суток в каждый
@@ -234,12 +243,11 @@ private fun ScheduledEventRow(event: ScheduledEvent, day: LocalDate, onClick: ()
             textDecoration = if (isPast) TextDecoration.LineThrough else null,
             modifier = Modifier.weight(1f),
         )
-        if (event.remoteImported) {
+        eventSourceLabel(event, provider)?.let { labelRes ->
             // Метка источника: крайняя версия содержимого приехала вычиткой
-            // с сервера. Собственное событие, отправленное в подписку, метки
-            // не получает — caldavAccountId у него есть, а происхождение своё.
+            // с сервера подключённого календаря (Яндекс или Google).
             Text(
-                text = stringResource(R.string.sync_badge),
+                text = stringResource(labelRes),
                 style = MaterialTheme.typography.labelSmall,
                 color = AppTheme.colors.dialogContent.copy(alpha = 0.6f),
             )
@@ -855,3 +863,20 @@ internal fun isTimeRangeInvalid(date: String, startMinutes: Int?, endMinutes: In
     endMinutes = endMinutes,
     endDate = endDate,
 ).hasValidTimeRange()
+
+/**
+ * Метка источника строки события — идентификатор строки «Яндекс»/«Google»:
+ * импортированное событие с припиской подписке показывает имя её
+ * провайдера. Собственное событие, отправленное в подписку, метки не
+ * получает — происхождение своё; событие, оставленное при отключении
+ * календаря, теряет приписку и вместе с ней метку — источника больше нет.
+ * null — метки нет.
+ */
+internal fun eventSourceLabel(event: ScheduledEvent, provider: CaldavProvider?): Int? {
+    if (!event.remoteImported || event.caldavAccountId == null) return null
+    return when (provider) {
+        CaldavProvider.YANDEX -> R.string.sync_badge_yandex
+        CaldavProvider.GOOGLE -> R.string.sync_badge_google
+        null -> null
+    }
+}

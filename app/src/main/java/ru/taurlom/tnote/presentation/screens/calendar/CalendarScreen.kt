@@ -132,6 +132,7 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
             date = date,
             note = uiState.notes[dateKey],
             events = uiState.events[dateKey].orEmpty(),
+            provider = caldavAccount?.provider,
             onDismiss = { selectedDate = null },
             onSaveNote = { viewModel.onEvent(CalendarEvent.SaveNote(dateKey, it)) },
             onDeleteDay = { viewModel.onEvent(CalendarEvent.DeleteDay(dateKey)) },
