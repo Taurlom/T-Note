@@ -60,6 +60,7 @@ import ru.taurlom.tnote.presentation.components.AppTextField
 import ru.taurlom.tnote.presentation.components.AppTimePicker
 import ru.taurlom.tnote.presentation.components.ColorSwatchOption
 import ru.taurlom.tnote.presentation.theme.AppTheme
+import ru.taurlom.tnote.presentation.theme.appDatePickerColors
 import ru.taurlom.tnote.presentation.util.eventTimeLabel
 import java.time.DayOfWeek
 import java.time.Instant
@@ -316,6 +317,11 @@ private fun ScheduledEventEditorDialog(
     // времени нет (в модели это null).
     var startMinutes by rememberSaveable { mutableStateOf(original?.startMinutes ?: NO_TIME) }
     var endMinutes by rememberSaveable { mutableStateOf(original?.endMinutes ?: NO_TIME) }
+    // Поля времени раскрыты: сразу, если у события время уже есть;
+    // иначе показывается аутлайн-кнопка «Добавить время».
+    var timeFieldsShown by rememberSaveable {
+        mutableStateOf(original?.startMinutes != null || original?.endMinutes != null)
+    }
     // Какое из полей сейчас выбирают: null — пикер закрыт.
     var timeTarget by remember { mutableStateOf<TimeTarget?>(null) }
 
@@ -334,6 +340,9 @@ private fun ScheduledEventEditorDialog(
         endMinutes = endTime,
         endDate = original?.endDate,
     )
+    // Время заполняется парой: одно поле без другого не сохранить. У типов
+    // без часов (день рождения, «Выходной») время не показывается вовсе.
+    val timeComplete = !type.hasClockTime() || (startTime == null) == (endTime == null)
     // Повторяющемуся событию нужны частота, интервал и (если заполнено)
     // разборчивая дата-ограничитель.
     val repeatConfigured = type != ScheduledEventType.REPEATING ||
@@ -361,16 +370,12 @@ private fun ScheduledEventEditorDialog(
                 selectedLabel = stringResource(type.labelRes),
                 options = ScheduledEventType.entries.toList(),
                 optionText = { option ->
-                    Text(
-                        text = stringResource(option.labelRes),
-                        color = AppTheme.colors.dialogContent,
-                    )
+                    Text(text = stringResource(option.labelRes))
                 },
                 optionIcon = { option ->
                     Icon(
                         painter = painterResource(option.iconRes),
                         contentDescription = null,
-                        tint = AppTheme.colors.dialogContent,
                     )
                 },
                 onSelect = { type = it },
@@ -383,10 +388,7 @@ private fun ScheduledEventEditorDialog(
                     selectedLabel = stringResource(repeatUnit.labelRes),
                     options = RepeatUnit.entries.toList(),
                     optionText = { option ->
-                        Text(
-                            text = stringResource(option.labelRes),
-                            color = AppTheme.colors.dialogContent,
-                        )
+                        Text(text = stringResource(option.labelRes))
                     },
                     onSelect = {
                         repeatUnit = it
@@ -443,10 +445,7 @@ private fun ScheduledEventEditorDialog(
                     } ?: stringResource(R.string.repeat_until_never),
                     options = listOf(R.string.repeat_until_never, R.string.repeat_until_pick),
                     optionText = { option ->
-                        Text(
-                            text = stringResource(option),
-                            color = AppTheme.colors.dialogContent,
-                        )
+                        Text(text = stringResource(option))
                     },
                     onSelect = { option ->
                         if (option == R.string.repeat_until_pick) {
@@ -489,28 +488,50 @@ private fun ScheduledEventEditorDialog(
             // Иконку и её цвет выбирают обычные и повторяющиеся события:
             // день рождения отмечается подарком, «Выходной» — подсветкой дня.
             if (type == ScheduledEventType.REGULAR || type == ScheduledEventType.REPEATING) {
-                // Время события: тот же выбор часов, что у напоминания в
-                // настройках (пикер времени в отдельном диалоге).
-                EventTimeDropdown(
-                    label = stringResource(R.string.event_time_start),
-                    value = startTime,
-                    onPick = { timeTarget = TimeTarget.START },
-                    onClear = { startMinutes = NO_TIME },
-                )
-                EventTimeDropdown(
-                    label = stringResource(R.string.event_time_end),
-                    value = endTime,
-                    onPick = { timeTarget = TimeTarget.END },
-                    onClear = { endMinutes = NO_TIME },
-                )
-                // Ошибка ввода времени — под полями: завершение раньше
-                // начала в одних сутках сохранить нельзя.
-                if (timeRangeInvalid) {
-                    Text(
-                        text = stringResource(R.string.event_time_range_invalid),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                // Время события: пока не задано — аутлайн-кнопка; после нажатия
+                // — оба поля на одной строке. Тап по полю открывает пикер,
+                // крестик в поле снимает время.
+                if (timeFieldsShown) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        EventTimeField(
+                            label = stringResource(R.string.event_time_start),
+                            value = startTime,
+                            onPick = { timeTarget = TimeTarget.START },
+                            onClear = { startMinutes = NO_TIME },
+                            modifier = Modifier.weight(1f),
+                        )
+                        EventTimeField(
+                            label = stringResource(R.string.event_time_end),
+                            value = endTime,
+                            onPick = { timeTarget = TimeTarget.END },
+                            onClear = { endMinutes = NO_TIME },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    // Ошибка ввода времени — под полями: завершение раньше
+                    // начала в одних сутках сохранить нельзя.
+                    if (timeRangeInvalid) {
+                        Text(
+                            text = stringResource(R.string.event_time_range_invalid),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.errorAccent,
+                        )
+                    }
+                } else {
+                    AppOutlinedButton(
+                        onClick = { timeFieldsShown = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_add),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.event_time_add),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
 
                 Text(
@@ -609,7 +630,7 @@ private fun ScheduledEventEditorDialog(
                         ),
                     )
                 },
-                enabled = title.isNotBlank() && repeatConfigured && !timeRangeInvalid,
+                enabled = title.isNotBlank() && repeatConfigured && !timeRangeInvalid && timeComplete,
             )
         },
         dismissButton = if (original != null) {
@@ -631,6 +652,8 @@ private fun ScheduledEventEditorDialog(
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
+            shape = MaterialTheme.shapes.small,
+            colors = appDatePickerColors(),
             confirmButton = {
                 AppTextButton(
                     onClick = {
@@ -649,7 +672,7 @@ private fun ScheduledEventEditorDialog(
                 AppTextButton(onClick = { showDatePicker = false }, textRes = R.string.cancel)
             },
         ) {
-            DatePicker(state = pickerState)
+            DatePicker(state = pickerState, colors = appDatePickerColors())
         }
     }
 
@@ -745,42 +768,40 @@ private const val NO_TIME = -1
 private fun ScheduledEventType.hasClockTime(): Boolean = this == ScheduledEventType.REGULAR || this == ScheduledEventType.REPEATING
 
 /**
- * Поле времени события: выбранные часы или «Не задано». Раскрывающийся
- * список — тот же приём, что у «Повторять до»: «Убрать время» снимает
- * часы, «Выбрать время…» открывает диалог с пикером.
+ * Поле времени события: readOnly-поле, тап по нему открывает пикер
+ * ([TimeTarget]), крестик справа снимает время. Пустое поле показывает
+ * placeholder «Не задано».
  */
 @Composable
-private fun EventTimeDropdown(label: String, value: Int?, onPick: () -> Unit, onClear: () -> Unit) {
-    // Без времени снимать нечего — в меню только выбор нового.
-    val options = if (value == null) {
-        listOf(TimeChoice.PICK)
-    } else {
-        listOf(TimeChoice.CLEAR, TimeChoice.PICK)
-    }
-    AppDropdown(
-        label = label,
-        selectedLabel = value?.let { formatEventClock(it) } ?: stringResource(R.string.event_time_unset),
-        options = options,
-        optionText = { choice ->
-            Text(
-                text = stringResource(choice.labelRes),
-                color = AppTheme.colors.dialogContent,
-            )
-        },
-        onSelect = { choice ->
-            when (choice) {
-                TimeChoice.CLEAR -> onClear()
-                TimeChoice.PICK -> onPick()
+private fun EventTimeField(label: String, value: Int?, onPick: () -> Unit, onClear: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        AppTextField(
+            value = value?.let { formatEventClock(it) } ?: "",
+            onValueChange = { },
+            label = label,
+            placeholder = stringResource(R.string.event_time_unset),
+            singleLine = true,
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Тап-слой поверх поля: клик не доходит до текстового поля, поэтому
+        // оно не ловит фокус и не зовёт клавиатуру — вместо этого пикер.
+        Box(modifier = Modifier.matchParentSize().clickable(onClick = onPick))
+        if (value != null) {
+            IconButton(
+                onClick = onClear,
+                // Поверх тап-слоя: рисуется последним, поэтому кликабелен.
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = stringResource(R.string.event_time_clear),
+                    tint = AppTheme.colors.dialogContentMuted,
+                    modifier = Modifier.size(20.dp),
+                )
             }
-        },
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-/** Пункты меню поля времени. */
-private enum class TimeChoice(val labelRes: Int) {
-    CLEAR(R.string.event_time_clear),
-    PICK(R.string.event_time_pick),
+        }
+    }
 }
 
 /** Кружок выбора дня недели — в размере и стилистике палитры цветов. */

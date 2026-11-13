@@ -1,6 +1,7 @@
 package ru.taurlom.tnote.presentation.components
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
@@ -63,14 +64,16 @@ fun AppTextButton(onClick: () -> Unit, @StringRes textRes: Int, modifier: Modifi
     }
 }
 
-/** Контурная кнопка на светлом фоне диалога. */
+/** Контурная кнопка диалогов: текст, иконка и контур — [AppColors.outlinedButtonContent]
+ * и [AppColors.outlinedButtonBorder] (в тёмной теме — Gold). */
 @Composable
 fun AppOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
         shape = MaterialTheme.shapes.small,
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.dialogContent),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.outlinedButtonContent),
+        border = BorderStroke(1.dp, AppTheme.colors.outlinedButtonBorder),
         content = content,
     )
 }

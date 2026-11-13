@@ -25,7 +25,7 @@
     <string name="close">Закрыть</string>
     <string name="more">Ещё</string>
     <string name="archive_title">Архив</string>
-    <string name="archive_empty">В архиве пусто</string>
+    <string name="archive_empty">В архиве пока нет списков</string>
     <string name="category_archived">Список «%1$s» перемещён в архив</string>
     <string name="undo">Отменить</string>
     <string name="restore">Вернуть</string>
@@ -35,9 +35,9 @@
     <string name="search_documents_hint">Поиск документов</string>
     <string name="search_tasks_hint">Поиск записей</string>
     <string name="search_categories_hint">Поиск списков</string>
-    <string name="no_search_results">Ничего не найдено</string>
-    <string name="no_categories">Пока нет списков</string>
-    <string name="no_tasks">В этом списке пока нет записей</string>
+    <string name="no_search_results">Ничего не найдено. Попробуйте изменить запрос</string>
+    <string name="no_categories">Списков пока нет. Добавьте первый список</string>
+    <string name="no_tasks">В этом списке пока нет записей. Добавьте первую</string>
     <string name="choose_color">Выберите цвет</string>
     <string name="bottom_nav_calendar">Календарь</string>
     <string name="bottom_nav_documents">Документы</string>
@@ -108,7 +108,7 @@
     <string name="documents_title">Документы</string>
     <string name="add_document">Добавить документ</string>
     <string name="edit_document">Редактировать документ</string>
-    <string name="no_documents">Пока нет документов</string>
+    <string name="no_documents">Документов пока нет. Добавьте первый документ</string>
     <string name="document_name">Название</string>
     <string name="document_description">Описание</string>
     <string name="created_at">Добавлен: %1$s</string>
@@ -122,7 +122,7 @@
     <string name="notes_title">Заметки</string>
     <string name="add_note">Добавить заметку</string>
     <string name="edit_note">Редактировать заметку</string>
-    <string name="no_notes">Пока нет заметок</string>
+    <string name="no_notes">Заметок пока нет. Добавьте первую заметку</string>
     <string name="note_detail">Заметка</string>
     <string name="note_not_found">Заметка не найдена</string>
     <string name="delete_note_confirm">Удалить заметку «%1$s»?</string>
@@ -240,7 +240,7 @@
     <string name="event_time_start">Начало</string>
     <string name="event_time_end">Завершение</string>
     <string name="event_time_unset">Не задано</string>
-    <string name="event_time_pick">Выбрать время…</string>
+    <string name="event_time_add">Добавить время</string>
     <string name="event_time_clear">Убрать время</string>
     <string name="event_time_dialog_start">Время начала</string>
     <string name="event_time_dialog_end">Время завершения</string>

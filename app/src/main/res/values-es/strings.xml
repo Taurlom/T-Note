@@ -17,8 +17,8 @@
     <string name="delete">Eliminar</string>
     <string name="cancel">Cancelar</string>
     <string name="close">Cerrar</string>
-    <string name="no_categories">Aún no hay listas</string>
-    <string name="no_tasks">Esta lista está vacía</string>
+    <string name="no_categories">Aún no hay listas. Añade la primera</string>
+    <string name="no_tasks">Esta lista está vacía. Añade la primera entrada</string>
     <string name="choose_color">Elige un color</string>
     <string name="bottom_nav_calendar">Calendario</string>
     <string name="bottom_nav_documents">Documentos</string>
@@ -92,7 +92,7 @@
     <string name="documents_title">Documentos</string>
     <string name="add_document">Añadir documento</string>
     <string name="edit_document">Editar documento</string>
-    <string name="no_documents">Aún no hay documentos</string>
+    <string name="no_documents">Aún no hay documentos. Añade el primero</string>
     <string name="document_name">Nombre</string>
     <string name="document_description">Descripción</string>
     <string name="created_at">Añadido: %1$s</string>
@@ -106,7 +106,7 @@
     <string name="notes_title">Notas</string>
     <string name="add_note">Añadir nota</string>
     <string name="edit_note">Editar nota</string>
-    <string name="no_notes">Aún no hay notas</string>
+    <string name="no_notes">Aún no hay notas. Añade la primera</string>
     <string name="note_detail">Nota</string>
     <string name="note_not_found">Nota no encontrada</string>
     <string name="delete_note_confirm">¿Eliminar la nota «%1$s»?</string>
@@ -173,7 +173,7 @@
     <string name="load_list">Cargar lista</string>
     <string name="more">Más</string>
     <string name="archive_title">Archivo</string>
-    <string name="archive_empty">El archivo está vacío</string>
+    <string name="archive_empty">El archivo está vacío. Las listas eliminadas llegan aquí</string>
     <string name="category_archived">La lista «%1$s» se movió al archivo</string>
     <string name="undo">Deshacer</string>
     <string name="restore">Restaurar</string>
@@ -183,7 +183,7 @@
     <string name="search_documents_hint">Buscar documentos</string>
     <string name="search_tasks_hint">Buscar entradas</string>
     <string name="search_categories_hint">Buscar listas</string>
-    <string name="no_search_results">No se encontró nada</string>
+    <string name="no_search_results">No se encontró nada. Prueba con otra consulta</string>
     <string name="shared_list_import_title">Lista desde archivo</string>
     <string name="shared_list_import_text">¿Añadir la lista «%1$s» con %2$d elemento(s)? Tus datos actuales no cambiarán.</string>
     <string name="shared_list_import_summary">Pendientes: %1$d, hechos: %2$d</string>
@@ -237,7 +237,7 @@
     <string name="event_time_start">Inicio</string>
     <string name="event_time_end">Fin</string>
     <string name="event_time_unset">Sin definir</string>
-    <string name="event_time_pick">Elegir hora…</string>
+    <string name="event_time_add">Añadir hora</string>
     <string name="event_time_clear">Quitar hora</string>
     <string name="event_time_dialog_start">Hora de inicio</string>
     <string name="event_time_dialog_end">Hora de fin</string>

@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenuItem
@@ -7,6 +8,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -16,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.presentation.theme.AppTheme
 
 /**
@@ -76,6 +79,9 @@ fun <T> AppDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             containerColor = AppTheme.colors.dialogContainer,
+            // Контур menuBorder отделяет меню от фона (в тёмной теме контейнер
+            // = цвет фона экрана); пункты — menuItemContent (акцент Gold).
+            border = BorderStroke(1.dp, AppTheme.colors.menuBorder),
             modifier = with(LocalDensity.current) {
                 if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier
             },
@@ -86,6 +92,10 @@ fun <T> AppDropdown(
                     leadingIcon = optionIcon?.let { iconContent ->
                         { iconContent(option) }
                     },
+                    colors = MenuDefaults.itemColors(
+                        textColor = AppTheme.colors.menuItemContent,
+                        leadingIconColor = AppTheme.colors.menuItemContent,
+                    ),
                     onClick = {
                         onSelect(option)
                         expanded = false

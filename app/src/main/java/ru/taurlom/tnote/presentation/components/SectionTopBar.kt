@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -17,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import ru.taurlom.tnote.R
 import ru.taurlom.tnote.presentation.theme.AppTheme
 
@@ -66,7 +68,7 @@ fun SectionTopBar(
                 if (onSyncClick != null) {
                     IconButton(onClick = onSyncClick) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_directory_sync),
+                            painter = painterResource(R.drawable.ic_sync),
                             contentDescription = stringResource(R.string.sync_refresh),
                             tint = AppTheme.colors.brandTitle,
                         )
@@ -92,7 +94,7 @@ fun SectionTopBar(
                 if (onSyncClick != null) {
                     IconButton(onClick = onSyncClick) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_directory_sync),
+                            painter = painterResource(R.drawable.ic_sync),
                             contentDescription = stringResource(R.string.sync_refresh),
                         )
                     }
@@ -119,15 +121,16 @@ fun SectionTopBar(
  * меню, а узел нулевого размера без обёртки вставал в начало родительского
  * ряда — меню открывалось у левого края экрана вместо позиции под иконкой.
  *
- * Цвета — роли диалогов ([AppTheme.colors.dialogContainer]/`dialogContent`):
- * выпадающий список в палитре приложения приравнен к диалогам.
+ * Цвета — роли приложения: пункты — [AppTheme.colors.menuItemContent] (в тёмной
+ * теме — акцент Gold), контейнер — как у диалогов ([AppTheme.colors.dialogContainer]),
+ * контур — [AppTheme.colors.menuBorder], отделяющий меню от фона.
  */
 @Composable
 private fun SectionMenu(onImportLists: (() -> Unit)?, onArchiveClick: (() -> Unit)?, iconTint: Color? = null) {
     var expanded by remember { mutableStateOf(false) }
     val itemColors = MenuDefaults.itemColors(
-        textColor = AppTheme.colors.dialogContent,
-        leadingIconColor = AppTheme.colors.dialogContent,
+        textColor = AppTheme.colors.menuItemContent,
+        leadingIconColor = AppTheme.colors.menuItemContent,
     )
     Box {
         IconButton(onClick = { expanded = true }) {
@@ -141,6 +144,7 @@ private fun SectionMenu(onImportLists: (() -> Unit)?, onArchiveClick: (() -> Uni
             expanded = expanded,
             onDismissRequest = { expanded = false },
             containerColor = AppTheme.colors.dialogContainer,
+            border = BorderStroke(1.dp, AppTheme.colors.menuBorder),
         ) {
             if (onImportLists != null) {
                 DropdownMenuItem(

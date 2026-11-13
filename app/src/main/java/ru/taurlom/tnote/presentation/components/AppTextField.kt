@@ -31,7 +31,7 @@ import ru.taurlom.tnote.presentation.theme.TNoteTheme
  * `OutlinedTextFieldDefaults.colors(...)` в каждом экране.
  *
  * Необязательные пропсы:
- *  - [required] — добавляет в лейбл звёздочку цвета [AppColors.requiredMarker],
+ *  - [required] — добавляет в лейбл звёздочку цвета [AppColors.errorAccent],
  *    показывая, что поле нужно заполнить;
  *  - [onDarkBackground] — палитра для полей на тёмном фоне экрана
  *    (настройки, карточки), а не в светлом диалоге.
@@ -110,14 +110,14 @@ fun AppTextField(
     )
 }
 
-/** Лейбл поля: у обязательных — звёздочка цвета [AppColors.requiredMarker]. */
+/** Лейбл поля: у обязательных — звёздочка цвета [AppColors.errorAccent]. */
 @Composable
 private fun AppFieldLabel(label: String, required: Boolean) {
     Text(
         text = if (required) {
             buildAnnotatedString {
                 append(label)
-                withStyle(SpanStyle(color = AppTheme.colors.requiredMarker)) {
+                withStyle(SpanStyle(color = AppTheme.colors.errorAccent)) {
                     append(" *")
                 }
             }

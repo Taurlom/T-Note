@@ -25,6 +25,12 @@ data class AppColors(
     val appBarScrolledContainer: Color,
     // Диалоги и выпадающие списки
     val dialogContainer: Color,
+    /** Контур диалога: отделяет его от фона, когда контейнер сливается с экраном. */
+    val dialogBorder: Color,
+    /** Заголовок диалога и крестик закрытия. */
+    val dialogTitle: Color,
+    /** Переключатели-радио в диалогах (например, выбор источника CalDAV). */
+    val dialogRadioContent: Color,
     val dialogContent: Color,
     /** Приглушённый текст/иконки внутри диалога. */
     val dialogContentMuted: Color,
@@ -35,8 +41,8 @@ data class AppColors(
     // Текстовые поля на фоне экрана
     val fieldOnDarkContent: Color,
     val fieldOnDarkBorder: Color,
-    /** Маркер обязательного поля («*») в лейбле. */
-    val requiredMarker: Color,
+    /** Цвет ошибок и звёздочки обязательного поля («*») в лейбле. */
+    val errorAccent: Color,
     // TimePicker в диалоге установки времени напоминания
     // (перевод ролей в M3 — theme/TimePickerColors.kt)
     /** Тёмная подложка-«мини-экран» под пикером; рисует её AppTimePicker. */
@@ -58,6 +64,9 @@ data class AppColors(
     val buttonContent: Color,
     val buttonDisabledContainer: Color,
     val buttonDisabledContent: Color,
+    /** Текст, иконка и контур аутлайн-кнопки (например, «Добавить событие»). */
+    val outlinedButtonContent: Color,
+    val outlinedButtonBorder: Color,
     val chipSelectedContainer: Color,
     val chipSelectedContent: Color,
     val chipContainer: Color,
@@ -70,6 +79,11 @@ data class AppColors(
     val snackbarAction: Color,
     // Иконки действий на карточках (редактировать/удалить)
     val actionIcon: Color,
+    // Выпадающее меню-список (например, «⋮» раздела)
+    /** Текст и иконки пунктов меню. */
+    val menuItemContent: Color,
+    /** Контур меню: отделяет его от фона, когда контейнер сливается с экраном. */
+    val menuBorder: Color,
     // Нижняя навигация
     val bottomNavContainer: Color,
     val bottomNavIndicator: Color,

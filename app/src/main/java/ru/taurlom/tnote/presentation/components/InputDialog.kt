@@ -123,10 +123,7 @@ fun TaskInputDialog(
                     selectedLabel = copyTargets.find { it.id == targetCategoryId }?.name,
                     options = copyTargets,
                     optionText = { target ->
-                        Text(
-                            text = target.name,
-                            color = AppTheme.colors.dialogContent,
-                        )
+                        Text(text = target.name)
                     },
                     placeholder = stringResource(R.string.choose_list),
                     onSelect = { targetCategoryId = it.id },

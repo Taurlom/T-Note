@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -27,7 +26,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +37,7 @@ import ru.taurlom.tnote.presentation.components.AppDialog
 import ru.taurlom.tnote.presentation.components.AppFab
 import ru.taurlom.tnote.presentation.components.AppTopBar
 import ru.taurlom.tnote.presentation.components.ConfirmDeleteDialog
+import ru.taurlom.tnote.presentation.components.EmptyState
 import ru.taurlom.tnote.presentation.components.ReorderableLazyColumn
 import ru.taurlom.tnote.presentation.components.SearchTopBar
 import ru.taurlom.tnote.presentation.components.TaskInputDialog
@@ -131,12 +130,9 @@ fun TasksScreen(categoryId: Long, onBackClick: () -> Unit, viewModel: TasksViewM
                 .padding(padding),
         ) {
             if (visibleTasks.isEmpty()) {
-                Text(
-                    text = stringResource(
-                        if (query.isNotBlank()) R.string.no_search_results else R.string.no_tasks,
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
+                EmptyState(
+                    iconRes = if (query.isNotBlank()) R.drawable.ic_search else R.drawable.ic_format_list_bulleted,
+                    messageRes = if (query.isNotBlank()) R.string.no_search_results else R.string.no_tasks,
                     modifier = Modifier.align(Alignment.Center),
                 )
             } else {

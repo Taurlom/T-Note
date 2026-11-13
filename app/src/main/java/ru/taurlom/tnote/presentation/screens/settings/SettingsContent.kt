@@ -7,15 +7,20 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -446,7 +452,7 @@ private fun CaldavAccountCard(account: CaldavAccount, busy: Boolean, viewModel: 
                 ),
             style = MaterialTheme.typography.labelMedium,
             color = if (errorText != null) {
-                Color(0xFFCC0000)
+                AppTheme.colors.errorAccent
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
@@ -535,11 +541,14 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
                 )
                 // Каждый вариант — своей строкой: в узком диалоге два
                 // радио в ряд не помещаются, подпись сжималась в столбик.
-                listOf(
-                    CaldavProvider.YANDEX to R.string.sync_provider_yandex,
-                    CaldavProvider.GOOGLE to R.string.sync_provider_google,
-                ).forEach { (provider, labelRes) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                // Кликабельна вся строка: тап по логотипу тоже переключает.
+                listOf(CaldavProvider.YANDEX, CaldavProvider.GOOGLE).forEach { provider ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = { viewModel.selectCaldavProvider(provider) }),
+                    ) {
                         RadioButton(
                             selected = state.provider == provider,
                             onClick = { viewModel.selectCaldavProvider(provider) },
@@ -547,11 +556,7 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
                             // терялась — красим и её цветом текста.
                             colors = radioColors(),
                         )
-                        Text(
-                            text = stringResource(labelRes),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = AppTheme.colors.dialogContent,
-                        )
+                        ProviderLogo(provider)
                     }
                 }
 
@@ -657,37 +662,36 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
         },
         confirmButton = {
             Column(horizontalAlignment = Alignment.End) {
-                // У Google до поиска нужен выбранный аккаунт — кнопка выбора
-                // живёт рядом с «Найти календари».
-                if (state.provider == CaldavProvider.GOOGLE && state.calendars.isEmpty()) {
-                    AppTextButton(
-                        onClick = {
-                            val picker = AccountManager.newChooseAccountIntent(
-                                null,
-                                null,
-                                arrayOf("com.google"),
-                                null,
-                                null,
-                                null,
-                                null,
-                            )
-                            accountPickerLauncher.launch(picker)
-                        },
-                        textRes = R.string.sync_google_pick,
-                        enabled = !state.discovering,
-                    )
-                }
                 if (state.calendars.isEmpty()) {
-                    AppTextButton(
-                        onClick = viewModel::discoverCaldavCalendars,
-                        textRes = R.string.sync_find,
-                        enabled = when (state.provider) {
-                            CaldavProvider.GOOGLE -> state.username.isNotBlank() && !state.discovering
+                    when (state.provider) {
+                        // У Google поиск ведёт выбор аккаунта: после пикера
+                        // поиск запускается сам (и повторяется после выдачи
+                        // согласия), поэтому ручной кнопки поиска нет.
+                        CaldavProvider.GOOGLE -> AppTextButton(
+                            onClick = {
+                                val picker = AccountManager.newChooseAccountIntent(
+                                    null,
+                                    null,
+                                    arrayOf("com.google"),
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                )
+                                accountPickerLauncher.launch(picker)
+                            },
+                            textRes = R.string.sync_google_pick,
+                            enabled = !state.discovering,
+                        )
 
-                            CaldavProvider.YANDEX ->
-                                state.username.isNotBlank() && state.password.isNotBlank() && !state.discovering
-                        },
-                    )
+                        CaldavProvider.YANDEX -> AppTextButton(
+                            onClick = viewModel::discoverCaldavCalendars,
+                            textRes = R.string.sync_find,
+                            enabled = state.username.isNotBlank() &&
+                                state.password.isNotBlank() &&
+                                !state.discovering,
+                        )
+                    }
                 } else {
                     AppTextButton(
                         onClick = viewModel::connectCaldavAccount,
@@ -700,12 +704,75 @@ private fun CaldavAddAccountDialog(viewModel: SettingsViewModel) {
     )
 }
 
-/** Цвет радиокнопок в диалоге: активная и неактивная — цветом текста. */
+/** Цвет радиокнопок в диалоге: активная и неактивная — [AppColors.dialogRadioContent]
+ * (в тёмной теме — акцент Gold). */
 @Composable
 private fun radioColors() = RadioButtonDefaults.colors(
-    selectedColor = AppTheme.colors.dialogContent,
-    unselectedColor = AppTheme.colors.dialogContent,
+    selectedColor = AppTheme.colors.dialogRadioContent,
+    unselectedColor = AppTheme.colors.dialogRadioContent,
 )
+
+/**
+ * Логотип провайдера синхронизации вместо текстовой подписи: фирменное
+ * начертание + иконка календаря провайдера. У Яндекса две версии логотипа —
+ * на русском (если язык приложения русский) и латиницей для остальных.
+ */
+@Composable
+private fun ProviderLogo(provider: CaldavProvider, modifier: Modifier = Modifier) {
+    val isRussian = LocalConfiguration.current.locales[0].language == "ru"
+    // Логотипы многокрасочные: tint = Unspecified, чтобы Icon не перекрашивал
+    // vector текущим цветом контента. Пропорции задаются aspectRatio по
+    // исходному viewBox: intrinsic у vector фиксирован 24×24dp и ширину
+    // иначе сплющивает.
+    val noTint = Color.Unspecified
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        when (provider) {
+            CaldavProvider.YANDEX -> {
+                Icon(
+                    painter = painterResource(
+                        if (isRussian) R.drawable.ic_yandex_ru else R.drawable.ic_yandex_en,
+                    ),
+                    contentDescription = stringResource(R.string.sync_provider_yandex),
+                    tint = noTint,
+                    modifier = Modifier
+                        .height(16.dp)
+                        .aspectRatio(if (isRussian) 745f / 215f else 789f / 190f),
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_ya_cal),
+                    contentDescription = null,
+                    tint = noTint,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .size(20.dp),
+                )
+            }
+
+            CaldavProvider.GOOGLE -> {
+                Icon(
+                    painter = painterResource(R.drawable.ic_google_full),
+                    contentDescription = stringResource(R.string.sync_provider_google),
+                    tint = noTint,
+                    modifier = Modifier
+                        .height(20.dp)
+                        .aspectRatio(140f / 44f)
+                        // Глиф «Google» прижат к верху viewBox (снизу ~10 ед.
+                        // пустоты) — опускаю, чтобы надпись сидела по центру
+                        // строки рядом с радио и иконкой календаря.
+                        .offset(y = 2.dp),
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_google_cal),
+                    contentDescription = null,
+                    tint = noTint,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .size(24.dp),
+                )
+            }
+        }
+    }
+}
 
 /** Подпись отказа формы: типизированный вид из [CaldavErrorKind]. */
 @Composable
@@ -722,9 +789,9 @@ private fun CaldavAddErrorText(state: CaldavAddState) {
             CaldavErrorKind.OTHER -> stringResource(R.string.sync_error_other, state.errorMessage.orEmpty())
         },
         style = MaterialTheme.typography.bodySmall,
-        // Системный errorColor в тёмной палитре малоконтрастен на фоне
-        // диалога — читаемость важнее формальной темы.
-        color = Color(0xFFCC0000),
+        // Один источник цвета ошибок — AppColors.errorAccent (он же цвет
+        // звёздочки обязательного поля; в тёмной теме — Red).
+        color = AppTheme.colors.errorAccent,
     )
 }
 
@@ -804,7 +871,6 @@ private fun PersonalizationTab(uiState: SettingsUiState, viewModel: SettingsView
                 text = font.displayName,
                 fontFamily = font.fontFamily,
                 style = MaterialTheme.typography.bodyLarge,
-                color = AppTheme.colors.dialogContent,
             )
         },
         onSelect = { viewModel.applyFont(it) },
@@ -822,7 +888,6 @@ private fun PersonalizationTab(uiState: SettingsUiState, viewModel: SettingsView
             Text(
                 text = stringResource(theme.labelRes),
                 style = MaterialTheme.typography.bodyLarge,
-                color = AppTheme.colors.dialogContent,
             )
         },
         onSelect = { viewModel.applyTheme(it) },
@@ -840,7 +905,6 @@ private fun PersonalizationTab(uiState: SettingsUiState, viewModel: SettingsView
             Text(
                 text = stringResource(language.labelRes),
                 style = MaterialTheme.typography.bodyLarge,
-                color = AppTheme.colors.dialogContent,
             )
         },
         onSelect = { viewModel.applyLanguage(it) },

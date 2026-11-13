@@ -17,8 +17,8 @@
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
     <string name="close">Close</string>
-    <string name="no_categories">No lists yet</string>
-    <string name="no_tasks">This list is empty</string>
+    <string name="no_categories">No lists yet. Add your first list</string>
+    <string name="no_tasks">This list is empty. Add your first entry</string>
     <string name="choose_color">Choose a color</string>
     <string name="bottom_nav_calendar">Calendar</string>
     <string name="bottom_nav_documents">Documents</string>
@@ -92,7 +92,7 @@
     <string name="documents_title">Documents</string>
     <string name="add_document">Add document</string>
     <string name="edit_document">Edit document</string>
-    <string name="no_documents">No documents yet</string>
+    <string name="no_documents">No documents yet. Add your first document</string>
     <string name="document_name">Name</string>
     <string name="document_description">Description</string>
     <string name="created_at">Added: %1$s</string>
@@ -106,7 +106,7 @@
     <string name="notes_title">Notes</string>
     <string name="add_note">Add note</string>
     <string name="edit_note">Edit note</string>
-    <string name="no_notes">No notes yet</string>
+    <string name="no_notes">No notes yet. Add your first note</string>
     <string name="note_detail">Note</string>
     <string name="note_not_found">Note not found</string>
     <string name="delete_note_confirm">Delete note "%1$s"?</string>
@@ -173,7 +173,7 @@
     <string name="load_list">Load list</string>
     <string name="more">More</string>
     <string name="archive_title">Archive</string>
-    <string name="archive_empty">Archive is empty</string>
+    <string name="archive_empty">Archive is empty. Deleted lists come here</string>
     <string name="category_archived">List \"%1$s\" moved to archive</string>
     <string name="undo">Undo</string>
     <string name="restore">Restore</string>
@@ -183,7 +183,7 @@
     <string name="search_documents_hint">Search documents</string>
     <string name="search_tasks_hint">Search entries</string>
     <string name="search_categories_hint">Search lists</string>
-    <string name="no_search_results">Nothing found</string>
+    <string name="no_search_results">Nothing found. Try a different query</string>
     <string name="shared_list_import_title">List from file</string>
     <string name="shared_list_import_text">Add list \"%1$s\" with %2$d item(s)? Your current data will not change.</string>
     <string name="shared_list_import_summary">To do: %1$d, done: %2$d</string>
@@ -237,7 +237,7 @@
     <string name="event_time_start">Start</string>
     <string name="event_time_end">End</string>
     <string name="event_time_unset">Not set</string>
-    <string name="event_time_pick">Pick a time…</string>
+    <string name="event_time_add">Add time</string>
     <string name="event_time_clear">Clear time</string>
     <string name="event_time_dialog_start">Start time</string>
     <string name="event_time_dialog_end">End time</string>

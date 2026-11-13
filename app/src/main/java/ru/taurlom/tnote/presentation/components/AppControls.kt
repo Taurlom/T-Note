@@ -22,8 +22,10 @@ import ru.taurlom.tnote.presentation.theme.TNoteTheme
 
 /**
  * Флажок. Правило дизайн-системы: на тёмном фоне — золотой (secondary),
- * на светлом (диалоги) — синий (primary). [uncheckedColor] переопределяется
- * на светлых диалогах, где стандартный приглушённый цвет сливается с фоном.
+ * в диалогах — контейнер [AppColors.chipSelectedContainer] (в тёмной теме
+ * диалоги тоже тёмные, поэтому акцент общий, в светлых — их primary).
+ * [uncheckedColor] переопределяется там, где стандартный приглушённый цвет
+ * сливается с фоном.
  */
 @Composable
 fun AppCheckbox(
@@ -34,6 +36,7 @@ fun AppCheckbox(
     uncheckedColor: Color = AppTheme.colors.dialogContentMuted,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val colors = AppTheme.colors
     Checkbox(
         checked = checked,
         onCheckedChange = onCheckedChange,
@@ -46,7 +49,8 @@ fun AppCheckbox(
             )
         } else {
             CheckboxDefaults.colors(
-                checkedColor = scheme.primary,
+                checkedColor = colors.chipSelectedContainer,
+                checkmarkColor = colors.chipSelectedContent,
                 uncheckedColor = uncheckedColor,
             )
         },

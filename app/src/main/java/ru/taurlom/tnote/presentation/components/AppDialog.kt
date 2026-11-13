@@ -1,5 +1,6 @@
 package ru.taurlom.tnote.presentation.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,14 +45,21 @@ fun AppDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        modifier = modifier,
+        // Контур role-цветом dialogBorder: в тёмной теме диалог красят цветом
+        // фона экрана, и без рамки он сливается с подложкой; в светлых темах
+        // роль прозрачна, и рамки нет.
+        modifier = modifier.border(
+            width = 1.dp,
+            color = AppTheme.colors.dialogBorder,
+            shape = MaterialTheme.shapes.small,
+        ),
         containerColor = AppTheme.colors.dialogContainer,
         shape = MaterialTheme.shapes.small,
         title = {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = title,
-                    color = AppTheme.colors.dialogContent,
+                    color = AppTheme.colors.dialogTitle,
                     // Отступ справа, чтобы заголовок не залезал под крестик.
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -69,7 +77,7 @@ fun AppDialog(
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
                         contentDescription = stringResource(R.string.close),
-                        tint = AppTheme.colors.dialogContent,
+                        tint = AppTheme.colors.dialogTitle,
                         modifier = Modifier.size(22.dp),
                     )
                 }
