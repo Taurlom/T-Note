@@ -24,9 +24,7 @@ import javax.inject.Singleton
  * они живут на общем хранилище, а не во внутренней памяти приложения.
  */
 @Singleton
-class StorageStatsRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : StorageStatsRepository {
+class StorageStatsRepositoryImpl @Inject constructor(@ApplicationContext private val context: Context) : StorageStatsRepository {
 
     override suspend fun storageUsage(): StorageUsage = withContext(Dispatchers.IO) {
         StorageUsage(

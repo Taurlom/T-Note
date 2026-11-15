@@ -20,8 +20,8 @@ import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
-import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.model.StorageUsage
+import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
@@ -212,7 +212,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun exportBackup(target: Uri) {        launchCatching {
+    fun exportBackup(target: Uri) {
+        launchCatching {
             runBackup {
                 val summary = backupRepository.exportBackup(target)
                 BackupResult.Exported(

@@ -1,10 +1,10 @@
 package ru.taurlom.tnote.presentation.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.Composable
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import ru.taurlom.tnote.domain.model.ThemeKind
 
@@ -43,7 +43,7 @@ internal val DarkTheme = AppThemeSpec(
         // Switch (пикер перекрыт своими ролями через AppColors): без
         // заполнения M3 подставляет серо-лавандовый дефолт мимо палитры.
         surfaceContainerHighest = Slate,
-        outline = Sand
+        outline = Sand,
     ),
     colors = AppColors(
         appBarContainer = Ink,
