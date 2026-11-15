@@ -69,6 +69,9 @@ class UpdateViewModel @Inject constructor(private val appUpdateRepository: AppUp
         _dialogState.value = null
     }
 
+    /** Страница приложения в RuStore — для ссылки на вкладке «Приложение». */
+    fun storePageUrl(): String = appUpdateRepository.storePageUrl()
+
     private fun showDialog(versionName: String) {
         _dialogState.value = DialogState(versionName, appUpdateRepository.storePageUrl())
     }

@@ -1,9 +1,11 @@
 package ru.taurlom.tnote.presentation.screens.calendar
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -31,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -205,63 +208,92 @@ private fun ScheduledEventRow(
     // Часы — по окну показываемого дня: у события длиннее суток в каждый
     // день своя часть («23:30 – 24:00», «00:00 – 00:30»).
     val window = remember(event, day) { event.windowOn(day) }
+    // Чужое событие из подписанного календаря помечается бейджем источника:
+    // вместо иконки события слева рисуется календарь Яндекс или Google.
+    val sourceIconRes = eventSourceBadgeIcon(event, provider)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
     ) {
-        Icon(
-            painter = painterResource(
-                when (event.type) {
-                    ScheduledEventType.BIRTHDAY -> R.drawable.ic_event_cake
-                    ScheduledEventType.WEEKEND -> R.drawable.ic_weekend
-                    else -> event.icon.drawableRes
-                },
-            ),
-            contentDescription = null,
-            tint = eventIconColor(event.colorArgb, isPast, AppTheme.colors.dialogContent),
-            modifier = Modifier.size(20.dp),
-        )
-        // Часы события — между иконкой и названием: «10:00 – 11:30 Ремонт».
-        eventTimeLabel(window)?.let { label ->
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isPast) {
-                    AppTheme.colors.dialogContent.copy(alpha = 0.45f)
-                } else {
-                    AppTheme.colors.dialogContentMuted
-                },
+        if (sourceIconRes != null) {
+            EventSourceBadge(
+                iconRes = sourceIconRes,
+                isPast = isPast,
+            )
+        } else {
+            Icon(
+                painter = painterResource(
+                    when (event.type) {
+                        ScheduledEventType.BIRTHDAY -> R.drawable.ic_event_cake
+                        ScheduledEventType.WEEKEND -> R.drawable.ic_weekend
+                        else -> event.icon.drawableRes
+                    },
+                ),
+                contentDescription = null,
+                // Без выбранного цвета иконка красится тематическим контентным
+                // цветом (в тёмной теме — Sand); прошедшие дни приглушаются.
+                tint = eventIconColor(event.colorArgb, isPast, AppTheme.colors.chipContent),
+                modifier = Modifier.size(20.dp),
             )
         }
-        Text(
-            text = event.title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = titleColor,
-            textDecoration = if (isPast) TextDecoration.LineThrough else null,
+        // Название и часы в две строки: часы идут отдельной строкой под
+        // названием — так длинное название занимает всю ширину строки.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(1.dp),
             modifier = Modifier.weight(1f),
-        )
-        eventSourceLabel(event, provider)?.let { labelRes ->
-            // Метка источника: крайняя версия содержимого приехала вычиткой
-            // с сервера подключённого календаря (Яндекс или Google).
+        ) {
             Text(
-                text = stringResource(labelRes),
-                style = MaterialTheme.typography.labelSmall,
-                color = AppTheme.colors.dialogContent.copy(alpha = 0.6f),
+                text = event.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = titleColor,
+                textDecoration = if (isPast) TextDecoration.LineThrough else null,
             )
+            eventTimeLabel(window)?.let { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isPast) {
+                        AppTheme.colors.chipContent.copy(alpha = 0.45f)
+                    } else {
+                        AppTheme.colors.chipContent
+                    },
+                )
+            }
         }
 
         IconButton(onClick = onDelete) {
             Icon(
                 painter = painterResource(R.drawable.ic_delete),
                 contentDescription = stringResource(R.string.event_delete_description),
-                tint = AppTheme.colors.dialogContent,
+                // Акцентный цвет действий (в тёмной теме — Gold).
+                tint = AppTheme.colors.actionIcon,
             )
         }
     }
+}
+
+/**
+ * Бейдж источника события: иконка календаря провайдера (Яндекс/Google)
+ * вместо иконки события. Размер — как у обычной иконки строки, чтобы
+ * название не смещалось. Фирменные цвета иконки сохраняются
+ * (tint = Unspecified), прошедшие события приглушаются прозрачностью.
+ */
+@Composable
+private fun EventSourceBadge(@DrawableRes iconRes: Int, isPast: Boolean, modifier: Modifier = Modifier) {
+    Icon(
+        painter = painterResource(iconRes),
+        contentDescription = null,
+        // Без tint: иконки фирменные (aapt-градиенты), а дефолтный tint
+        // Icon'а из темы закрасил бы их одним цветом.
+        tint = Color.Unspecified,
+        modifier = modifier
+            .size(20.dp)
+            .alpha(if (isPast) 0.45f else 1f),
+    )
 }
 
 /**
@@ -886,18 +918,19 @@ internal fun isTimeRangeInvalid(date: String, startMinutes: Int?, endMinutes: In
 ).hasValidTimeRange()
 
 /**
- * Метка источника строки события — идентификатор строки «Яндекс»/«Google»:
+ * Иконка бейджа источника строки события — календарь Яндекса/Google:
  * импортированное событие с припиской подписке показывает имя её
- * провайдера. Собственное событие, отправленное в подписку, метки не
+ * провайдера. Собственное событие, отправленное в подписку, бейджа не
  * получает — происхождение своё; событие, оставленное при отключении
- * календаря, теряет приписку и вместе с ней метку — источника больше нет.
- * null — метки нет.
+ * календаря, теряет приписку и вместе с ней бейдж — источника больше нет.
+ * null — бейджа нет (рисуется иконка события).
  */
-internal fun eventSourceLabel(event: ScheduledEvent, provider: CaldavProvider?): Int? {
+@DrawableRes
+internal fun eventSourceBadgeIcon(event: ScheduledEvent, provider: CaldavProvider?): Int? {
     if (!event.remoteImported || event.caldavAccountId == null) return null
     return when (provider) {
-        CaldavProvider.YANDEX -> R.string.sync_badge_yandex
-        CaldavProvider.GOOGLE -> R.string.sync_badge_google
+        CaldavProvider.YANDEX -> R.drawable.ic_ya_cal
+        CaldavProvider.GOOGLE -> R.drawable.ic_google_cal
         null -> null
     }
 }

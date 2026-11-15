@@ -86,24 +86,24 @@ class CalendarDayDialogTest {
     )
 
     @Test
-    fun `imported attributed event shows provider label`() {
+    fun `imported attributed event shows provider badge icon`() {
         val row = imported(caldavAccountId = 1L, remoteImported = true)
-        assertEquals(R.string.sync_badge_yandex, eventSourceLabel(row, CaldavProvider.YANDEX))
-        assertEquals(R.string.sync_badge_google, eventSourceLabel(row, CaldavProvider.GOOGLE))
+        assertEquals(R.drawable.ic_ya_cal, eventSourceBadgeIcon(row, CaldavProvider.YANDEX))
+        assertEquals(R.drawable.ic_google_cal, eventSourceBadgeIcon(row, CaldavProvider.GOOGLE))
     }
 
     @Test
-    fun `own event pushed to subscription shows no label`() {
-        assertNull(eventSourceLabel(imported(caldavAccountId = 1L, remoteImported = false), CaldavProvider.YANDEX))
+    fun `own event pushed to subscription shows no badge`() {
+        assertNull(eventSourceBadgeIcon(imported(caldavAccountId = 1L, remoteImported = false), CaldavProvider.YANDEX))
     }
 
     @Test
-    fun `event kept after disconnect shows no label`() {
-        assertNull(eventSourceLabel(imported(caldavAccountId = null, remoteImported = true), CaldavProvider.YANDEX))
+    fun `event kept after disconnect shows no badge`() {
+        assertNull(eventSourceBadgeIcon(imported(caldavAccountId = null, remoteImported = true), CaldavProvider.YANDEX))
     }
 
     @Test
-    fun `no connected provider shows no label`() {
-        assertNull(eventSourceLabel(imported(caldavAccountId = 1L, remoteImported = true), null))
+    fun `no connected provider shows no badge`() {
+        assertNull(eventSourceBadgeIcon(imported(caldavAccountId = 1L, remoteImported = true), null))
     }
 }

@@ -244,6 +244,10 @@
     <string name="event_time_range">%1$s – %2$s</string>
     <string name="event_time_until">until %1$s</string>
     <string name="event_time_range_invalid">End time cannot be earlier than start time</string>
+    <!-- Вкладка «Приложение»: ссылки. -->
+    <string name="settings_links_section">Links</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_rustore_page">RuStore page</string>
 
     <string name="icon_note">Note</string>
     <string name="icon_hospital">Hospital</string>

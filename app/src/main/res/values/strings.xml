@@ -238,7 +238,7 @@
 
     <!-- Время события -->
     <string name="event_time_start">Начало</string>
-    <string name="event_time_end">Завершение</string>
+    <string name="event_time_end">Конец</string>
     <string name="event_time_unset">Не задано</string>
     <string name="event_time_add">Добавить время</string>
     <string name="event_time_clear">Убрать время</string>
@@ -247,7 +247,10 @@
     <string name="event_time_range">%1$s – %2$s</string>
     <string name="event_time_until">до %1$s</string>
     <string name="event_time_range_invalid">Время завершения не может быть раньше времени начала</string>
-
+    <!-- Вкладка «Приложение»: ссылки. -->
+    <string name="settings_links_section">Ссылки</string>
+    <string name="settings_privacy_policy">Политика конфиденциальности</string>
+    <string name="settings_rustore_page">Страница в RuStore</string>
     <string name="icon_note">Заметка</string>
     <string name="icon_hospital">Больница</string>
     <string name="icon_travel">Путешествие</string>

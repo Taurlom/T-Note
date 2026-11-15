@@ -2,11 +2,14 @@ package ru.taurlom.tnote.presentation.screens.settings
 
 import android.Manifest
 import android.accounts.AccountManager
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -1046,16 +1049,16 @@ private fun DataTab(
     }
 }
 
-/** Вкладка «Приложение»: проверка обновлений и версия. */
+/** Вкладка «Приложение»: проверка обновлений, версия и ссылки. */
 @Composable
 private fun AppTab(updateViewModel: UpdateViewModel) {
+    val context = LocalContext.current
     AppTextButton(
         onClick = updateViewModel::checkManually,
         textRes = R.string.update_check_button,
         modifier = Modifier.fillMaxWidth(),
     )
     Spacer(modifier = Modifier.height(8.dp))
-    val context = LocalContext.current
     Text(
         text = remember(context) {
             val info = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -1070,4 +1073,51 @@ private fun AppTab(updateViewModel: UpdateViewModel) {
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth(),
     )
+
+    Spacer(modifier = Modifier.height(24.dp))
+    SectionTitle(stringResource(R.string.settings_links_section))
+    // Политика конфиденциальности: язык страницы подставляется по языку
+    // приложения (?lang=); страница без параметра выбирает язык сама.
+    AppTextButton(
+        onClick = { openUrl(context, privacyPolicyUrl(context)) },
+        textRes = R.string.settings_privacy_policy,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    AppTextButton(
+        onClick = { openUrl(context, updateViewModel.storePageUrl()) },
+        textRes = R.string.settings_rustore_page,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
+
+/** Открывает [url] в браузере; без браузера на устройстве — молча. */
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+}
+
+/**
+ * Ссылка на политику конфиденциальности. Язык — тот, что применён к
+ * приложению: явный выбор в настройках или язык системы, если выбран
+ * «Как в системе». Для языков вне ru/en/es параметр не ставится —
+ * страница сама выбирает язык по языку браузера.
+ */
+private fun privacyPolicyUrl(context: Context): String {
+    val appLocales = AppCompatDelegate.getApplicationLocales()
+    val language = if (appLocales.isEmpty) {
+        context.resources.configuration.locales[0].language
+    } else {
+        appLocales[0]?.language.orEmpty()
+    }
+    return if (language in SUPPORTED_POLICY_LANGUAGES) {
+        "$PRIVACY_POLICY_URL?lang=$language"
+    } else {
+        PRIVACY_POLICY_URL
+    }
+}
+
+private const val PRIVACY_POLICY_URL = "https://taurlom.github.io/T-Note/privacy.html"
+
+/** Языки, на которых переведена политика конфиденциальности. */
+private val SUPPORTED_POLICY_LANGUAGES = setOf("ru", "en", "es")
