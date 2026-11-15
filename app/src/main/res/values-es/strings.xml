@@ -127,6 +127,25 @@
     <!-- Copias de seguridad -->
     <string name="backup_section">Copia de seguridad</string>
 
+    <!-- Uso del almacenamiento (pestaña Datos) -->
+    <string name="storage_section">Uso del almacenamiento</string>
+    <string name="storage_subtitle">Archivos de la aplicación en el dispositivo</string>
+    <string name="storage_photos">Fotos</string>
+    <string name="storage_documents">Documentos</string>
+    <string name="storage_database">Base de datos</string>
+    <string name="storage_other">Otros</string>
+    <string name="storage_db_subtitle">Listas, notas, calendario</string>
+    <string name="storage_other_subtitle">Código y archivos de servicio</string>
+    <string name="storage_unit_b">B</string>
+    <string name="storage_unit_kb">KB</string>
+    <string name="storage_unit_mb">MB</string>
+    <string name="storage_unit_gb">GB</string>
+
+    <plurals name="storage_files">
+        <item quantity="one">%1$d archivo</item>
+        <item quantity="other">%1$d archivos</item>
+    </plurals>
+
     <string name="privacy_section">Privacidad</string>
     <string name="documents_lock_title">Proteger la sección «Documentos»</string>
     <string name="documents_lock_subtitle">Pedir el desbloqueo del teléfono (código o biometría) al entrar</string>
@@ -135,7 +154,6 @@
     <string name="documents_locked_unlock">Desbloquear</string>
     <string name="documents_lock_prompt_title">Desbloquear documentos</string>
     <string name="backup_export">Guardar copia</string>
-    <string name="backup_import">Restaurar desde copia</string>
     <string name="backup_restore">Restaurar</string>
     <string name="backup_exported">Copia de seguridad guardada</string>
     <string name="backup_exported_missing">Copia guardada, pero %1$d foto(s) no se encontraron en el dispositivo y no están incluidas</string>
@@ -302,6 +320,7 @@
     <string name="language_es">Español</string>
 
     <!-- Nombres de temas -->
+    <string name="theme_system">Según el sistema</string>
     <string name="theme_dark">Oscura</string>
     <string name="theme_light">Clara</string>
     <string name="theme_ocean">Océano</string>

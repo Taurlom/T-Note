@@ -143,7 +143,7 @@ private fun SectionMenu(onImportLists: (() -> Unit)?, onArchiveClick: (() -> Uni
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            containerColor = AppTheme.colors.dialogContainer,
+            containerColor = AppTheme.colors.menuContainer,
             border = BorderStroke(1.dp, AppTheme.colors.menuBorder),
         ) {
             if (onImportLists != null) {

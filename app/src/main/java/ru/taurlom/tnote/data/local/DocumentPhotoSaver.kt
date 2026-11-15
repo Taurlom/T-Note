@@ -59,6 +59,6 @@ class DocumentPhotoSaver @Inject constructor(@ApplicationContext private val con
     }
 
     companion object {
-        private const val PHOTOS_DIR = "document_photos"
+        const val PHOTOS_DIR = "document_photos"
     }
 }

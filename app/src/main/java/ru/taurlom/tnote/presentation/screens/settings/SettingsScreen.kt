@@ -42,6 +42,7 @@ import kotlin.system.exitProcess
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), updateViewModel: UpdateViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val storageUsage by viewModel.storageUsage.collectAsStateWithLifecycle()
     val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
     val manualUpdateResult by updateViewModel.manualResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -166,6 +167,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), updateViewMod
     ) { padding ->
         SettingsContent(
             uiState = uiState,
+            storageUsage = storageUsage,
             pendingImport = pendingImport,
             pendingImportUri = pendingImportUri,
             viewModel = viewModel,

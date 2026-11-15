@@ -14,6 +14,7 @@ import ru.taurlom.tnote.data.repository.DocumentRepositoryImpl
 import ru.taurlom.tnote.data.repository.NoteRepositoryImpl
 import ru.taurlom.tnote.data.repository.ScheduledEventRepositoryImpl
 import ru.taurlom.tnote.data.repository.SettingsRepositoryImpl
+import ru.taurlom.tnote.data.repository.StorageStatsRepositoryImpl
 import ru.taurlom.tnote.data.repository.TaskRepositoryImpl
 import ru.taurlom.tnote.data.share.ListShareRepositoryImpl
 import ru.taurlom.tnote.data.share.NoteShareRepositoryImpl
@@ -28,6 +29,7 @@ import ru.taurlom.tnote.domain.repository.NoteShareRepository
 import ru.taurlom.tnote.domain.repository.PhotoStorage
 import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import ru.taurlom.tnote.domain.repository.SettingsRepository
+import ru.taurlom.tnote.domain.repository.StorageStatsRepository
 import ru.taurlom.tnote.domain.repository.TaskRepository
 import javax.inject.Singleton
 
@@ -66,6 +68,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBackupRepository(impl: BackupRepositoryImpl): BackupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindStorageStatsRepository(impl: StorageStatsRepositoryImpl): StorageStatsRepository
 
     @Binds
     @Singleton

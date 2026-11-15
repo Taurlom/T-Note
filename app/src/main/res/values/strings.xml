@@ -143,6 +143,27 @@
     <!-- Резервные копии -->
     <string name="backup_section">Резервная копия</string>
 
+    <!-- Использование хранилища (вкладка «Данные») -->
+    <string name="storage_section">Использование хранилища</string>
+    <string name="storage_subtitle">Файлы приложения на устройстве</string>
+    <string name="storage_photos">Фотографии</string>
+    <string name="storage_documents">Документы</string>
+    <string name="storage_database">База данных</string>
+    <string name="storage_other">Прочее</string>
+    <string name="storage_db_subtitle">Списки, заметки, календарь</string>
+    <string name="storage_other_subtitle">Код и служебные файлы</string>
+    <string name="storage_unit_b">Б</string>
+    <string name="storage_unit_kb">КБ</string>
+    <string name="storage_unit_mb">МБ</string>
+    <string name="storage_unit_gb">ГБ</string>
+
+    <plurals name="storage_files">
+        <item quantity="one">%1$d файл</item>
+        <item quantity="few">%1$d файла</item>
+        <item quantity="many">%1$d файлов</item>
+        <item quantity="other">%1$d файлов</item>
+    </plurals>
+
     <string name="privacy_section">Приватность</string>
     <string name="documents_lock_title">Защита раздела «Документы»</string>
     <string name="documents_lock_subtitle">При входе — разблокировка телефона (код или биометрия)</string>
@@ -151,7 +172,6 @@
     <string name="documents_locked_unlock">Разблокировать</string>
     <string name="documents_lock_prompt_title">Разблокировка документов</string>
     <string name="backup_export">Сохранить копию</string>
-    <string name="backup_import">Восстановить из копии</string>
     <string name="backup_restore">Восстановить</string>
     <string name="backup_exported">Резервная копия сохранена</string>
     <string name="backup_exported_missing">Копия сохранена, но %1$d фото не найдены на устройстве и не вошли в неё</string>
@@ -305,6 +325,7 @@
     <string name="language_es">Español</string>
 
     <!-- Названия тем -->
+    <string name="theme_system">Как в системе</string>
     <string name="theme_dark">Тёмная</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_ocean">Океан</string>

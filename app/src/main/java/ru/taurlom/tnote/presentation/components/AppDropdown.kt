@@ -78,9 +78,12 @@ fun <T> AppDropdown(
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            containerColor = AppTheme.colors.dialogContainer,
-            // Контур menuBorder отделяет меню от фона (в тёмной теме контейнер
+            containerColor = AppTheme.colors.menuContainer,
+            // Контур menuBorder отделяет меню от фона (в тёмных темах контейнер
             // = цвет фона экрана); пункты — menuItemContent (акцент Gold).
+            // Отдельная роль menuContainer, а не dialogContainer: у «Леса» и
+            // «Осени» диалоги светлые, но меню должно остаться тёмным —
+            // иначе светлые пункты на светлом фоне нечитаемы.
             border = BorderStroke(1.dp, AppTheme.colors.menuBorder),
             modifier = with(LocalDensity.current) {
                 if (anchorWidth > 0) Modifier.width(anchorWidth.toDp()) else Modifier

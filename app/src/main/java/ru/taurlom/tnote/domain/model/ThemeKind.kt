@@ -7,6 +7,7 @@ package ru.taurlom.tnote.domain.model
  * presentation/theme/ThemeKind.kt; маппинг цветов — presentation/theme/Themes.kt.
  */
 enum class ThemeKind {
+    SYSTEM,
     DARK,
     LIGHT,
     OCEAN,
@@ -16,6 +17,6 @@ enum class ThemeKind {
     ;
 
     companion object {
-        fun fromName(name: String): ThemeKind = entries.find { it.name == name } ?: DARK
+        fun fromName(name: String): ThemeKind = entries.find { it.name == name } ?: SYSTEM
     }
 }

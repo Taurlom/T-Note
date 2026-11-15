@@ -125,7 +125,7 @@ class MainActivity : AppCompatActivity() {
             val selectedFont by settingsRepository.selectedFont
                 .collectAsState(initial = AppFont.PT_SANS)
             val selectedTheme by settingsRepository.selectedTheme
-                .collectAsState(initial = ThemeKind.DARK)
+                .collectAsState(initial = ThemeKind.SYSTEM)
             val settingsState by settingsViewModel.uiState.collectAsState()
             val updateDialog by updateViewModel.dialogState.collectAsState()
 

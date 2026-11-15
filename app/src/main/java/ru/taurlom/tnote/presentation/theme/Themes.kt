@@ -1,5 +1,7 @@
 package ru.taurlom.tnote.presentation.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -41,7 +43,7 @@ internal val DarkTheme = AppThemeSpec(
         // Switch (пикер перекрыт своими ролями через AppColors): без
         // заполнения M3 подставляет серо-лавандовый дефолт мимо палитры.
         surfaceContainerHighest = Slate,
-        outline = Sand,
+        outline = Sand
     ),
     colors = AppColors(
         appBarContainer = Ink,
@@ -85,6 +87,7 @@ internal val DarkTheme = AppThemeSpec(
         actionIcon = Gold,
         // Меню «⋮» раздела: пункты акцентом, контур Navy отделяет от фона.
         menuItemContent = Gold,
+        menuContainer = Ink,
         menuBorder = Navy,
         snackbarContainer = Slate,
         snackbarContent = Snow,
@@ -108,6 +111,10 @@ internal val DarkTheme = AppThemeSpec(
         calendarNoteMarker = Red,
         calendarPastMarker = Fog,
         sectionTitle = Gold,
+        storagePhotos = Sky,
+        storageDocuments = Green,
+        storageDatabase = Gold,
+        storageOther = Red,
         brandLogo = Gold,
         brandTitle = Gold,
         launchBackground = Ink,
@@ -143,7 +150,7 @@ internal val LightTheme = AppThemeSpec(
         dialogContainer = LightSurface,
         dialogBorder = Color.Transparent,
         dialogTitle = LightInk,
-        dialogRadioContent = LightInk,
+        dialogRadioContent = LightPrimary,
         dialogContent = LightInk,
         dialogContentMuted = LightInk.copy(alpha = 0.68f),
         fieldContent = LightInk,
@@ -152,7 +159,7 @@ internal val LightTheme = AppThemeSpec(
         fieldOnDarkContent = LightInk,
         fieldOnDarkBorder = LightOutline,
         errorAccent = LightRed,
-        pickerBackdrop = Cloud,
+        pickerBackdrop = LightSurface,
         pickerDial = LightHeader,
         pickerDialContent = LightInk,
         pickerSelector = LightPrimary,
@@ -169,21 +176,22 @@ internal val LightTheme = AppThemeSpec(
         chipSelectedContent = LightSurface,
         chipContainer = LightPrimary.copy(alpha = 0.10f),
         chipContent = LightInk,
-        fabContainer = LightFab,
-        fabContent = LightInk,
-        actionIcon = Amber,
+        fabContainer = LightPrimary,
+        fabContent = LightSurface,
+        actionIcon = LightInk.copy(alpha = 0.72f),
         menuItemContent = LightInk,
+        menuContainer = LightSurface,
         menuBorder = Color.Transparent,
         snackbarContainer = LightHeader,
         snackbarContent = LightInk,
         snackbarAction = LightPrimary,
-        bottomNavContainer = LightNav,
+        bottomNavContainer = LightHeader,
         bottomNavIndicator = LightSelected,
-        bottomNavActiveIcon = LightInk,
+        bottomNavActiveIcon = LightRed,
         bottomNavInactiveIcon = LightInk.copy(alpha = 0.72f),
         tabSelectedContent = LightInk,
         tabContent = LightInk.copy(alpha = 0.76f),
-        tabIndicator = Amber,
+        tabIndicator = LightRed,
         calendarCellContainer = Cloud,
         calendarWeekendContainer = LightHeader,
         calendarTodayContainer = LightPrimary,
@@ -195,11 +203,15 @@ internal val LightTheme = AppThemeSpec(
         calendarEventMarker = Amber,
         calendarNoteMarker = LightRed,
         calendarPastMarker = Fog,
-        sectionTitle = Amber,
-        brandLogo = LightInk,
-        brandTitle = LightInk,
+        sectionTitle = LightInk,
+        storagePhotos = Green,
+        storageDocuments = Amber,
+        storageDatabase = LightRed,
+        storageOther = LightPrimary,
+        brandLogo = LightPrimary,
+        brandTitle = LightPrimary,
         launchBackground = Ink,
-        appBarScrolledContainer = Cloud,
+        appBarScrolledContainer = LightHeader,
     ),
     lightStatusBar = true,
 )
@@ -262,6 +274,7 @@ internal val OceanTheme = AppThemeSpec(
         fabContent = Abyss,
         actionIcon = Coral,
         menuItemContent = Foam,
+        menuContainer = Reef,
         menuBorder = Color.Transparent,
         snackbarContainer = Reef,
         snackbarContent = Foam,
@@ -285,6 +298,10 @@ internal val OceanTheme = AppThemeSpec(
         calendarNoteMarker = Coral,
         calendarPastMarker = Fog,
         sectionTitle = Coral,
+        storagePhotos = Sky,
+        storageDocuments = Gold,
+        storageDatabase = Aqua,
+        storageOther = Coral,
         brandLogo = Foam,
         brandTitle = Foam,
         launchBackground = Ink,
@@ -350,6 +367,9 @@ internal val ForestTheme = AppThemeSpec(
         fabContent = Cream,
         actionIcon = Clay,
         menuItemContent = Cream,
+        // Меню — тёмное (фон экрана), в отличие от светлого диалога (Lichen):
+        // светлый контейнер с кремовым текстом пунктов был нечитаем.
+        menuContainer = Loam,
         menuBorder = Color.Transparent,
         snackbarContainer = Bark,
         snackbarContent = Cream,
@@ -373,6 +393,10 @@ internal val ForestTheme = AppThemeSpec(
         calendarNoteMarker = Red,
         calendarPastMarker = Fog,
         sectionTitle = Clay,
+        storagePhotos = Pine,
+        storageDocuments = Clay,
+        storageDatabase = Moss,
+        storageOther = Fog,
         brandLogo = Clay,
         brandTitle = Clay,
         launchBackground = Ink,
@@ -438,6 +462,9 @@ internal val AutumnTheme = AppThemeSpec(
         fabContent = Espresso,
         actionIcon = Ochre,
         menuItemContent = Cream,
+        // Меню — тёмное (фон экрана), в отличие от светлого диалога (Parchment):
+        // светлый контейнер с кремовым текстом пунктов был нечитаем.
+        menuContainer = Espresso,
         menuBorder = Color.Transparent,
         snackbarContainer = Umber,
         snackbarContent = Cream,
@@ -461,6 +488,10 @@ internal val AutumnTheme = AppThemeSpec(
         calendarNoteMarker = Rust,
         calendarPastMarker = Fog,
         sectionTitle = Ochre,
+        storagePhotos = Rust,
+        storageDocuments = Ochre,
+        storageDatabase = Wheat,
+        storageOther = Fog,
         brandLogo = Ochre,
         brandTitle = Ochre,
         launchBackground = Ink,
@@ -526,6 +557,7 @@ internal val AtlasTheme = AppThemeSpec(
         fabContent = AtlasInk,
         actionIcon = AtlasOchre,
         menuItemContent = AtlasInk,
+        menuContainer = AtlasSurface,
         menuBorder = Color.Transparent,
         snackbarContainer = AtlasPanel,
         snackbarContent = AtlasInk,
@@ -549,6 +581,10 @@ internal val AtlasTheme = AppThemeSpec(
         calendarNoteMarker = AtlasTerracotta,
         calendarPastMarker = Fog,
         sectionTitle = AtlasOchre,
+        storagePhotos = AtlasSage,
+        storageDocuments = AtlasTerracotta,
+        storageDatabase = AtlasOchre,
+        storageOther = Fog,
         brandLogo = AtlasSage,
         brandTitle = AtlasInk,
         launchBackground = Ink,
@@ -557,7 +593,13 @@ internal val AtlasTheme = AppThemeSpec(
     lightStatusBar = true,
 )
 
+/**
+ * «Как в системе»: тёмная тема, если у системы включён тёмный режим,
+ * иначе светлая. Вызывается в composition (Theme.kt).
+ */
+@Composable
 internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = when (kind) {
+    ThemeKind.SYSTEM -> if (isSystemInDarkTheme()) DarkTheme else LightTheme
     ThemeKind.DARK -> DarkTheme
     ThemeKind.LIGHT -> LightTheme
     ThemeKind.OCEAN -> OceanTheme

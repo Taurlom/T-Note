@@ -26,7 +26,7 @@ private val AppShapes = Shapes(
  * и кладёт его в MaterialTheme и LocalAppColors.
  */
 @Composable
-fun TNoteTheme(fontFamily: FontFamily = PtSansFontFamily, theme: ThemeKind = ThemeKind.DARK, content: @Composable () -> Unit) {
+fun TNoteTheme(fontFamily: FontFamily = PtSansFontFamily, theme: ThemeKind = ThemeKind.SYSTEM, content: @Composable () -> Unit) {
     val spec = themeSpecOf(theme)
 
     val view = LocalView.current

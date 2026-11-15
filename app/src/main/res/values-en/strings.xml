@@ -127,6 +127,25 @@
     <!-- Backup -->
     <string name="backup_section">Backup</string>
 
+    <!-- Storage usage (Data tab) -->
+    <string name="storage_section">Storage usage</string>
+    <string name="storage_subtitle">App files on the device</string>
+    <string name="storage_photos">Photos</string>
+    <string name="storage_documents">Documents</string>
+    <string name="storage_database">Database</string>
+    <string name="storage_other">Other</string>
+    <string name="storage_db_subtitle">Lists, notes, calendar</string>
+    <string name="storage_other_subtitle">Code and service files</string>
+    <string name="storage_unit_b">B</string>
+    <string name="storage_unit_kb">KB</string>
+    <string name="storage_unit_mb">MB</string>
+    <string name="storage_unit_gb">GB</string>
+
+    <plurals name="storage_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+
     <string name="privacy_section">Privacy</string>
     <string name="documents_lock_title">Protect the \"Documents\" section</string>
     <string name="documents_lock_subtitle">Ask for the phone unlock (PIN, pattern or biometrics) on entry</string>
@@ -135,7 +154,6 @@
     <string name="documents_locked_unlock">Unlock</string>
     <string name="documents_lock_prompt_title">Unlock Documents</string>
     <string name="backup_export">Save a copy</string>
-    <string name="backup_import">Restore from copy</string>
     <string name="backup_restore">Restore</string>
     <string name="backup_exported">Backup saved</string>
     <string name="backup_exported_missing">Backup saved, but %1$d photo(s) were not found on the device and are not included</string>
@@ -301,6 +319,7 @@
     <string name="language_es">Español</string>
 
     <!-- Theme names -->
+    <string name="theme_system">Follow system</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
     <string name="theme_ocean">Ocean</string>

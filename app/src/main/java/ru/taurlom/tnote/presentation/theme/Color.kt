@@ -27,6 +27,10 @@ internal val Red = Color(0xFFE74955) // заметки, дни недели
 internal val Fog = Color(0xFF7E879B) // прошедшие (неактуальные) отметки
 internal val Paper = Color(0xFFFFFFFF) // текст на Navy / белый фон карточек
 
+internal val Green = Color(0xFF4CAF50)
+
+internal val Sky = Color(0xFFA8C4E4)
+
 // ─── Примитивы светлой темы ───────────────────────────────────────
 internal val Cloud = Color(0xFFF5F3ED) // мягкий нейтрально-тёплый фон экрана
 internal val Amber = Color(0xFFA58A55) // приглушённый песочный акцент

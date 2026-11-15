@@ -56,13 +56,6 @@ fun DocumentItem(document: Document, onClick: () -> Unit, onEdit: () -> Unit, on
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (document.photoPaths.isNotEmpty()) {
-                Text(
-                    text = "${document.photoPaths.size}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
 
         Row {

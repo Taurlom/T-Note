@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -63,6 +64,7 @@ import ru.taurlom.tnote.domain.model.AppFont
 import ru.taurlom.tnote.domain.model.CaldavAccount
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.CaldavProvider
+import ru.taurlom.tnote.domain.model.StorageUsage
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.presentation.components.AppButton
@@ -99,6 +101,7 @@ import java.util.Locale
 @Composable
 internal fun SettingsContent(
     uiState: SettingsUiState,
+    storageUsage: StorageUsage?,
     pendingImport: BackupDescription?,
     pendingImportUri: Uri?,
     viewModel: SettingsViewModel,
@@ -159,7 +162,7 @@ internal fun SettingsContent(
 
                 2 -> SecurityTab(uiState, viewModel)
 
-                3 -> DataTab(uiState, exportLauncher, importLauncher)
+                3 -> DataTab(uiState, storageUsage, exportLauncher, importLauncher, viewModel)
 
                 else -> AppTab(updateViewModel)
             }
@@ -731,16 +734,33 @@ private fun ProviderLogo(provider: CaldavProvider, modifier: Modifier = Modifier
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         when (provider) {
             CaldavProvider.YANDEX -> {
-                Icon(
-                    painter = painterResource(
-                        if (isRussian) R.drawable.ic_yandex_ru else R.drawable.ic_yandex_en,
-                    ),
-                    contentDescription = stringResource(R.string.sync_provider_yandex),
-                    tint = noTint,
+                // Логотип в двух слоях с общим viewport: фиксированный красный
+                // глиф «Я» + буквы, красящиеся цветом темы. Роль dialogContent:
+                // логотип показан внутри диалога подключения, у которой в
+                // каждой теме подобран свой цвет контента (у тёмных тем фон
+                // диалога тёмный, у светлых и «Осени» — светлый).
+                Box(
                     modifier = Modifier
                         .height(16.dp)
                         .aspectRatio(if (isRussian) 745f / 215f else 789f / 190f),
-                )
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (isRussian) R.drawable.ic_yandex_ru else R.drawable.ic_yandex_en,
+                        ),
+                        contentDescription = stringResource(R.string.sync_provider_yandex),
+                        tint = noTint,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    Icon(
+                        painter = painterResource(
+                            if (isRussian) R.drawable.ic_yandex_ru_letters else R.drawable.ic_yandex_en_letters,
+                        ),
+                        contentDescription = null,
+                        tint = AppTheme.colors.dialogContent,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
                 Icon(
                     painter = painterResource(R.drawable.ic_ya_cal),
                     contentDescription = null,
@@ -1019,13 +1039,23 @@ private fun SecurityTab(uiState: SettingsUiState, viewModel: SettingsViewModel) 
     DocumentsLockSwitch(uiState, viewModel)
 }
 
-/** Вкладка «Данные»: резервные копии — экспорт и импорт. */
+/** Вкладка «Данные»: использование хранилища, резервные копии — экспорт и импорт. */
 @Composable
 private fun DataTab(
     uiState: SettingsUiState,
+    storageUsage: StorageUsage?,
     exportLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     importLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+    viewModel: SettingsViewModel,
 ) {
+    // Пересчёт на каждое открытие вкладки: файлы меняются в любое время
+    // (фото, бэкапы, DataStore), а Flow на размерах каталогов не построить.
+    LaunchedEffect(Unit) { viewModel.refreshStorageUsage() }
+
+    SectionTitle(stringResource(R.string.storage_section))
+    StorageUsageCard(usage = storageUsage)
+
+    Spacer(modifier = Modifier.height(24.dp))
     SectionTitle(stringResource(R.string.backup_section))
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         AppTextButton(
@@ -1042,7 +1072,7 @@ private fun DataTab(
                     arrayOf("application/zip", "application/octet-stream"),
                 )
             },
-            textRes = R.string.backup_import,
+            textRes = R.string.backup_restore,
             enabled = !uiState.isBackupBusy,
             modifier = Modifier.weight(1f),
         )

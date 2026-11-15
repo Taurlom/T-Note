@@ -12,6 +12,7 @@ import ru.taurlom.tnote.domain.model.ThemeKind
 val ThemeKind.labelRes: Int
     @StringRes
     get() = when (this) {
+        ThemeKind.SYSTEM -> R.string.theme_system
         ThemeKind.DARK -> R.string.theme_dark
         ThemeKind.LIGHT -> R.string.theme_light
         ThemeKind.OCEAN -> R.string.theme_ocean

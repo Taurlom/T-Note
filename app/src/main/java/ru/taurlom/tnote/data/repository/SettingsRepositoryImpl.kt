@@ -42,7 +42,7 @@ class SettingsRepositoryImpl @Inject constructor(private val dataStore: DataStor
 
     override val selectedTheme: Flow<ThemeKind> = dataStore.data
         .map { preferences ->
-            ThemeKind.fromName(preferences[themeKey] ?: ThemeKind.DARK.name)
+            ThemeKind.fromName(preferences[themeKey] ?: ThemeKind.SYSTEM.name)
         }
 
     override suspend fun setSelectedTheme(theme: ThemeKind) {

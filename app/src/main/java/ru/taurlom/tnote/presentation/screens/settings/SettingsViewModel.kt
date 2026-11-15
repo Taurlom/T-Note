@@ -21,6 +21,7 @@ import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.CaldavProvider
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.ThemeKind
+import ru.taurlom.tnote.domain.model.StorageUsage
 import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
@@ -33,6 +34,7 @@ import ru.taurlom.tnote.domain.usecase.ConnectCaldavAccountUseCase
 import ru.taurlom.tnote.domain.usecase.DeletePastCalendarUseCase
 import ru.taurlom.tnote.domain.usecase.DisconnectCaldavAccountUseCase
 import ru.taurlom.tnote.domain.usecase.DiscoverCaldavCalendarsUseCase
+import ru.taurlom.tnote.domain.usecase.GetStorageUsageUseCase
 import ru.taurlom.tnote.domain.usecase.ObserveCaldavAccountsUseCase
 import ru.taurlom.tnote.domain.usecase.ObserveLocalOnlyEventsCountUseCase
 import ru.taurlom.tnote.domain.usecase.PublishLocalEventsUseCase
@@ -57,6 +59,7 @@ class SettingsViewModel @Inject constructor(
     private val syncCaldavAccountUseCase: SyncCaldavAccountUseCase,
     private val observeLocalOnlyEventsCountUseCase: ObserveLocalOnlyEventsCountUseCase,
     private val publishLocalEventsUseCase: PublishLocalEventsUseCase,
+    private val getStorageUsageUseCase: GetStorageUsageUseCase,
 ) : ViewModel() {
 
     private val backupStatus = MutableStateFlow(BackupStatus())
@@ -209,8 +212,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun exportBackup(target: Uri) {
-        launchCatching {
+    fun exportBackup(target: Uri) {        launchCatching {
             runBackup {
                 val summary = backupRepository.exportBackup(target)
                 BackupResult.Exported(
@@ -294,6 +296,27 @@ class SettingsViewModel @Inject constructor(
     /** Экран показал результат (тост/диалог) — убираем его из состояния. */
     fun backupResultShown() {
         backupStatus.value = BackupStatus()
+    }
+
+    // ── Использование хранилища (вкладка «Данные») ──
+
+    /**
+     * Снимок размеров хранилища: `null`, пока вкладка «Данные» ещё не
+     * открывалась — считать объёмы при старте настроек незачем. Читается
+     * заново на каждое открытие вкладки: файлы меняются в любое время.
+     */
+    private val _storageUsage = MutableStateFlow<StorageUsage?>(null)
+    val storageUsage: StateFlow<StorageUsage?> = _storageUsage.asStateFlow()
+
+    fun refreshStorageUsage() {
+        viewModelScope.launch {
+            _storageUsage.value = try {
+                getStorageUsageUseCase()
+            } catch (_: Exception) {
+                // Отказ чтения (IO и т.п.) — блок просто не показываем.
+                null
+            }
+        }
     }
 
     // ── CalDAV-подписка: Яндекс-календари (этап 1 — только чтение) ──

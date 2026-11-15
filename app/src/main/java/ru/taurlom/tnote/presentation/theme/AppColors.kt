@@ -80,6 +80,8 @@ data class AppColors(
     // Иконки действий на карточках (редактировать/удалить)
     val actionIcon: Color,
     // Выпадающее меню-список (например, «⋮» раздела)
+    /** Фон пунктов меню: тёмный в тёмных темах, свой в диалогах с светлой подложкой. */
+    val menuContainer: Color,
     /** Текст и иконки пунктов меню. */
     val menuItemContent: Color,
     /** Контур меню: отделяет его от фона, когда контейнер сливается с экраном. */
@@ -107,6 +109,13 @@ data class AppColors(
     val calendarEventMarker: Color,
     val calendarNoteMarker: Color,
     val calendarPastMarker: Color,
+    // Использование хранилища (вкладка «Данные»): группы файлов.
+    // Четыре различимых цвета в каждой теме — полоса-детализация, маркеры
+    // легенды и чипы-иконки строк.
+    val storagePhotos: Color,
+    val storageDocuments: Color,
+    val storageDatabase: Color,
+    val storageOther: Color,
     // Заголовки секций настроек
     val sectionTitle: Color,
     // Шапка главного экрана: логотип и название приложения

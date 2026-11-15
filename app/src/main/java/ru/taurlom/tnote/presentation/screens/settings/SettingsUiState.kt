@@ -70,7 +70,7 @@ enum class AppLanguage(val tag: String?, @StringRes val labelRes: Int) {
 
 data class SettingsUiState(
     val selectedFont: AppFont = AppFont.PT_SANS,
-    val selectedTheme: ThemeKind = ThemeKind.DARK,
+    val selectedTheme: ThemeKind = ThemeKind.SYSTEM,
     val selectedLanguage: AppLanguage = AppLanguage.SYSTEM,
     /** Видимые разделы в порядке панели; пусто — порядок по умолчанию. */
     val visibleSections: List<String> = emptyList(),
