@@ -8,8 +8,10 @@ import ru.taurlom.tnote.domain.model.CaldavProvider
  * Подключённый CalDAV-аккаунт (Яндекс первым, схема — из roadmap этапа 1):
  * один аккаунт — один подписанный календарь-коллекция. Пароль хранится не
  * здесь, а в [ru.taurlom.tnote.data.security.PasswordStore] под ключом
- * по имени пользователя: шифртекст не должен попадать в файл базы данных,
- * который уходит в резервные копии.
+ * «origin сервера + имя пользователя»: шифртекст не должен попадать в файл
+ * базы данных, который уходит в резервные копии, а привязка к origin — чтобы
+ * адрес сервера из базы сам по себе не становился адресом, куда уходит
+ * секрет (подробности — в CaldavRepositoryImpl.passwordFor).
  */
 @Entity(tableName = "caldav_accounts")
 data class CaldavAccountEntity(
@@ -19,7 +21,7 @@ data class CaldavAccountEntity(
     val provider: String = CaldavProvider.YANDEX.name,
     /** Корень сервера, например «https://caldav.yandex.ru». */
     val serverUrl: String,
-    /** Логин (для Яндекса — почта), он же ключ пароля в PasswordStore. */
+    /** Логин (для Яндекса — почта); вместе с адресом сервера — ключ пароля. */
     val username: String,
     /** Полный URL календаря-коллекции (href из PROPFIND) или calendarId. */
     val collectionUrl: String,

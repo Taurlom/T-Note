@@ -436,6 +436,18 @@ fun parseIcs(text: String): Calendar? = runCatching {
 fun Calendar.vevents(): List<VEvent> = components.filterIsInstance<VEvent>()
 
 /**
+ * Мастер ресурса: VEVENT без RECURRENCE-ID. Вхождение серии (override) —
+ * не самостоятельный объект: UID у него тот же, что у мастера, поэтому
+ * отдельной строкой в базе жить оно не может (два компонента по очереди
+ * перезаписывали бы одну строку, и результат зависел бы от порядка).
+ * null — мастера в ресурсе нет: остались только исключения.
+ */
+internal fun Calendar.recurrenceMaster(): VEvent? = vevents().firstOrNull { it.recurrenceId == null }
+
+/** Есть ли у ресурса исключения серии: PUT одним VEVENT стёр бы их все. */
+internal fun Calendar.hasRecurrenceOverrides(): Boolean = vevents().any { it.recurrenceId != null }
+
+/**
  * Строка-маркер метаданных для DESCRIPTION: «[T-Note] icon=TRAVEL color=42
  * hide=1». Канал для серверов, режущих X-TNOTE-* (Яндекс — проба 2026-11):
  * DESCRIPTION — стандартное свойство, Яндекс хранит его дословно (текст
@@ -527,6 +539,116 @@ internal fun tnoteMarkerFrom(description: String): TnoteMarker? {
  * наличии у события уже есть метаданные и бэкфилл не обсуждается).
  */
 internal fun VEvent.hasDescriptionText(): Boolean = properties.byName(Property.DESCRIPTION)?.value?.isNotBlank() == true
+
+/**
+ * Свойства VEVENT, которые наш экспорт воспроизводит целиком, плюс служебные
+ * счётчики, чьё исчезновение ничего пользовательского не стирает. Всё, чего
+ * здесь нет, — данные, которых в модели приложения не существует.
+ */
+private val reproducibleEventProperties = setOf(
+    Property.UID,
+    Property.DTSTAMP,
+    Property.DTSTART,
+    Property.DTEND,
+    Property.SUMMARY,
+    Property.RRULE,
+    Property.EXDATE,
+    Property.CREATED,
+    Property.LAST_MODIFIED,
+    // SEQUENCE — счётчик переписываний версии: RFC 5545 позволяет приёмнику
+    // посчитать его самому, пользовательских данных в нём нет.
+    Property.SEQUENCE,
+    PROP_TYPE,
+    PROP_ICON,
+    PROP_COLOR,
+    PROP_HIDE_PAST,
+)
+
+/** Значения свойств «как по умолчанию»: их потеря при перезаписи ничего не меняет. */
+private val defaultEventPropertyValues = mapOf(
+    Property.STATUS to "CONFIRMED",
+    Property.TRANSP to "OPAQUE",
+    Property.CLASS to "PUBLIC",
+)
+
+/**
+ * Есть ли в серверном VEVENT содержимое, которого нет в модели T-Note. PUT
+ * пересобирает ресурс из модели одним VEVENT, так что при отправке всё
+ * перечисленное исчезло бы с сервера:
+ *  - свойства вне списка воспроизводимых (LOCATION, ATTENDEE, ORGANIZER, URL,
+ *    CONTACT, CATEGORIES, PRIORITY, DURATION, RDATE, EXRULE, RELATED-TO,
+ *    CONFERENCE и чужие X-*, включая X-MICROSOFT-CDO-*);
+ *  - STATUS/TRANSP/CLASS в не-дефолтном значении;
+ *  - подкомпоненты (VALARM — напоминания события);
+ *  - RECURRENCE-ID: это вхождение серии, а не самостоятельный объект;
+ *  - DESCRIPTION с текстом вокруг нашего маркера — его набрал человек;
+ *  - RRULE, который модель не выражает (позиционные BYDAY, BYSETPOS,
+ *    селекторы времени, годовые селекторы не по якорю).
+ *
+ * [descriptionIsOwn] — DESCRIPTION является payload'ом самого объекта: у
+ * события-носителя заметки это текст заметки (NoteIcsMapper), который экспорт
+ * воспроизводит дословно, поэтому признаком чужих данных он не служит.
+ */
+internal fun VEvent.hasUnmodeledContent(descriptionIsOwn: Boolean = false): Boolean {
+    if (recurrenceId != null) return true
+    // Напоминания и прочие вложенные компоненты моделью не выражаются.
+    if (components.isNotEmpty()) return true
+    properties.forEach { property ->
+        val name = property.name
+        if (name == Property.DESCRIPTION) {
+            if (!descriptionIsOwn && descriptionHasTextBeyondMarker(property.value.orEmpty())) return true
+            return@forEach
+        }
+        if (name == Property.EXDATE) {
+            // Исключение по моменту времени: наша модель хранит только даты,
+            // а DATE-форма такое вхождение не вычеркнет — series с timed
+            // EXDATE правим на сервере.
+            if (property.value.orEmpty().contains('T')) return true
+            return@forEach
+        }
+        if (name in reproducibleEventProperties) return@forEach
+        val defaultValue = defaultEventPropertyValues[name]
+        if (defaultValue != null && property.value.orEmpty().equals(defaultValue, ignoreCase = true)) return@forEach
+        return true
+    }
+    // RRULE, который ical4j не распознал (экзотический синтаксис), — тоже
+    // чужие данные: при пересборке из модели он пропал бы молча.
+    val rawRule = properties.byName(Property.RRULE) ?: return false
+    val rule = (rawRule as? RRule)?.recur ?: return true
+    val anchor = (properties.byName(Property.DTSTART) as? DtStart)?.let { icsDay(it.value) } ?: return false
+    // Правило без частоты моделью не выражается (разбор отбрасывает его в
+    // REGULAR); частота есть — сверяемся с тем же тестом, что и парсер:
+    // «представимо» значит «перезапишем без потерь».
+    val unit = rule.modelUnit() ?: return true
+    return !rule.isRepresentableByModel(unit, anchor)
+}
+
+/**
+ * Осталась ли в DESCRIPTION жизнь вне нашего маркера: текст до префикса или
+ * токен после префикса без формы «ключ=значение» — это набрал человек в другом
+ * клиенте, и PUT маркером стёр бы его.
+ */
+private fun descriptionHasTextBeyondMarker(description: String): Boolean {
+    val start = description.indexOf(MARKER_PREFIX)
+    if (start < 0) return description.isNotBlank()
+    if (description.substring(0, start).isNotBlank()) return true
+    return description.substring(start + MARKER_PREFIX.length)
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .any { markerToken.matchEntire(it) == null }
+}
+
+/**
+ * Частота RRULE в единицах модели (null — FREQ нет или частоты у приложения
+ * нет).
+ */
+private fun Recur.modelUnit(): RepeatUnit? = when (frequency?.name) {
+    "DAILY" -> RepeatUnit.DAYS
+    "WEEKLY" -> RepeatUnit.WEEKS
+    "MONTHLY" -> RepeatUnit.MONTHS
+    "YEARLY" -> RepeatUnit.YEARS
+    else -> null
+}
 
 /**
  * Есть ли в VEVENT наши метаданные — X-TNOTE-* или DESCRIPTION-маркер.

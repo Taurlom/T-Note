@@ -254,6 +254,74 @@ class GoogleEventJsonTest {
         assertEquals("4bd53b9bccd78a2facebf9af85533b9b", googleEventIdFor(cases[2]))
     }
 
+    // Временная защита: PUT отправляет полный ресурс, поэтому события с
+    // полями вне модели и вхождения серий движок не перезаписывает.
+
+    @Test
+    fun `series exception carries its parent id`() {
+        val exception = googleJson(
+            "id" to "2g5qcork5i00000000",
+            "recurringEventId" to "11111111-2222-3333-4444-555555555555",
+            "originalStartTime" to dayJson("2026-11-21"),
+            "status" to "cancelled",
+        )
+        assertEquals("11111111-2222-3333-4444-555555555555", exception.seriesExceptionParentId())
+
+        assertNull(allDayEvent().seriesExceptionParentId())
+        assertNull(googleJson("id" to "x").seriesExceptionParentId())
+    }
+
+    @Test
+    fun `google fields outside the model block rewriting`() {
+        val extras = listOf<Pair<String, Any>>(
+            "location" to "Офис 304",
+            "attendees" to org.json.JSONArray().put(org.json.JSONObject().put("email", "lena@example.com")),
+            "reminders" to org.json.JSONObject()
+                .put("useDefault", false)
+                .put("overrides", org.json.JSONArray().put(org.json.JSONObject().put("method", "popup").put("minutes", 10))),
+            "conferenceData" to org.json.JSONObject().put("conferenceId", "abc"),
+            "source" to org.json.JSONObject().put("title", "Письмо"),
+            "colorId" to "7",
+            "visibility" to "private",
+            "transparency" to "transparent",
+            "eventType" to "outOfOffice",
+            "extendedProperties" to org.json.JSONObject().put("private", org.json.JSONObject().put("x", "1")),
+            "recurrence" to org.json.JSONArray().put("RDATE:20261125"),
+            "guestsCanModify" to true,
+            "guestsCanInviteOthers" to false,
+        )
+        extras.forEach { (key, value) ->
+            val json = googleJson("id" to "x", "summary" to "Встреча", key to value)
+            assertTrue("«$key» — данные вне модели", json.hasUnmodeledContent())
+        }
+    }
+
+    @Test
+    fun `plain google event stays writable`() {
+        // Дефолты Google не отдаёт, а если отдаст — они ничего не значат.
+        assertFalse(allDayEvent().hasUnmodeledContent())
+        assertFalse(
+            googleJson(
+                "id" to "x",
+                "visibility" to "default",
+                "transparency" to "opaque",
+                "eventType" to "legacy",
+                "recurrence" to org.json.JSONArray().put("RRULE:FREQ=DAILY;COUNT=5").put("EXDATE:20261125"),
+            ).hasUnmodeledContent(),
+        )
+        // Наш собственный экспорт обязан оставаться записываемым.
+        val own = veventToGoogleJson(
+            ScheduledEvent(
+                date = "2026-11-20",
+                title = "Своё",
+                type = ScheduledEventType.REPEATING,
+                repeatUnit = RepeatUnit.DAYS,
+                icon = EventIcon.BEACH,
+            ).toIcsEvent(),
+        )
+        assertFalse(own.hasUnmodeledContent())
+    }
+
     @Test
     fun `resource url splits into calendar and event`() {
         val (calendar, event) = splitResourceUrl("taurlom@gmail.com/11111111-2222")

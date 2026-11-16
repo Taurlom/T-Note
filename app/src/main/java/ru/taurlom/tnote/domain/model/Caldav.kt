@@ -21,8 +21,8 @@ data class CaldavAccount(
     /** Корень сервера, например «https://caldav.yandex.ru». */
     val serverUrl: String,
     /**
-     * Логин: для Яндекса — почта (ключ пароля в PasswordStore), для
-     * Google — адрес аккаунта (ключ OAuth-токена).
+     * Логин: для Яндекса — почта, для Google — адрес аккаунта (ключ
+     * OAuth-токена). Вместе с адресом сервера — ключ пароля в PasswordStore.
      */
     val username: String,
     /**

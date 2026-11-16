@@ -20,6 +20,7 @@ import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
+import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -41,7 +42,7 @@ class CaldavSyncEngineTest {
 
     private val fakeEventDao = FakeEventDao()
     private val fakeNoteDao = FakeNoteDao()
-    private val fakeCaldavDao = FakeCaldavDao()
+    private val fakeCaldavDao = FakeCaldavDao().apply { accounts += account }
     private val fakeTombstoneDao = FakeTombstoneDao()
 
     private fun engine(api: FakeApi) = CaldavSyncEngine(
@@ -68,11 +69,20 @@ class CaldavSyncEngineTest {
             ),
         )
 
-    /** Ставит строку в очередь отправки — как репозиторий делает при правке. */
+    /**
+     * Ставит строку в очередь отправки — как репозиторий делает при правке:
+     * dirty, свежая метка времени и шаг счётчика локальных мутаций (по нему
+     * движок подтверждает PUT).
+     */
     private fun markDirty(id: Long, modifiedAt: Long, title: String? = null) {
         fakeEventDao.rows.replaceAll { row ->
             if (row.id == id) {
-                row.copy(dirty = true, modifiedAt = modifiedAt, title = title ?: row.title)
+                row.copy(
+                    dirty = true,
+                    localRevision = row.localRevision + 1,
+                    modifiedAt = modifiedAt,
+                    title = title ?: row.title,
+                )
             } else {
                 row
             }
@@ -278,6 +288,145 @@ class CaldavSyncEngineTest {
     }
 
     @Test
+    fun `incomplete pull updates rows but skips deletions`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"), remoteEvent("u2"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Одна запись вычитки не разобралась и до движка не доехала: её
+        // отсутствие в списке — ещё не «удалено на сервере». u2 остаётся,
+        // а причина светится на карточке аккаунта.
+        api.pull = CaldavPull(listOf(remoteEvent("u1")), unreadable = 1)
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(added = 0, updated = 1, removed = 0), result)
+        assertEquals(setOf("u1", "u2"), fakeEventDao.rows.map { it.uid }.toSet())
+        assertTrue(fakeCaldavDao.lastError.orEmpty().startsWith("Вычитка неполна: 1"))
+    }
+
+    @Test
+    fun `edit landed while put is in flight stays queued`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        // Версия A в очереди и уже в сети, а пользователь пишет версию B.
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 500, title = "Версия A")
+        api.onPut = {
+            fakeEventDao.rows.replaceAll { row ->
+                if (row.id == 1L) {
+                    row.copy(
+                        dirty = true,
+                        localRevision = row.localRevision + 1,
+                        title = "Версия B",
+                        modifiedAt = 900,
+                    )
+                } else {
+                    row
+                }
+            }
+        }
+        api.putResults += CaldavWriteResponse(204, "\"put-e\"")
+
+        val result = engine(api).sync(account, "pwd")
+
+        // Ответ за версию A не имеет права снимать очередь с B: иначе
+        // следующая вычитка стёрла бы правку серверной копией.
+        assertEquals(0, result.pushed)
+        fakeEventDao.rows.single().let { row ->
+            assertTrue(row.dirty)
+            assertEquals("Версия B", row.title)
+            // Свежий ETag сервера всё же запомнен: следующий PUT пойдёт с
+            // живого предусловия, а не как первая публикация.
+            assertEquals("\"put-e\"", row.etag)
+        }
+        assertTrue(fakeCaldavDao.lastError.orEmpty().contains("Изменено во время отправки: 1"))
+
+        // Следующий прогон доносит B — очередь не потерялась.
+        api.onPut = null
+        api.pull = CaldavPull(listOf(remoteEvent("u1", title = "Версия B", modifiedAt = 900)))
+        api.putResults += CaldavWriteResponse(204, "\"put-e2\"")
+        val next = engine(api).sync(account, "pwd")
+
+        assertEquals(1, next.pushed)
+        assertFalse(fakeEventDao.rows.single().dirty)
+        assertTrue(api.putCalls.last().ics.contains("Версия B"))
+    }
+
+    @Test
+    fun `server-newer conflict does not overwrite edit made during push`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 100, title = "Версия A")
+        api.pull = CaldavPull(listOf(remoteEvent("u1")))
+        api.onPut = {
+            fakeEventDao.rows.replaceAll { row ->
+                if (row.id == 1L) {
+                    row.copy(
+                        dirty = true,
+                        localRevision = row.localRevision + 1,
+                        title = "Версия B",
+                        modifiedAt = 900,
+                    )
+                } else {
+                    row
+                }
+            }
+        }
+        // 412: сервер изменился после вычитки; его версия новЕ снапшота A…
+        api.putResults += CaldavWriteResponse(412)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1", title = "Серверная версия", modifiedAt = 800))
+
+        val result = engine(api).sync(account, "pwd")
+
+        // …но живая правка B (900) новее обеих, и перепись сервером стёрла бы
+        // её. Строка остаётся как есть и с собственной версией уедет далее.
+        assertEquals(0, result.overwritten)
+        fakeEventDao.rows.single().let { row ->
+            assertEquals("Версия B", row.title)
+            assertTrue(row.dirty)
+        }
+        assertEquals(1, api.putCalls.size)
+    }
+
+    @Test
+    fun `note edit landed during push stays queued`() = runBlocking {
+        val api = FakeApi(CaldavPull(emptyList()))
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Версия A",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+        )
+        api.onPut = {
+            fakeNoteDao.rows.replaceAll { note ->
+                if (note.eventDate == "2026-02-17") {
+                    note.copy(
+                        dirty = true,
+                        localRevision = note.localRevision + 1,
+                        text = "Версия B",
+                        modifiedAt = 900,
+                    )
+                } else {
+                    note
+                }
+            }
+        }
+        api.putResults += CaldavWriteResponse(204, "\"put-note\"")
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(0, result.pushed)
+        fakeNoteDao.rows.single().let { note ->
+            assertTrue(note.dirty)
+            assertEquals("Версия B", note.text)
+            assertEquals("\"put-note\"", note.etag)
+        }
+    }
+
+    @Test
     fun `dirty edit of attributed row is uploaded with etag precondition`() = runBlocking {
         val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
         val engine = engine(api)
@@ -358,7 +507,7 @@ class CaldavSyncEngineTest {
         markDirty(fakeEventDao.rows[0].id, modifiedAt = 500, title = "Локальная правка")
         api.pull = CaldavPull(emptyList())
         api.putResults += CaldavWriteResponse(404)
-        api.cannedPullEvent = null
+        api.cannedPullEvent = CaldavObjectResult.NotFound
         api.putResults += CaldavWriteResponse(201, "\"redo\"")
 
         val result = engine.sync(account, "pwd")
@@ -385,7 +534,7 @@ class CaldavSyncEngineTest {
         markDirty(fakeEventDao.rows[0].id, modifiedAt = 100, title = "Старая правка")
         api.pull = CaldavPull(listOf(remoteEvent("u1")))
         api.putResults += CaldavWriteResponse(412)
-        api.cannedPullEvent = remoteEvent("u1", title = "Сервер обгоняет", modifiedAt = 800)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1", title = "Сервер обгоняет", modifiedAt = 800))
 
         val result = engine.sync(account, "pwd")
 
@@ -408,7 +557,7 @@ class CaldavSyncEngineTest {
         markDirty(fakeEventDao.rows[0].id, modifiedAt = 900, title = "Свежая правка")
         api.pull = CaldavPull(listOf(remoteEvent("u1")))
         api.putResults += CaldavWriteResponse(412)
-        api.cannedPullEvent = remoteEvent("u1", title = "Сервер стареет", modifiedAt = 100)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1", title = "Сервер стареет", modifiedAt = 100))
         api.putResults += CaldavWriteResponse(204, "\"ok\"")
 
         val result = engine.sync(account, "pwd")
@@ -421,6 +570,47 @@ class CaldavSyncEngineTest {
             assertFalse(row.dirty)
             assertEquals("\"ok\"", row.etag)
         }
+    }
+
+    @Test
+    fun `unreadable conflict object leaves row queued instead of recreating`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        // PUT упёрся в 412, а точечная перечитка не разобралась: жив ли
+        // объект на сервере и что в нём — неизвестно. Пересоздание затёрло
+        // бы чужую правку, поэтому строка остаётся в очереди до следующего
+        // прогона, а прогон помечается незавершённым.
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 500, title = "Локальная правка")
+        api.pull = CaldavPull(listOf(remoteEvent("u1")))
+        api.putResults += CaldavWriteResponse(412)
+        api.cannedPullEvent = CaldavObjectResult.Unreadable("Нечитаемое тело объекта")
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0), result)
+        // Второго PUT не было — серверную копию не перезаписывали.
+        assertEquals(1, api.putCalls.size)
+        assertTrue(fakeEventDao.rows.single().dirty)
+        assertTrue(fakeCaldavDao.lastError.orEmpty().contains("Не отправлено: 1"))
+    }
+
+    @Test
+    fun `object href outside the account server aborts the push`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        // Адрес объекта в базе ведёт на чужой хост (подменённая база — тот же
+        // класс угрозы, что импорт копии): PUT туда не уходит, прогон
+        // прерывается с внятной причиной вместо отправки пароля.
+        fakeEventDao.rows.replaceAll {
+            it.copy(dirty = true, serverHref = "https://evil.example/x.ics")
+        }
+
+        val thrown = runCatching { engine(api).sync(account, "pwd") }
+
+        assertTrue(thrown.exceptionOrNull() is CaldavSyncException.Server)
+        assertTrue(api.putCalls.isEmpty())
     }
 
     @Test
@@ -543,6 +733,147 @@ class CaldavSyncEngineTest {
         assertTrue(fakeEventDao.rows.single().dirty)
     }
 
+    // ── Временная заморозка перезаписи (данные вне модели, overrides/вхождения) ──
+
+    /**
+     * Событие в подписке наполняли не только из приложения: PUT пересобирает
+     * ресурс из модели одним VEVENT и стёр бы место, участников, напоминания,
+     * DESCRIPTION человека или исключения серии. Прапка остаётся локальной,
+     * строка — в очереди, причина светится на карточке аккаунта.
+     */
+    @Test
+    fun `edit of an object with server-only fields stays local`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1").copy(notReproducible = true))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        markDirty(fakeEventDao.rows.single().id, modifiedAt = 900, title = "Локальная правка")
+        api.pull = CaldavPull(listOf(remoteEvent("u1").copy(notReproducible = true)))
+        val result = engine.sync(account, "pwd")
+
+        assertTrue(api.putCalls.isEmpty())
+        assertEquals(CaldavSyncResult(0, 0, 0), result)
+        fakeEventDao.rows.single().let { row ->
+            assertTrue("правка не должна сниматься с очереди", row.dirty)
+            assertEquals("Локальная правка", row.title)
+        }
+        assertTrue(fakeCaldavDao.lastError?.contains("Без отправки") == true)
+    }
+
+    /**
+     * Тот же объект, но правка новее серверной и ETag живой (412): точечная
+     * перечитка показала чужие данные — PUT даже после конфликта не уходит.
+     */
+    @Test
+    fun `conflict re-read of an object with server-only fields blocks the put`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+        markDirty(fakeEventDao.rows.single().id, modifiedAt = 900, title = "Локальная правка")
+
+        // В вычитке этого объекта не было (признак ещё не знаком), сервер
+        // отвечает 412, а перечитка приносит объект с чужими полями.
+        api.pull = CaldavPull(emptyList())
+        api.putResults += CaldavWriteResponse(412, null)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1").copy(notReproducible = true))
+        val result = engine.sync(account, "pwd")
+
+        // Один PUT был отправлен (и получил 412) — повторного нет.
+        assertEquals(1, api.putCalls.size)
+        assertEquals(CaldavSyncResult(0, 0, 0), result)
+        assertTrue(fakeEventDao.rows.single().dirty)
+    }
+
+    /**
+     * Вычитка прочла не всё: про чужие строки ничего не известно, PUT идёт
+     * вслепую. До полной вычитки правки импортированных событий не уезжают.
+     */
+    @Test
+    fun `incomplete snapshot keeps imported edits local`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        markDirty(fakeEventDao.rows.single().id, modifiedAt = 900, title = "Локальная правка")
+        api.pull = CaldavPull(listOf(remoteEvent("u1")), unreadable = 1)
+        engine.sync(account, "pwd")
+
+        assertTrue(api.putCalls.isEmpty())
+        assertTrue(fakeEventDao.rows.single().dirty)
+    }
+
+    /** Событие, созданное в приложении, отправляется и при неполной вычитке. */
+    @Test
+    fun `own row is pushed even when the snapshot is incomplete`() = runBlocking {
+        fakeEventDao.rows += ScheduledEventEntity(
+            id = 9,
+            uid = "own-uid",
+            eventDate = "2026-02-17",
+            title = "Моё",
+            type = ScheduledEventType.REGULAR.name,
+            colorArgb = 0,
+            repeatUnit = null,
+            repeatInterval = 1,
+            repeatWeekdays = null,
+            repeatUntil = null,
+            icon = "NOTE",
+            hidePast = false,
+            caldavAccountId = 42L,
+            dirty = true,
+            localRevision = 1,
+        )
+        val api = FakeApi(CaldavPull(emptyList(), unreadable = 1))
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, api.putCalls.size)
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        assertFalse(fakeEventDao.rows.single().dirty)
+    }
+
+    /**
+     * Вхождение серии Google — отдельный объект со своим id. Старая строка,
+     * рождённая прежней (неверной) вычиткой, не должна возвращаться на сервер
+     * самостоятельным событием: UID таких объектов транспорт присылает в
+     * protectedUids.
+     */
+    @Test
+    fun `legacy row of a series instance is not put`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("instance-uid"))))
+        engine(api).sync(account, "pwd")
+        markDirty(fakeEventDao.rows.single().id, modifiedAt = 900, title = "Перенесённое вхождение")
+
+        // Новая вычитка: мастера серий есть, вхождения не импортируются.
+        api.pull = CaldavPull(listOf(remoteEvent("master-uid")), protectedUids = setOf("instance-uid"))
+        engine(api).sync(account, "pwd")
+
+        assertTrue(api.putCalls.isEmpty())
+        // Строка вживания серии осталась локальной (dirty) и не вычистилась
+        // diff'ом: очередь правки ждёт, пока транспорт перестанет её беречь.
+        val orphan = fakeEventDao.rows.firstOrNull { it.uid == "instance-uid" } ?: error("строка вхождения пропала")
+        assertTrue(orphan.dirty)
+        assertEquals(2, fakeEventDao.rows.size)
+    }
+
+    /**
+     * Бэкфилл маркера — PUT по объекту, который правил не человек? Нет: если
+     * на сервере есть данные вне модели, строка даже не встаёт в очередь.
+     */
+    @Test
+    fun `marker backfill skips objects with server-only fields`() = runBlocking {
+        val uid = "4bd53b9bccd78a2facebf9af85533b9d"
+        val api = FakeApi(CaldavPull(listOf(remoteEvent(uid))))
+        engine(api).sync(account, "pwd")
+
+        fakeEventDao.rows.replaceAll { it.copy(icon = "FITNESS", colorArgb = 0xFFE53935L) }
+        api.pull = CaldavPull(listOf(remoteEvent(uid).copy(metadataFromIcs = false, notReproducible = true)))
+        val result = engine(api).sync(account, "pwd")
+
+        assertTrue(api.putCalls.isEmpty())
+        assertFalse(fakeEventDao.rows.single().dirty)
+        assertEquals(CaldavSyncResult(0, updated = 1, removed = 0), result)
+    }
+
     @Test
     fun `sync success marks account synced and error-free`() = runBlocking {
         val api = FakeApi(CaldavPull(emptyList()))
@@ -550,6 +881,44 @@ class CaldavSyncEngineTest {
 
         assertEquals(CaldavSyncResult(added = 0, updated = 0, removed = 0), result)
         assertEquals(1234567890L, fakeCaldavDao.lastSyncAt)
+    }
+
+    /**
+     * Подписку отключили, пока вычитка была в сети: применять разницу
+     * некому. Строки с мёртвым accountId не почистит уже никто (diff и обе
+     * очереди привязаны к аккаунту), а PUT/DELETE от его имени — ходы на
+     * выключенный сервер. Прогон сворачивается до вставок, отправки,
+     * удалений и отметки о синхронизации.
+     */
+    @Test
+    fun `pull is dropped when the account was disconnected mid-flight`() = runBlocking {
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-03-01",
+            text = "Локальная правка",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+        )
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(uid = "u9", accountId = 42L, deletedAt = 1)
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        // disconnect закоммитился между сетевым ходом вычитки и её применением.
+        fakeCaldavDao.accounts.clear()
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0), result)
+        assertTrue(api.putCalls.isEmpty())
+        assertTrue(api.deleteCalls.isEmpty())
+        // Ни одна строка вычитки не вписана, локальные не тронуты.
+        assertTrue(fakeEventDao.rows.isEmpty())
+        fakeNoteDao.rows.single().let { note ->
+            assertTrue(note.dirty)
+            assertNull(note.serverHref)
+        }
+        // Очередь удалений и отметка о прогоне остались как были.
+        assertEquals(1, fakeTombstoneDao.rows.size)
+        assertEquals(0L, fakeCaldavDao.lastSyncAt)
     }
 
     // ── Заметки: обмен событиями-носителями («✍️ Заметка», текст в DESCRIPTION) ──
@@ -601,7 +970,7 @@ class CaldavSyncEngineTest {
             dirty = true,
         )
         api.putResults += CaldavWriteResponse(412, null)
-        api.cannedPullEvent = remoteNote(text = "Серверная заметка", modifiedAt = 999)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteNote(text = "Серверная заметка", modifiedAt = 999))
 
         val result = engine.sync(account, "pwd")
 
@@ -678,6 +1047,88 @@ class CaldavSyncEngineTest {
         // DELETE по выведенному из UID адресу состоялся — очередь пуста.
         assertEquals(1, api.deleteCalls.size)
         assertTrue(fakeNoteDao.rows.isEmpty())
+    }
+
+    /**
+     * Заметку дня удалили (её UID — детерминирован от даты), до серверного
+     * DELETE написали новую на тот же день: PUT и DELETE одной идентичности
+     * в одном прогоне стёрли бы свежий объект на сервере, а следующая
+     * вычитка вычистила бы и локальную строку — заметка пропала бы совсем.
+     * Пересоздание снимает очередь удаления (CalendarRepositoryImpl.saveNote),
+     * движок дополнительно аннулирует устаревший tombstone без сетевого хода.
+     */
+    @Test
+    fun `tombstone of a recreated note does not delete the fresh object`() = runBlocking {
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = noteUidFor("2026-02-17"),
+            accountId = 42L,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/note-2026-02-17%40taurlom.ics",
+            deletedAt = 1,
+        )
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Молоко и хлеб",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+            localRevision = 1,
+        )
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = emptyList()))
+        val result = engine(api).sync(account, "pwd")
+
+        // Свежая заметка опубликована, а старого DELETE не было вовсе.
+        assertEquals(1, api.putCalls.size)
+        assertTrue(api.deleteCalls.isEmpty())
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        // Очередь удаления снята — на следующем прогоне она не сработает.
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("Молоко и хлеб", note.text)
+            assertFalse(note.dirty)
+        }
+
+        // Следующая вычитка: сервер держит опубликованный объект — строка цела.
+        api.pull = CaldavPull(events = emptyList(), notes = listOf(remoteNote(text = "Молоко и хлеб")))
+        engine(api).sync(account, "pwd")
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("Молоко и хлеб", note.text)
+            assertFalse(note.dirty)
+        }
+    }
+
+    /**
+     * Правка не доехала (сбой сервера) — удалять нечего, очередь DELETE
+     * легитимна: аннулирование касается только идентичностей, которые этот
+     * прогон действительно опубликовал.
+     */
+    @Test
+    fun `tombstone still deletes when the put of the same uid failed`() = runBlocking {
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = noteUidFor("2026-02-17"),
+            accountId = 42L,
+            deletedAt = 1,
+        )
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Молоко и хлеб",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+            localRevision = 1,
+        )
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = emptyList()))
+        api.putResults += CaldavWriteResponse(500, null)
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, api.deleteCalls.size)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        // PUT не состоялся: строка осталась в очереди на отправку.
+        fakeNoteDao.rows.single().let { note ->
+            assertTrue(note.dirty)
+            assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        }
     }
 }
 
@@ -761,14 +1212,17 @@ private class FakeEventDao : ScheduledEventDao {
     override suspend fun getDirtyFor(accountId: Long): List<ScheduledEventEntity> =
         rows.filter { it.dirty && it.caldavAccountId == accountId }
 
-    override suspend fun markPushed(id: Long, etag: String?, href: String) {
-        rows.replaceAll { row ->
-            if (row.id == id) {
-                row.copy(dirty = false, etag = etag, serverHref = href)
-            } else {
-                row
-            }
-        }
+    /** CAS как в Room: очередь снимается только строке с отправленной версией. */
+    override suspend fun markPushed(id: Long, etag: String?, href: String, sentRevision: Long): Int {
+        val row = rows.firstOrNull { it.id == id && it.localRevision == sentRevision } ?: return 0
+        rows.replaceAll { if (it.id == id) it.copy(dirty = false, etag = etag, serverHref = href) else it }
+        return 1
+    }
+
+    override suspend fun rememberServerState(id: Long, etag: String?, href: String): Int {
+        if (rows.none { it.id == id }) return 0
+        rows.replaceAll { if (it.id == id) it.copy(etag = etag, serverHref = href) else it }
+        return 1
     }
 
     override suspend fun markDirty(id: Long) {
@@ -832,14 +1286,17 @@ private class FakeNoteDao : CalendarNoteDao {
     override suspend fun getDirtyFor(accountId: Long): List<CalendarNoteEntity> =
         rows.filter { it.dirty && it.caldavAccountId == accountId }
 
-    override suspend fun markPushed(date: String, etag: String?, href: String) {
-        rows.replaceAll { row ->
-            if (row.eventDate == date) {
-                row.copy(dirty = false, etag = etag, serverHref = href)
-            } else {
-                row
-            }
-        }
+    /** CAS как в Room: очередь снимается только строке с отправленной версией. */
+    override suspend fun markPushed(date: String, etag: String?, href: String, sentRevision: Long): Int {
+        val row = rows.firstOrNull { it.eventDate == date && it.localRevision == sentRevision } ?: return 0
+        rows.replaceAll { if (it.eventDate == date) it.copy(dirty = false, etag = etag, serverHref = href) else it }
+        return 1
+    }
+
+    override suspend fun rememberServerState(date: String, etag: String?, href: String): Int {
+        if (rows.none { it.eventDate == date }) return 0
+        rows.replaceAll { if (it.eventDate == date) it.copy(etag = etag, serverHref = href) else it }
+        return 1
     }
 
     override suspend fun deleteNotInDates(accountId: Long, dates: List<String>): Int {
@@ -863,21 +1320,41 @@ private class FakeNoteDao : CalendarNoteDao {
         }
         return count
     }
+
+    override suspend fun detachFromAccount(accountId: Long): Int {
+        var detached = 0
+        rows.replaceAll { row ->
+            if (row.caldavAccountId == accountId) {
+                detached++
+                row.copy(caldavAccountId = null, serverHref = null, etag = null, dirty = false)
+            } else {
+                row
+            }
+        }
+        return detached
+    }
 }
 
 private class FakeCaldavDao : CaldavDao {
+    /** Строки аккаунтов: движок перед применением вычитки сверяет, что подписка жива. */
+    val accounts = mutableListOf<CaldavAccountEntity>()
     var lastSyncAt = 0L
     var lastError: String? = null
 
-    override fun observeAll(): Flow<List<CaldavAccountEntity>> = flowOf(emptyList())
+    override fun observeAll(): Flow<List<CaldavAccountEntity>> = flowOf(accounts.toList())
 
-    override suspend fun getAll(): List<CaldavAccountEntity> = emptyList()
+    override suspend fun getAll(): List<CaldavAccountEntity> = accounts.toList()
 
-    override suspend fun getById(id: Long): CaldavAccountEntity? = null
+    override suspend fun getById(id: Long): CaldavAccountEntity? = accounts.firstOrNull { it.id == id }
 
-    override suspend fun insert(account: CaldavAccountEntity): Long = 1
+    override suspend fun insert(account: CaldavAccountEntity): Long {
+        accounts += account
+        return account.id
+    }
 
-    override suspend fun deleteById(id: Long) = Unit
+    override suspend fun deleteById(id: Long) {
+        accounts.removeAll { it.id == id }
+    }
 
     override suspend fun markSynced(id: Long, time: Long) {
         lastSyncAt = time
@@ -907,6 +1384,12 @@ private class FakeTombstoneDao : CaldavTombstoneDao {
         return before - rows.size
     }
 
+    override suspend fun deleteForIdentity(uid: String, accountId: Long): Int {
+        val before = rows.size
+        rows.removeAll { it.uid == uid && it.accountId == accountId }
+        return before - rows.size
+    }
+
     override suspend fun deleteAllFor(accountId: Long): Int {
         val before = rows.size
         rows.removeAll { it.accountId == accountId }
@@ -924,7 +1407,13 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
     val putResults = mutableListOf<CaldavWriteResponse>()
 
     /** Скриптованный ответ точечной вычитки (конфликтный путь 412/404). */
-    var cannedPullEvent: CaldavRemoteEvent? = null
+    var cannedPullEvent: CaldavObjectResult = CaldavObjectResult.NotFound
+
+    /**
+     * Крюк «во время сети»: вызывается внутри putEvent — имитирует правку
+     * пользователя, вписанную, пока версия строки уже в пути.
+     */
+    var onPut: (() -> Unit)? = null
 
     val putCalls = mutableListOf<PutCall>()
     val deleteCalls = mutableListOf<String>()
@@ -943,6 +1432,7 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
         createIfAbsent: Boolean,
     ): CaldavWriteResponse {
         putCalls += PutCall(url, etag, createIfAbsent, ics)
+        onPut?.invoke()
         return putResults.removeFirstOrNull() ?: CaldavWriteResponse(204, "\"pushed-$etag\"")
     }
 
@@ -951,7 +1441,7 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
         return deleteResults.removeFirstOrNull() ?: 204
     }
 
-    override suspend fun pullEvent(url: String, username: String, password: String): CaldavRemoteEvent? = cannedPullEvent
+    override suspend fun pullEvent(url: String, username: String, password: String): CaldavObjectResult = cannedPullEvent
 
     override fun objectHref(collectionUrl: String, uid: String): String = deriveObjectHref(collectionUrl, uid)
 }

@@ -21,6 +21,7 @@ import ru.taurlom.tnote.domain.repository.BackupDescription
 import ru.taurlom.tnote.domain.repository.BackupImportException
 import ru.taurlom.tnote.domain.repository.BackupRepository
 import ru.taurlom.tnote.domain.repository.BackupSummary
+import ru.taurlom.tnote.domain.repository.CaldavRepository
 import ru.taurlom.tnote.domain.repository.DocumentRepository
 import ru.taurlom.tnote.domain.repository.NoteRepository
 import ru.taurlom.tnote.domain.repository.SettingsRepository
@@ -71,6 +72,13 @@ import javax.inject.Singleton
  * отодвинутый файл. Приложение всё равно перезапускают (см.
  * SettingsScreen): проще всего пересозданием процесса сбрасывается
  * закэшированное состояние — InvalidationTracker, ViewModel'и.
+ *
+ * Безопасность: копия содержит таблицу подписок (адреса серверов, логины,
+ * href объектов), но НЕ содержит паролей — они в отдельных preferences и
+ * шифруются ключом AndroidKeyStore этого устройства. Поэтому импорт
+ * выключает привезённые подписки ([CaldavRepository.deactivateSubscriptions]):
+ * иначе фоновый синхронист отправил бы сохранённый на устройстве пароль на
+ * сервер из чужой копии с тем же логином.
  */
 @Singleton
 class BackupRepositoryImpl @Inject constructor(
@@ -79,6 +87,7 @@ class BackupRepositoryImpl @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val documentRepository: DocumentRepository,
     private val noteRepository: NoteRepository,
+    private val caldavRepository: CaldavRepository,
 ) : BackupRepository {
 
     /**
@@ -412,6 +421,14 @@ class BackupRepositoryImpl @Inject constructor(
                 throw t
             }
             applied.forEach { it.discard() }
+
+            // Подмены состоялись — вместе с базой пришли подписки с чужими
+            // адресами серверов, а пароли в копии не живут (и не могут: ключ
+            // AndroidKeyStore не покидает устройство). Синк по такой паре
+            // «привезённый адрес + местный секрет» отправил бы пароль
+            // неведомо куда, поэтому все подписки выключаются, а секреты
+            // стираются — ещё до того, как проснётся фоновый воркер.
+            caldavRepository.deactivateSubscriptions()
 
             BackupSummary(
                 photos = restoredPhotos,

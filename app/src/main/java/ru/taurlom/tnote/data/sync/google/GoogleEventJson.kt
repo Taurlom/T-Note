@@ -169,6 +169,53 @@ fun googleEventToVEvent(json: JSONObject): VEvent? {
     }
 }
 
+/**
+ * id серии, чьим вхождением (исключением) является этот объект, или null.
+ * Non-null у отменённых и перенесённых вхождений повторяющихся событий:
+ * отдельным событием такое жить не должно (мастер разворачивает вхождение
+ * сам — получил бы дубль), а PUT по мастеру перечеркнул бы исключение.
+ */
+internal fun JSONObject.seriesExceptionParentId(): String? = optString("recurringEventId").takeIf { it.isNotEmpty() }
+
+/**
+ * Есть ли в событии Google поля, которых нет в модели T-Note. Наш экспорт
+ * отправляет полный ресурс (PUT), и сервер стёр бы всё перечисленное:
+ * место, участники, вложения, видеоконференция, «источник», цвет,
+ * видимость/прозрачность не по умолчанию, гостевые права, напоминания,
+ * расширенные свойства, служебные типы событий (вне офиса, фокус) и
+ * правила повторяемости вне RRULE/EXDATE (RDATE и прочее).
+ */
+internal fun JSONObject.hasUnmodeledContent(): Boolean {
+    if (optString("location").isNotBlank()) return true
+    if (optJSONArray("attendees")?.length() ?: 0 > 0) return true
+    if (optJSONArray("attachments")?.length() ?: 0 > 0) return true
+    if (has("conferenceData") || optString("hangoutLink").isNotEmpty()) return true
+    optJSONObject("source")?.let { source ->
+        if (source.optString("title").isNotBlank() || source.optString("url").isNotBlank()) return true
+    }
+    if (optJSONObject("extendedProperties")?.let { it.has("private") || it.has("shared") } == true) return true
+    if (optJSONObject("reminders")?.optJSONArray("overrides")?.length() ?: 0 > 0) return true
+    if (optString("colorId").isNotBlank() || optString("color").isNotBlank()) return true
+    // Значения по умолчанию Google не отдаёт; всё, что пришло явно и не
+    // дефолт, — выбор человека, теряемый при перезаписи.
+    if (optString("visibility").isNotEmpty() && !optString("visibility").equals("default", ignoreCase = true)) return true
+    if (optString("transparency").isNotEmpty() && !optString("transparency").equals("opaque", ignoreCase = true)) return true
+    if (optString("eventType").isNotEmpty() && !optString("eventType").equals("legacy", ignoreCase = true)) return true
+    if (optBoolean("guestsCanModify")) return true
+    if (has("guestsCanCancel") && !getBoolean("guestsCanCancel")) return true
+    if (has("guestsCanInviteOthers") && !getBoolean("guestsCanInviteOthers")) return true
+    if (has("guestsCanSeeOtherGuests") && !getBoolean("guestsCanSeeOtherGuests")) return true
+    optJSONArray("recurrence")?.let { rules ->
+        for (index in 0 until rules.length()) {
+            val line = rules.optString(index).trim()
+            // Модель воспроизводит RRULE и EXDATE; прочее (RDATE, EXRULE)
+            // при PUT пропало бы.
+            if (!line.startsWith("RRULE") && !line.startsWith("EXDATE")) return true
+        }
+    }
+    return false
+}
+
 /** Событие Google из VEVENT (наш экспорт): только те поля, что Google хранит. */
 fun veventToGoogleJson(vevent: VEvent): JSONObject {
     val json = JSONObject()

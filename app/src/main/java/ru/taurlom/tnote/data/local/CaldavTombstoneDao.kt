@@ -28,6 +28,16 @@ interface CaldavTombstoneDao {
     @Query("DELETE FROM caldav_tombstones WHERE uid = :uid")
     suspend fun deleteByUid(uid: String): Int
 
+    /**
+     * Снятие удаления одной идентичности: локальное пересоздание (upsert)
+     * всегда новее tombstone, а DELETE снёс бы свежий серверный объект.
+     * Ограничение по аккаунту обязательно: у заметок UID выводится из даты,
+     * поэтому очередь удаления другой подписки под тем же UID — это другое
+     * намерение, и снимать его нельзя. Возвращает число снятых записей.
+     */
+    @Query("DELETE FROM caldav_tombstones WHERE uid = :uid AND accountId = :accountId")
+    suspend fun deleteForIdentity(uid: String, accountId: Long): Int
+
     /** Отключение аккаунта: его очередь DELETE гасится целиком. */
     @Query("DELETE FROM caldav_tombstones WHERE accountId = :accountId")
     suspend fun deleteAllFor(accountId: Long): Int

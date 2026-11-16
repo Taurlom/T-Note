@@ -446,6 +446,53 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    /**
+     * 27 → 28: счётчик локальных мутаций (CAS-подтверждение отправки).
+     * Строкам существующей базы — 0: их содержимое миграция не трогает, а
+     * очередь (dirty) остаётся какой была, и первое же подтверждение PUT'а
+     * совпадёт с нулём.
+     */
+    @Test
+    fun `migrate 27 to 28 adds local revision counters without touching queue`() {
+        helper.createDatabase(27).use { db ->
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                    "remoteImported, dirty, etag, serverHref, createdAt, modifiedAt) " +
+                    "VALUES (1, 'uid-1', '2026-11-16', 'Полив', 'REGULAR', 'NOTE', 0, " +
+                    "NULL, 1, NULL, NULL, NULL, 0, 0, 1, 0, 1, '\"e1\"', '/c/1.ics', 100, 200)",
+            ).use { it.step() }
+            db.prepare(
+                "INSERT INTO calendar_notes (eventDate, text, createdAt, modifiedAt, " +
+                    "caldavAccountId, dirty, etag, serverHref) " +
+                    "VALUES ('2026-11-16', 'Полив', 100, 200, 1, 1, '\"e2\"', '/c/n.ics')",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            28,
+            listOf(AppDatabaseMigration.MIGRATION_27_28),
+        )
+        db.prepare(
+            "SELECT title, dirty, localRevision FROM scheduled_events WHERE id = 1",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("Полив", stmt.getText(0))
+            // Очередь пережила миграцию, счётчик открыт нулём.
+            assertEquals(1L, stmt.getLong(1))
+            assertEquals(0L, stmt.getLong(2))
+        }
+        db.prepare(
+            "SELECT text, dirty, localRevision FROM calendar_notes WHERE eventDate = '2026-11-16'",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("Полив", stmt.getText(0))
+            assertEquals(1L, stmt.getLong(1))
+            assertEquals(0L, stmt.getLong(2))
+        }
+        db.close()
+    }
+
     /** Без подписки заметки остаются локальными: некуда и незачем ехать. */
     @Test
     fun `migrate 24 to 25 keeps notes local without accounts`() {

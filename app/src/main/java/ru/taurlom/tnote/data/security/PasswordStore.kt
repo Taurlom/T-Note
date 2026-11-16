@@ -17,8 +17,15 @@ import javax.inject.Singleton
  * Пароль приложения Календарь (CalDAV) — только в зашифрованном виде:
  * ключ AES-256-GCM рождается внутри AndroidKeyStore и не покидает
  * устройство; в Preferences лежит лишь пара «вектор инициализации |
- * шифртекст» в Base64. Ключ доступа — логин пользователя (несколько
- * подписок одного аккаунта переиспользуют один пароль).
+ * шифртекст» в Base64.
+ *
+ * Ключ доступа — «кому и от кого»: origin сервера + логин (несколько
+ * подписок одного аккаунта на одном сервере переиспользуют один пароль).
+ * Привязка к origin не дала бы сохранённому паролю уехать на чужой сервер,
+ * даже если адрес сервера в базе подменили — пароль без пары
+ * (origin, логин) просто не находится. Импорт резервной копии стирает
+ * секреты целиком (BackupRepositoryImpl): копия приносит аккаунты без
+ * паролей, и живые секреты не должны встретиться с чужими адресами.
  */
 @Singleton
 class PasswordStore @Inject constructor(@ApplicationContext context: Context) {
@@ -31,14 +38,40 @@ class PasswordStore @Inject constructor(@ApplicationContext context: Context) {
             ?: generateKey()
     }
 
-    fun save(username: String, password: String) {
-        prefs.edit().putString(storageKey(username), encrypt(password)).apply()
+    fun save(serverOrigin: String, username: String, password: String) {
+        prefs.edit().putString(storageKey(serverOrigin, username), encrypt(password)).apply()
     }
 
-    fun read(username: String): String? = prefs.getString(storageKey(username), null)?.let { decrypt(it) }
+    /**
+     * Пароль для пары (origin сервера, логин); null — секретов нет.
+     * Старая форма ключа (до привязки к серверу — «pwd:логин») подхватывается
+     * один раз и перекладывается под новый ключ: подписки, подключённые
+     * прежними версиями, продолжают работать, но только со своим сервером
+     * (импорт копии, где подмена адреса и была опасна, к этому моменту уже
+     * стёр все секреты).
+     */
+    fun read(serverOrigin: String, username: String): String? {
+        prefs.getString(storageKey(serverOrigin, username), null)
+            ?.let { stored -> return runCatching { decrypt(stored) }.getOrNull() }
+        val legacy = prefs.getString(legacyKey(username), null) ?: return null
+        val password = runCatching { decrypt(legacy) }.getOrNull() ?: return null
+        save(serverOrigin, username, password)
+        prefs.edit().remove(legacyKey(username)).apply()
+        return password
+    }
 
-    fun clear(username: String) {
-        prefs.edit().remove(storageKey(username)).apply()
+    fun clear(serverOrigin: String, username: String) {
+        prefs.edit()
+            .remove(storageKey(serverOrigin, username))
+            // Старый ключ того же логина — тоже этот же секрет, иным
+            // сервером он больше не должен находиться.
+            .remove(legacyKey(username))
+            .apply()
+    }
+
+    /** Все секреты прочь — восстановление резервной копии выключает подписки. */
+    fun clearAll() {
+        prefs.edit().clear().apply()
     }
 
     private fun encrypt(plain: String): String {
@@ -79,7 +112,11 @@ class PasswordStore @Inject constructor(@ApplicationContext context: Context) {
         return generator.generateKey()
     }
 
-    private fun storageKey(username: String): String = "pwd:$username"
+    /** Новый ключ: «кому (origin) и от кого (логин)». */
+    private fun storageKey(serverOrigin: String, username: String): String = "pwd:$serverOrigin|$username"
+
+    /** Ключ до привязки к серверу — только логин; подхватывается один раз (см. [read]). */
+    private fun legacyKey(username: String): String = "pwd:$username"
 
     private companion object {
 

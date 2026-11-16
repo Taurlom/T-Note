@@ -75,9 +75,13 @@ class CaldavHttpClientTest {
         </D:multistatus>
     """.trimIndent()
 
+    /** multistatus DAV:-пространства: разбор отдаёт список записей, чужой документ — null. */
+    private fun dav(xml: String): List<DavEntry> =
+        DavXml.parseMultistatus(xml) ?: throw AssertionError("Ответ не распознан как multistatus")
+
     @Test
     fun `propfind listing extracts calendars with component support`() {
-        val entries = DavXml.parseMultistatus(propfindHomeXml)
+        val entries = dav(propfindHomeXml)
 
         assertEquals(3, entries.size)
         val tnote = entries.first { it.displayName == "T-Note" }
@@ -97,7 +101,7 @@ class CaldavHttpClientTest {
 
     @Test
     fun `calendar-query extracts etag and full ics body`() {
-        val entries = DavXml.parseMultistatus(reportEventXml)
+        val entries = dav(reportEventXml)
 
         assertEquals(1, entries.size)
         val entry = entries[0]
@@ -111,7 +115,7 @@ class CaldavHttpClientTest {
 
     @Test
     fun `propstat with error status does not overwrite entry properties`() {
-        val entries = DavXml.parseMultistatus(propfindPartialXml)
+        val entries = dav(propfindPartialXml)
 
         assertEquals(1, entries.size)
         assertEquals("/x/", entries[0].href)
@@ -121,8 +125,22 @@ class CaldavHttpClientTest {
     }
 
     @Test
-    fun `non-dav body yields no entries`() {
-        assertEquals(0, DavXml.parseMultistatus("<html><body>404</body></html>").size)
+    fun `non-dav document is not an empty multistatus`() {
+        // HTML-страница перехвата (портал гостиницы, заглушка прокси) —
+        // корректный XML, но не ответ календарного сервера. Раньше он
+        // превращался в пустой список записей, и движок читал это как
+        // «на сервере ничего нет», стирая локальные строки; теперь — null,
+        // то есть протокольный сбой и отказ прогона.
+        assertNull(DavXml.parseMultistatus("<html><body>404</body></html>"))
+        // Тот же multistatus в чужом пространстве имён — не DAV-ответ.
+        assertNull(
+            DavXml.parseMultistatus(
+                """
+                <?xml version='1.0'?>
+                <m:multistatus xmlns:m="urn:example"><m:response/></m:multistatus>
+                """.trimIndent(),
+            ),
+        )
     }
 
     @Test
@@ -138,7 +156,7 @@ class CaldavHttpClientTest {
             </D:multistatus>
         """.trimIndent()
 
-        assertEquals("\"1794258807976\"", DavXml.parseMultistatus(xml).single().etag)
+        assertEquals("\"1794258807976\"", dav(xml).single().etag)
     }
 
     @Test

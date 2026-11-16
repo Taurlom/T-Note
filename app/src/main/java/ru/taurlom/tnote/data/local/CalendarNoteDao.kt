@@ -49,11 +49,21 @@ interface CalendarNoteDao {
     )
     suspend fun getDirtyFor(accountId: Long): List<CalendarNoteEntity>
 
-    /** PUT доехал: очередь чиста, ETag и href обновлены. */
+    /**
+     * PUT доехал: очередь чиста, ETag и href обновлены. CAS по
+     * [sentRevision] (см. CalendarNoteEntity.localRevision): правка,
+     * вписанная в сетевой ход, остаётся в очереди. Возвращает число
+     * изменённых строк.
+     */
     @Query(
-        "UPDATE calendar_notes SET dirty = 0, etag = :etag, serverHref = :href WHERE eventDate = :date",
+        "UPDATE calendar_notes SET dirty = 0, etag = :etag, serverHref = :href " +
+            "WHERE eventDate = :date AND localRevision = :sentRevision",
     )
-    suspend fun markPushed(date: String, etag: String?, href: String)
+    suspend fun markPushed(date: String, etag: String?, href: String, sentRevision: Long): Int
+
+    /** Ответ сервера есть, заметка тем временем правится: привязку пишем, очередь не трогаем. */
+    @Query("UPDATE calendar_notes SET etag = :etag, serverHref = :href WHERE eventDate = :date")
+    suspend fun rememberServerState(date: String, etag: String?, href: String): Int
 
     /**
      * Заметка пропала на сервере, локальных правок нет (dirty = 0) —
@@ -71,4 +81,16 @@ interface CalendarNoteDao {
             "WHERE caldavAccountId IS NULL",
     )
     suspend fun attributeAll(accountId: Long): Int
+
+    /**
+     * Отвязка заметок источника (выключение подписки): строки остаются в
+     * приложении локальными, серверная привязка (href, ETag) и очередь
+     * отправки стираются — по чужому адресу от имени выключенной подписки
+     * писать уже некому.
+     */
+    @Query(
+        "UPDATE calendar_notes SET caldavAccountId = NULL, serverHref = NULL, " +
+            "etag = NULL, dirty = 0 WHERE caldavAccountId = :accountId",
+    )
+    suspend fun detachFromAccount(accountId: Long): Int
 }

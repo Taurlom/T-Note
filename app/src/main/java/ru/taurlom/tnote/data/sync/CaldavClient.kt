@@ -1,6 +1,7 @@
 package ru.taurlom.tnote.data.sync
 
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import ru.taurlom.tnote.data.security.originOf
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.repository.CaldavSyncException
@@ -13,8 +14,45 @@ data class CaldavPull(
     val events: List<CaldavRemoteEvent>,
     /** События-носители заметок («✍️ …» в имени) — движок ведёт их в calendar_notes. */
     val notes: List<CaldavRemoteEvent> = emptyList(),
+    /**
+     * Записи вычитки, которые пришлись «не сюда»: тело без calendar-data,
+     * неразборчивый ICS, VEVENT без UID/DTSTART, событие Google без id или
+     * даты. Считать их удалёнными на сервере нельзя — они просто не прочлись,
+     * поэтому число и решает, полон ли снапшот ([complete]).
+     */
     val unreadable: Int = 0,
-)
+    /**
+     * UID'ы серверных объектов, которые не вписаны в список, но и перезаписи
+     * не терпят: вхождения повторяющихся серий Google (у них свой id, а
+     * содержимое живёт в мастер-событии). Строка базы с таким UID — наследие
+     * более старой версии приложения, и PUT вернул бы на сервер дубль
+     * вхождения или отменённый экземпляр.
+     */
+    val protectedUids: Set<String> = emptySet(),
+) {
+
+    /**
+     * «Всё, что есть на сервере»: разница «чего на сервере нет» (и связанных
+     * с ней локальных удалений) применима только к полному снапшоту.
+     */
+    val complete: Boolean get() = unreadable == 0
+}
+
+/**
+ * Точечное чтение одного объекта (разрешение конфликта PUT): три исхода
+ * вместо «null на всё». [NotFound] — сервер сказал 404/410, объект можно
+ * пересоздавать; [Unreadable] — ответ пришёл, но прочесть его не удалось:
+ * вывод «объекта нет» из него делать нельзя, иначе PUT поверх непрочитанной
+ * серверной копии затрёт чужую правку.
+ */
+sealed interface CaldavObjectResult {
+
+    data class Found(val event: CaldavRemoteEvent) : CaldavObjectResult
+
+    object NotFound : CaldavObjectResult
+
+    data class Unreadable(val reason: String) : CaldavObjectResult
+}
 
 /**
  * Объект с сервера в транспортной обёртке: разобранное событие плюс
@@ -51,6 +89,15 @@ data class CaldavRemoteEvent(
      * что объект наполнялся человеком — его PUT не переписывает.
      */
     val hasDescription: Boolean = false,
+    /**
+     * Серверный объект нельзя пересобирать из нашей модели: в нём есть
+     * данные, которых в модели нет (место, участники, напоминания, чужие
+     * свойства, DESCRIPTION человека, невыразимое RRULE) или рядом с мастером
+     * лежат исключения серии (RECURRENCE-ID). PUT одним VEVENT из модели
+     * стёр бы их с сервера, поэтому движок такие строки не отправляет:
+     * локальные правки остаются локальными, объект живёт своей жизнью.
+     */
+    val notReproducible: Boolean = false,
 )
 
 /**
@@ -62,7 +109,12 @@ interface CaldavApi {
     /** principal → calendar-home-set → список календарей с VEVENT. */
     suspend fun discoverCalendars(server: String, username: String, password: String): List<CaldavCalendarRef>
 
-    /** Полная вычитка коллекции: события без X-свойств (Яндекс их режет). */
+    /**
+     * Полная вычитка коллекции: события без X-свойств (Яндекс их режет).
+     * Ответ, не похожий на календарный, — [CaldavSyncException.Server]:
+     * движок обязан получить либо полный список, либо отказ прогона, но не
+     * «пустоту», которую он прочитал бы как удаление всех серверных объектов.
+     */
     suspend fun pullEvents(collectionUrl: String, username: String, password: String): CaldavPull
 
     /**
@@ -91,9 +143,10 @@ interface CaldavApi {
     /**
      * Точечный PROPFIND depth 0 по одному объекту: событие вместе с адресом
      * и ETag — разрешение конфликта PUT (412/404) без вычитки всей коллекции.
-     * null — объекта нет (404) либо тело не разбирается.
+     * «Объекта нет» и «объект не прочитался» — разные исходы ([CaldavObjectResult]):
+     * первый позволяет пересоздать ресурс, второй не позволяет ничего решать.
      */
-    suspend fun pullEvent(url: String, username: String, password: String): CaldavRemoteEvent?
+    suspend fun pullEvent(url: String, username: String, password: String): CaldavObjectResult
 
     /** Адрес публикации события, ещё не гулявшего по серверу: <uid>.ics. */
     fun objectHref(collectionUrl: String, uid: String): String
@@ -136,25 +189,31 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
 
     override suspend fun discoverCalendars(server: String, username: String, password: String): List<CaldavCalendarRef> {
         val principalUrl = "${server.trimEnd('/')}/principals/users/$username/"
-        val principal = http.davRequest(
-            "PROPFIND",
-            principalUrl,
-            "0",
-            PRINCIPAL_BODY,
-            username,
-            password,
+        val principal = requireFound(
+            http.davRequest(
+                "PROPFIND",
+                principalUrl,
+                "0",
+                PRINCIPAL_BODY,
+                username,
+                password,
+            ),
+            "Запрос principal",
         )
         val homeHref = principal.firstOrNull()?.calendarHomes?.firstOrNull()
             ?: throw CaldavSyncException.Server("Сервер не отдал calendar-home-set")
         val homeUrl = resolve(principalUrl, homeHref)
 
-        val listing = http.davRequest(
-            "PROPFIND",
-            homeUrl,
-            "1",
-            LIST_BODY,
-            username,
-            password,
+        val listing = requireFound(
+            http.davRequest(
+                "PROPFIND",
+                homeUrl,
+                "1",
+                LIST_BODY,
+                username,
+                password,
+            ),
+            "Список календарей",
         )
         return listing
             .filter { it.isCalendar && it.supportsVevents }
@@ -163,19 +222,32 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
     }
 
     override suspend fun pullEvents(collectionUrl: String, username: String, password: String): CaldavPull {
-        val entries = http.davRequest(
-            "REPORT",
-            collectionUrl,
-            "1",
-            QUERY_BODY,
-            username,
-            password,
+        val entries = requireFound(
+            http.davRequest(
+                "REPORT",
+                collectionUrl,
+                "1",
+                QUERY_BODY,
+                username,
+                password,
+            ),
+            "Вычитка коллекции",
         )
         var unreadable = 0
         val events = mutableListOf<CaldavRemoteEvent>()
         val notes = mutableListOf<CaldavRemoteEvent>()
         for (entry in entries) {
-            val data = entry.calendarData ?: continue
+            // Запись без тела. Кроме коллекций: их Depth 1 перечисляет
+            // наряду с объектами, а calendar-data у них нет по определению
+            // (href календарного объекта — файл, он не кончается слэшем).
+            // Объект же без тела — это объект, который мы не прочитали:
+            // снапшот перестаёт быть полным.
+            val data = entry.calendarData
+            if (data == null) {
+                if (!entry.href.trimEnd().endsWith("/")) unreadable++
+                continue
+            }
+            val href = resolve(collectionUrl, entry.href)
             // XML-нормализация сжимает CRLF до LF; возвращаем RFC-шный вид,
             // чтобы ical4j разворачивал folded-строки как в реальных телах.
             val ics = data.replace("\r\n", "\n").lines().joinToString("\r\n")
@@ -186,32 +258,35 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
             }
             // href и ETag объекта едут вместе с событием: движок ведёт diff
             // по UID, а предусловия PUT'а и DELETE'я не обходятся без них.
-            val href = resolve(collectionUrl, entry.href)
-            // Одно событие-объект может вернуть и мастер, и его overrides;
-            // храним мастера: ровно то, что показывал read-only этап 1.
-            calendar.vevents().mapNotNull { vevent ->
-                val mapped = vevent.toScheduledEvent() ?: return@mapNotNull null
-                // Заметка едет своим списком: маркер — ✍ в починенном имени.
-                if (noteBySummary(mapped.title)) {
-                    notes += CaldavRemoteEvent(
-                        href = href,
-                        etag = entry.etag,
-                        event = mapped,
-                        metadataFromIcs = vevent.hasTnoteMetadata(),
-                        noteText = vevent.noteText(),
-                        hasDescription = vevent.hasDescriptionText(),
-                    )
-                } else {
-                    events += CaldavRemoteEvent(
-                        href = href,
-                        etag = entry.etag,
-                        event = mapped,
-                        metadataFromIcs = vevent.hasTnoteMetadata(),
-                        hasDescription = vevent.hasDescriptionText(),
-                    )
-                }
-                Unit
+            //
+            // Ресурс разбирается атомарно: строкой живёт мастер серии, а
+            // исключения (VEVENT с RECURRENCE-ID) — это не самостоятельные
+            // объекты (UID тот же, две записи перезаписывали бы одну строку
+            // в порядке компонентов). Их наличие лишь помечает объект
+            // «не перезаписывать»: PUT одним VEVENT стёр бы все overrides.
+            val vevent = calendar.recurrenceMaster()
+            val mapped = vevent?.toScheduledEvent()
+            if (vevent == null || mapped == null) {
+                // Ни разбираемого мастера, ни обычного VEVENT в ресурсе нет
+                // (только исключения, тело не VEVENT, VEVENT без UID/DTSTART):
+                // для разницы по UID объект всё равно что исчез, а он может
+                // быть жив — снапшот перестаёт быть полным.
+                unreadable++
+                continue
             }
+            val isNote = noteBySummary(mapped.title)
+            // Заметка едет своим списком: маркер — ✍ в починенном имени.
+            val remote = CaldavRemoteEvent(
+                href = href,
+                etag = entry.etag,
+                event = mapped,
+                metadataFromIcs = vevent.hasTnoteMetadata(),
+                noteText = if (isNote) vevent.noteText() else null,
+                hasDescription = vevent.hasDescriptionText(),
+                notReproducible = calendar.hasRecurrenceOverrides() ||
+                    vevent.hasUnmodeledContent(descriptionIsOwn = isNote),
+            )
+            if (isNote) notes += remote else events += remote
         }
         return CaldavPull(events, notes, unreadable)
     }
@@ -249,42 +324,93 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
         ifNoneMatchStar = false,
     ).code
 
-    override suspend fun pullEvent(url: String, username: String, password: String): CaldavRemoteEvent? {
-        val entries = http.davRequest(
+    override suspend fun pullEvent(url: String, username: String, password: String): CaldavObjectResult {
+        val outcome = http.davRequest(
             "PROPFIND",
             url,
             "0",
             OBJECT_BODY,
             username,
             password,
-            // 404 — «объект уже удалён»: движок различает это в конфликтном
-            // разрешении, всей коллекции оно не касается.
+            // 404 — «объект уже удалён»: только этот исход даёт движку
+            // право пересоздать ресурс; прочие «пустые» ответы таковыми
+            // не считаются (см. [CaldavObjectResult.Unreadable]).
             notFoundIsEmpty = true,
         )
+        return when (outcome) {
+            DavOutcome.NotFound -> CaldavObjectResult.NotFound
+            is DavOutcome.ProtocolError -> CaldavObjectResult.Unreadable(outcome.message)
+            is DavOutcome.Found -> readObject(outcome.entries, url)
+        }
+    }
+
+    /**
+     * Ответ точечного PROPFIND в один объект; всё, что не прочлось, —
+     * [CaldavObjectResult.Unreadable] с причиной (её видит карточка аккаунта
+     * через отложенную строку очереди).
+     */
+    private fun readObject(entries: List<DavEntry>, url: String): CaldavObjectResult {
         val entry = entries.firstOrNull { it.calendarData != null }
-        val data = entry?.calendarData ?: return null
+            ?: return CaldavObjectResult.Unreadable("Объект без calendar-data: $url")
+        val data = entry.calendarData ?: return CaldavObjectResult.Unreadable("Объект без calendar-data: $url")
+        val href = runCatching { resolve(url, entry.href) }.getOrNull()
+            ?: return CaldavObjectResult.Unreadable("Нечитаемый href объекта: ${entry.href}")
         // XML-нормализация — та же, что в pullEvents: тела разворачиваем
         // в RFC-шной форме переводов строк для ical4j.
         val ics = data.replace("\r\n", "\n").lines().joinToString("\r\n")
-        // Тело с overrides принимается как и в pullEvents — мастером.
-        val calendar = parseIcs(ics) ?: return null
-        val vevent = calendar.vevents().firstOrNull() ?: return null
-        val event = vevent.toScheduledEvent() ?: return null
-        return CaldavRemoteEvent(
-            href = resolve(url, entry.href),
-            etag = entry.etag,
-            event = event,
-            metadataFromIcs = vevent.hasTnoteMetadata(),
-            noteText = if (noteBySummary(event.title)) vevent.noteText() else null,
-            hasDescription = vevent.hasDescriptionText(),
+        val calendar = parseIcs(ics) ?: return CaldavObjectResult.Unreadable("Нечитаемое тело объекта: $href")
+        // Разбор — тот же, что у полной вычитки: мастер серии без
+        // RECURRENCE-ID, а исключения помечают объект «не перезаписывать».
+        val vevent = calendar.recurrenceMaster() ?: return CaldavObjectResult.Unreadable(
+            if (calendar.vevents().isEmpty()) "В объекте нет VEVENT: $href" else "В объекте только исключения серии: $href",
+        )
+        val event = vevent.toScheduledEvent()
+            ?: return CaldavObjectResult.Unreadable("VEVENT без UID/DTSTART: $href")
+        val isNote = noteBySummary(event.title)
+        return CaldavObjectResult.Found(
+            CaldavRemoteEvent(
+                href = href,
+                etag = entry.etag,
+                event = event,
+                metadataFromIcs = vevent.hasTnoteMetadata(),
+                noteText = if (isNote) vevent.noteText() else null,
+                hasDescription = vevent.hasDescriptionText(),
+                notReproducible = calendar.hasRecurrenceOverrides() ||
+                    vevent.hasUnmodeledContent(descriptionIsOwn = isNote),
+            ),
         )
     }
 
     override fun objectHref(collectionUrl: String, uid: String): String = deriveObjectHref(collectionUrl, uid)
 
-    /** href относительный (/calendars/…%40…) → абсолютный URL. */
-    private fun resolve(base: String, href: String): String = base.toHttpUrl().resolve(href)?.toString()
-        ?: throw CaldavSyncException.Server("Нечитаемый href от сервера: $href")
+    /**
+     * href относительный (/calendars/…%40…) → абсолютный URL против адреса
+     * запроса — сервер присылает их percent-кодированными (%40 вместо @).
+     *
+     * Абсолютный href ЧУЖОГО origin отклоняется: по этому адресу движок
+     * отправит и следующую вычитку, и PUT/DELETE с паролем в Authorization,
+     * то есть один такой ответ переселял бы подписку на чужой сервер.
+     */
+    private fun resolve(base: String, href: String): String {
+        val target = base.toHttpUrl().resolve(href)?.toString()
+            ?: throw CaldavSyncException.Server("Нечитаемый href от сервера: $href")
+        if (originOf(target) != originOf(base)) {
+            throw CaldavSyncException.Server("Сервер отдал ссылку вне своего адреса: $href")
+        }
+        return target
+    }
+
+    /**
+     * Ответ полной вычитки/разведки в список записей: всё, что не 207
+     * multistatus, — отказ прогона. Применять разницу к «половине» серверных
+     * данных опаснее, чем не синхронизироваться вовсе: следующий прогон
+     * догонит, а стёртые строки — нет.
+     */
+    private fun requireFound(outcome: DavOutcome, what: String): List<DavEntry> = when (outcome) {
+        is DavOutcome.Found -> outcome.entries
+        DavOutcome.NotFound -> throw CaldavSyncException.Server("$what: сервер ответил 404")
+        is DavOutcome.ProtocolError -> throw CaldavSyncException.Server("$what: ${outcome.message}")
+    }
 }
 
 /**

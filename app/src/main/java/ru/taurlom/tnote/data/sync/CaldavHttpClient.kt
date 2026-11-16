@@ -38,6 +38,25 @@ internal data class DavEntry(
 )
 
 /**
+ * Итог DAV-запроса: «объекта нет» и «ответ не прочитался» — разные исходы,
+ * и сводить их к пустому списку нельзя. Пустой список движок читает как
+ * полный снапшот пустой коллекции и стирает локальные строки, а на
+ * точечном запросе по «объекта нет» пересоздаёт ресурс — поверх живой,
+ * но не разобранной нами серверной копии.
+ */
+internal sealed interface DavOutcome {
+
+    /** 207 multistatus разобран целиком; пустой список — легитимная пустая коллекция. */
+    data class Found(val entries: List<DavEntry>) : DavOutcome
+
+    /** 404 точечного запроса ([CaldavHttpClient.davRequest] с notFoundIsEmpty). */
+    object NotFound : DavOutcome
+
+    /** Ответ не календарного сервера (не 207, не multistatus, битый XML). */
+    data class ProtocolError(val message: String) : DavOutcome
+}
+
+/**
  * Итог простой записи (PUT/DELETE, этап 2): код состояния и заголовок ETag.
  * Multistatus здесь не ждут: 201/204 — успех, 412 — «конфликт, разрешает
  * движок», 404 — «объекта нет»; ETag сервер отдаёт не всегда — null
@@ -65,6 +84,12 @@ internal fun normalizeEtag(raw: String?): String? {
  * пробы, зафиксированные в CaldavHttpClientTest), поэтому dav4jvm ради
  * одного сервера не тащим — по пути разбора XML у нас свои приоритеты
  * (юнит-тесты на реальных ответах).
+ *
+ * Редиректы не обслуживаются намеренно: календарный ответ — 207, а
+ * следование 3xx перенесло бы логин с паролем на адрес, которого среди
+ * разрешённых нет (список проверяют CaldavRepositoryImpl.passwordFor и
+ * CaldavSyncEngine.requireAccountOrigin, href'ы сервера —
+ * CaldavClient.resolve).
  */
 @Singleton
 class CaldavHttpClient @Inject constructor() {
@@ -72,16 +97,21 @@ class CaldavHttpClient @Inject constructor() {
     private val okhttp: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        // Ответ 3xx — не календарный ответ (мы ждём 207), а следование
+        // редиректу унесло бы заголовок Authorization на адрес, которого
+        // среди разрешённых origin'ов нет.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     /**
      * PROPFIND / REPORT с телом [body]; ответ 207 разбирается в [DavEntry].
      * Отказ авторизации → [CaldavSyncException.Auth], сеть → [CaldavSyncException.Network],
-     * прочие протокольные расхождения → [CaldavSyncException.Server].
+     * прочее расхождение с протоколом — [DavOutcome.ProtocolError] (значением:
+     * вызывающий решает, рвать ли прогон или отложить одну строку).
      * [notFoundIsEmpty] — точечный PROPFIND при разрешении конфликтов:
-     * 404 там означает «объект уже удалён», и вычитка отдельного объекта
-     * отвечает пустым списком, а не исключением; всем прочим запросам 404
-     * по-прежнему выстреливает как протокольный сбой.
+     * 404 там означает «объект уже удалён» и отдаётся как [DavOutcome.NotFound];
+     * без этого флага 404 — протокольный сбой ([DavOutcome.ProtocolError]).
      */
     internal suspend fun davRequest(
         method: String,
@@ -91,7 +121,7 @@ class CaldavHttpClient @Inject constructor() {
         username: String,
         password: String,
         notFoundIsEmpty: Boolean = false,
-    ): List<DavEntry> = withContext(Dispatchers.IO) {
+    ): DavOutcome = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(url.toHttpUrl())
             .header(
@@ -110,19 +140,23 @@ class CaldavHttpClient @Inject constructor() {
                     response.code == 401 || response.code == 403 ->
                         throw CaldavSyncException.Auth()
 
-                    response.code == 404 && notFoundIsEmpty -> return@use emptyList<DavEntry>()
+                    response.code == 404 && notFoundIsEmpty -> DavOutcome.NotFound
 
-                    !response.isSuccessful ->
-                        throw CaldavSyncException.Server(
-                            "HTTP ${response.code}: ${text.take(160)}",
-                        )
-                }
-                runCatching { DavXml.parseMultistatus(text) }
-                    .getOrElse {
-                        throw CaldavSyncException.Server(
-                            "Неразборчивый ответ сервера (HTTP ${response.code})",
-                        )
+                    // Календарный ответ на PROPFIND/REPORT — только 207
+                    // (RFC 4918, таблица методов). Другой код, даже успешный,
+                    // — не календарь: страница перехвата прокси, редирект на
+                    // логин, заглушка балансировщика. Принять его за пустую
+                    // коллекцию значит стереть локальные строки «как удалённые
+                    // на сервере».
+                    response.code != 207 -> DavOutcome.ProtocolError(
+                        "HTTP ${response.code}: ${text.take(160)}",
+                    )
+
+                    else -> when (val parsed = runCatching { DavXml.parseMultistatus(text) }.getOrNull()) {
+                        null -> DavOutcome.ProtocolError("Ответ не multistatus (HTTP ${response.code})")
+                        else -> DavOutcome.Found(parsed)
                     }
+                }
             }
         } catch (e: CaldavSyncException) {
             throw e
@@ -200,6 +234,7 @@ class CaldavHttpClient @Inject constructor() {
 /** Разбор multistatus вынесен отдельно, чтобы гонять его в юнит-тестах. */
 internal object DavXml {
 
+    private const val NS_DAV = "DAV:"
     private const val NS_CALDAV = "urn:ietf:params:xml:ns:caldav"
     private val statusRegex = Regex("HTTP/1\\.[01] (\\d+)")
 
@@ -208,12 +243,20 @@ internal object DavXml {
 
     private enum class Scope { OUTSIDE, RESPONSE, PROPSTAT, PROP }
 
-    fun parseMultistatus(xml: String): List<DavEntry> {
+    /**
+     * Записи multistatus; null — документ им не является (или не разбирается).
+     * Корень обязателен: HTML-страница перехвата, XML-логин-форма портала —
+     * тоже валидный XML, но не ответ календарного сервера, и пустым списком
+     * объектов отдавать его нельзя (движок прочитал бы это как «пустая
+     * коллекция» и стёр бы локальные строки).
+     */
+    fun parseMultistatus(xml: String): List<DavEntry>? {
         val parser = Xml.newPullParser()
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
         parser.setInput(StringReader(xml))
 
         val entries = mutableListOf<DavEntry>()
+        var sawMultistatus = false
 
         var scope = Scope.OUTSIDE
         var sink = Sink.NONE
@@ -294,7 +337,10 @@ internal object DavXml {
                 XmlPullParser.START_TAG -> {
                     val name = parser.name
                     when (name) {
-                        "multistatus" -> scope = Scope.OUTSIDE
+                        "multistatus" -> {
+                            if (parser.namespace == NS_DAV) sawMultistatus = true
+                            scope = Scope.OUTSIDE
+                        }
 
                         "response" -> {
                             scope = Scope.RESPONSE
@@ -398,6 +444,6 @@ internal object DavXml {
                 }
             }
         }
-        return entries
+        return if (sawMultistatus) entries else null
     }
 }

@@ -26,11 +26,16 @@ import org.robolectric.Shadows.shadowOf
 import ru.taurlom.tnote.data.local.AppDatabase
 import ru.taurlom.tnote.data.local.AppDatabaseMigration
 import ru.taurlom.tnote.domain.model.AppFont
+import ru.taurlom.tnote.domain.model.CaldavAccount
+import ru.taurlom.tnote.domain.model.CaldavCalendarRef
+import ru.taurlom.tnote.domain.model.CaldavProvider
+import ru.taurlom.tnote.domain.model.CaldavSyncResult
 import ru.taurlom.tnote.domain.model.Document
 import ru.taurlom.tnote.domain.model.Note
 import ru.taurlom.tnote.domain.model.ThemeKind
 import ru.taurlom.tnote.domain.notifications.DailyDigestSchedule
 import ru.taurlom.tnote.domain.repository.BackupImportException
+import ru.taurlom.tnote.domain.repository.CaldavRepository
 import ru.taurlom.tnote.domain.repository.DocumentRepository
 import ru.taurlom.tnote.domain.repository.NoteRepository
 import ru.taurlom.tnote.domain.repository.SettingsRepository
@@ -78,6 +83,7 @@ class BackupRepositoryImplTest {
     private val settings = FakeSettingsRepository()
     private val documents = FakeDocumentRepository()
     private val notes = FakeNoteRepository()
+    private val caldav = FakeCaldavRepository()
 
     private val repository = BackupRepositoryImpl(
         context,
@@ -85,6 +91,7 @@ class BackupRepositoryImplTest {
         settings,
         documents,
         notes,
+        caldav,
     )
 
     /** Схема, о которой отчитывается открытое подключение (сейчас 16). */
@@ -196,6 +203,32 @@ class BackupRepositoryImplTest {
         assertEquals(AppFont.RUBIK, settings.font.value)
         assertNoSwapLeftovers()
         assertFalse(File(context.cacheDir, "backup_import").exists())
+    }
+
+    @Test
+    fun `import deactivates sync subscriptions brought by the copy`() {
+        seedLiveState()
+        val source = backupZip(MANIFEST to manifest(), DB_ENTRY to sqliteBytes(currentSchema, "backup-db"))
+
+        runBlocking { repository.importBackup(source) }
+
+        // Пароли в копию не пишутся, а подписки приходят вместе с базой:
+        // оставленный живым аккаунт с чужим адресом сервера отправил бы на
+        // него сохранённый на устройстве пароль (тот же логин — та же пара).
+        assertEquals(1, caldav.deactivated)
+    }
+
+    @Test
+    fun `import that failed after the swap does not deactivate subscriptions`() {
+        seedLiveState()
+        settings.explodeOnApplyTheme = true
+        val source = backupZip(MANIFEST to manifest(), DB_ENTRY to sqliteBytes(currentSchema, "backup-db"))
+
+        failsWith<IllegalStateException> { runBlocking { repository.importBackup(source) } }
+
+        // Откат вернул прежнюю базу с прежними подписками — трогать их не за
+        // чем: живые аккаунты со своими паролями остаются как были.
+        assertEquals(0, caldav.deactivated)
     }
 
     // ------------------------------------------------------------------
@@ -751,6 +784,47 @@ class BackupRepositoryImplTest {
         override suspend fun updatePositions(notes: List<Note>) = error("не используется тестами копий")
 
         override suspend fun delete(note: Note) = error("не используется тестами копий")
+    }
+
+    /**
+     * Подписок бэкапу касается ровно одно: успешный импорт обязан выключить
+     * привезённые, отказ — оставить живые. Остальные методы — болванки.
+     */
+    private class FakeCaldavRepository : CaldavRepository {
+
+        var deactivated = 0
+
+        override suspend fun deactivateSubscriptions(): Int {
+            deactivated++
+            return 0
+        }
+
+        override fun observeAccounts(): Flow<List<CaldavAccount>> = error("не используется тестами копий")
+
+        override suspend fun discover(
+            provider: CaldavProvider,
+            server: String,
+            username: String,
+            password: String,
+        ): List<CaldavCalendarRef> = error("не используется тестами копий")
+
+        override suspend fun connect(
+            provider: CaldavProvider,
+            server: String,
+            username: String,
+            password: String,
+            calendar: CaldavCalendarRef,
+        ): Long = error("не используется тестами копий")
+
+        override suspend fun disconnect(accountId: Long, keepEvents: Boolean) = error("не используется тестами копий")
+
+        override suspend fun sync(accountId: Long): CaldavSyncResult = error("не используется тестами копий")
+
+        override suspend fun syncAll(): CaldavSyncResult = error("не используется тестами копий")
+
+        override fun observeLocalOnlyCount(): Flow<Int> = error("не используется тестами копий")
+
+        override suspend fun publishLocalOnly(accountId: Long): Int = error("не используется тестами копий")
     }
 
     private companion object {

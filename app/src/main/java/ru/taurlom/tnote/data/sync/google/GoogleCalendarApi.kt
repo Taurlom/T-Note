@@ -9,8 +9,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import ru.taurlom.tnote.data.sync.CaldavApi
+import ru.taurlom.tnote.data.sync.CaldavObjectResult
 import ru.taurlom.tnote.data.sync.CaldavPull
 import ru.taurlom.tnote.data.sync.CaldavRemoteEvent
 import ru.taurlom.tnote.data.sync.CaldavWriteResponse
@@ -49,6 +51,16 @@ import javax.inject.Singleton
  *  - отменённые события (status=cancelled) из вычитки не выдаются: движок
  *    увидит их отсутствие и удалит строки сам; DELETE несуществующего
  *    объекта Google отвечает 404/410 — обе формы для движка «и так нет»;
+ *  - вхождения серий (объекты с recurringEventId) в базу не попадают вовсе:
+ *    экземпляр уже разворачивает мастер, а отдельная строка была бы дублем.
+ *    Серия с такими объектами помечается [CaldavRemoteEvent.notReproducible]
+ *    — PUT по мастеру перечеркнул бы исключения, поэтому её правки остаются
+ *    локальными (учёт самих исключений как EXDATE/overrides — за полным
+ *    решением с хранением исходного JSON);
+ *  - вычитка обязана быть списком: ответ без «items» и без верного «kind»
+ *    — отказ прогона, а не «пустой календарь», иначе движок стёр бы всё
+ *    локальное по пустому ответу прокси; нечитаемые items (без id, start,
+ *    даты) помечают снапшот неполным — см. [CaldavPull.complete];
  *  - синхронизация полная (без syncToken): Яндекс её тоже не даёт, движок
  *    ведёт полный diff, у личных календарей это сотни объектов.
  *
@@ -67,11 +79,15 @@ class GoogleCalendarApi @Inject constructor(
     private val okhttp: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        // Bearer-токен не должен уезжать по редиректу: адреса API фиксированы
+        // (BASE), 3xx здесь — случай нештатный.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     override suspend fun discoverCalendars(server: String, username: String, password: String): List<CaldavCalendarRef> {
         val json = getJson("$BASE/users/me/calendarList", username)
-        val items = json.optJSONArray("items") ?: return emptyList()
+        val items = listItems(json, KIND_CALENDAR_LIST, "список календарей") ?: return emptyList()
         return buildList {
             for (index in 0 until items.length()) {
                 val item = items.optJSONObject(index) ?: continue
@@ -89,41 +105,93 @@ class GoogleCalendarApi @Inject constructor(
     override suspend fun pullEvents(collectionUrl: String, username: String, password: String): CaldavPull {
         val events = mutableListOf<CaldavRemoteEvent>()
         val notes = mutableListOf<CaldavRemoteEvent>()
+        // UID'ы вхождений серий: в базу они не попадают, но их старые
+        // локальные строки (наследие прежней вычитки) нельзя отправлять
+        // обратно — PUT вернул бы на сервер дубль или отменённый экземпляр.
+        val exceptionUids = mutableSetOf<String>()
         var unreadable = 0
         var pageToken: String? = null
         do {
             val url = buildString {
                 append(BASE).append("/calendars/").append(urlSegment(collectionUrl))
-                append("/events?maxResults=2500&showDeleted=true")
+                // singleEvents закреплён явно: при false (серверное умолчание)
+                // приходят мастера серий, а не развёрнутые вхождения.
+                append("/events?maxResults=2500&showDeleted=true&singleEvents=false")
                 pageToken?.let { append("&pageToken=").append(it) }
             }
             val json = getJson(url, username)
-            val items = json.optJSONArray("items")
-            if (items == null && json.optString("error").isNotEmpty()) {
-                throw CaldavSyncException.Server("Google не отдал список событий")
-            }
+            // Успешный events.list всегда несёт конверт списка («kind»:
+            // «calendar#events»); ни items, ни конверта — это не вычитка, а
+            // пустой ответ (прокси-заглушка, обрезанный ответ). Как «пустой
+            // календарь» он не годится: движок стёр бы все локальные строки.
+            val items = listItems(json, KIND_EVENTS, "список событий")
             if (items != null) {
+                // Отдельные объекты-исключения (recurringEventId) при полном
+                // списке идут рядом с мастерами. Собираем id серий заранее:
+                // мастер мог стоять в списке раньше своего исключения.
+                // Ограничение — серия, чьё исключение уехало на следующую
+                // страницу, этого признака не увидит; полный учёт за собой
+                // оставит хранение исходного JSON (см. CaldavSyncEngine).
+                val seriesWithExceptions = mutableSetOf<String>()
                 for (index in 0 until items.length()) {
-                    val item = items.optJSONObject(index) ?: continue
-                    val vevent = googleEventToVEvent(item) ?: continue
-                    val mapped = vevent.toScheduledEvent() ?: run {
+                    items.optJSONObject(index)
+                        ?.seriesExceptionParentId()
+                        ?.let { seriesWithExceptions += it }
+                }
+                for (index in 0 until items.length()) {
+                    val item = items.optJSONObject(index)
+                    if (item == null) {
+                        unreadable++
+                        continue
+                    }
+                    // Вхождение серии (перенесённое или отменённое):
+                    // самостоятельной строкой оно быть не может — тот же
+                    // экземпляр уже разворачивает мастер, а PUT по мастеру
+                    // перечеркнул бы исключение. В базу оно не идёт; его UID
+                    // уходит в protectedUids (см. CaldavPull).
+                    if (item.seriesExceptionParentId() != null) {
+                        item.optString("id")
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { id -> exceptionUids += googleUidFromEventId(id) }
+                        continue
+                    }
+                    // Отменённый мастер — это «удалено»: его отсутствия в
+                    // списке движок ждать и должен, полноте оно не мешает.
+                    if (item.optString("status") == "cancelled") continue
+                    val vevent = googleEventToVEvent(item)
+                    if (vevent == null) {
+                        // Без id/start или с нечитаемой датой: объект на
+                        // сервере есть, а прочесть его нечем — за удалённый
+                        // выдавать нельзя.
+                        unreadable++
+                        continue
+                    }
+                    val mapped = vevent.toScheduledEvent()
+                    if (mapped == null) {
                         unreadable++
                         continue
                     }
                     val href = objectHref(collectionUrl, mapped.uid)
+                    val isNote = noteBySummary(mapped.title)
                     val remote = CaldavRemoteEvent(
                         href = href,
                         etag = item.optString("etag").takeIf { it.isNotEmpty() },
                         event = mapped,
                         metadataFromIcs = vevent.hasTnoteMetadata(),
-                        noteText = if (noteBySummary(mapped.title)) vevent.noteText() else null,
+                        noteText = if (isNote) vevent.noteText() else null,
+                        // Google кладёт текст в поле description — без этого
+                        // флага бэкфилл маркера считал бы описание пустым и
+                        // затёр бы его при первой же отделке локальной строки.
+                        hasDescription = item.optString("description").isNotBlank(),
+                        notReproducible = item.hasUnmodeledContent() ||
+                            seriesWithExceptions.contains(item.optString("id")),
                     )
-                    if (noteBySummary(mapped.title)) notes += remote else events += remote
+                    if (isNote) notes += remote else events += remote
                 }
             }
             pageToken = json.optString("nextPageToken").takeIf { it.isNotEmpty() }
         } while (pageToken != null)
-        return CaldavPull(events = events, notes = notes, unreadable = unreadable)
+        return CaldavPull(events = events, notes = notes, unreadable = unreadable, protectedUids = exceptionUids)
     }
 
     override suspend fun putEvent(
@@ -200,7 +268,7 @@ class GoogleCalendarApi @Inject constructor(
         }
     }
 
-    override suspend fun pullEvent(url: String, username: String, password: String): CaldavRemoteEvent? {
+    override suspend fun pullEvent(url: String, username: String, password: String): CaldavObjectResult {
         val (calendarId, eventId) = splitResourceUrl(url)
             ?: throw CaldavSyncException.Server("Нечитаемая ссылка объекта: $url")
         val response = request(
@@ -210,24 +278,41 @@ class GoogleCalendarApi @Inject constructor(
             null,
         )
         return when {
-            response.code == 404 || response.code == 410 -> null
+            // 404/410 — «объекта нет» (410 Google отвечает на уже удалённый
+            // id): единственный исход, при котором движку можно пересоздавать.
+            response.code == 404 || response.code == 410 -> CaldavObjectResult.NotFound
 
-            response.code !in 200..299 -> throw CaldavSyncException.Server(
+            // Временный сбой или неожиданный код: о судьбе объекта он ничего
+            // не говорит, строка ждёт следующего прогона.
+            response.code !in 200..299 -> CaldavObjectResult.Unreadable(
                 "HTTP ${response.code}: ${response.body.take(160)}",
             )
 
             else -> {
                 val json = parseJson(response.body)
-                    ?: throw CaldavSyncException.Server("Неразборчивый ответ Google")
+                    ?: return CaldavObjectResult.Unreadable("Неразборчивый ответ Google")
+                // Вхождение серии (перенесённое или отменённое) — не
+                // самостоятельный объект: PUT по нему был бы правкой мастера.
+                if (json.seriesExceptionParentId() != null) {
+                    return CaldavObjectResult.Unreadable("Это вхождение серии, а не объект: $eventId")
+                }
+                // Отменённое событие для diff'а движка то же, что удалённое.
+                if (json.optString("status") == "cancelled") return CaldavObjectResult.NotFound
                 val vevent = googleEventToVEvent(json)
-                    ?: throw CaldavSyncException.Server("Событие Google не разбирается")
-                val event = vevent.toScheduledEvent() ?: return null
-                CaldavRemoteEvent(
-                    href = url,
-                    etag = json.optString("etag").takeIf { it.isNotEmpty() },
-                    event = event,
-                    metadataFromIcs = vevent.hasTnoteMetadata(),
-                    noteText = if (noteBySummary(event.title)) vevent.noteText() else null,
+                    ?: return CaldavObjectResult.Unreadable("Событие Google не разбирается")
+                val event = vevent.toScheduledEvent()
+                    ?: return CaldavObjectResult.Unreadable("VEVENT Google без UID/DTSTART")
+                val isNote = noteBySummary(event.title)
+                CaldavObjectResult.Found(
+                    CaldavRemoteEvent(
+                        href = url,
+                        etag = json.optString("etag").takeIf { it.isNotEmpty() },
+                        event = event,
+                        metadataFromIcs = vevent.hasTnoteMetadata(),
+                        noteText = if (isNote) vevent.noteText() else null,
+                        hasDescription = json.optString("description").isNotBlank(),
+                        notReproducible = json.hasUnmodeledContent(),
+                    ),
                 )
             }
         }
@@ -285,10 +370,26 @@ class GoogleCalendarApi @Inject constructor(
 
     private fun parseJson(text: String): JSONObject? = runCatching { JSONObject(text) }.getOrNull()
 
+    /**
+     * Массив «items» успешного списочного ответа Google. Вернулся массив —
+     * как есть; массива нет, но конверт ресурса верный — Google так отдаёт
+     * пустой список (null); прочее — ответ не списка ([CaldavSyncException.Server],
+     * то есть отказ прогона: пустым календарём его считать нельзя).
+     */
+    private fun listItems(json: JSONObject, kind: String, what: String): JSONArray? {
+        json.optJSONArray("items")?.let { return it }
+        if (json.optString("kind") != kind) {
+            throw CaldavSyncException.Server("Google не отдал $what")
+        }
+        return null
+    }
+
     private fun urlSegment(value: String): String = java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
     private companion object {
         const val BASE = "https://www.googleapis.com/calendar/v3"
+        const val KIND_EVENTS = "calendar#events"
+        const val KIND_CALENDAR_LIST = "calendar#calendarList"
         val WRITABLE_ROLES = setOf("owner", "writer")
     }
 }

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.map
 import ru.taurlom.tnote.data.local.CaldavDao
 import ru.taurlom.tnote.data.local.CaldavTombstoneDao
 import ru.taurlom.tnote.data.local.ScheduledEventDao
+import ru.taurlom.tnote.data.local.entity.CaldavTombstoneEntity
 import ru.taurlom.tnote.data.local.entity.toTombstone
 import ru.taurlom.tnote.data.mapper.toDomain
 import ru.taurlom.tnote.data.mapper.toEntity
@@ -57,6 +58,9 @@ class ScheduledEventRepositoryImpl @Inject constructor(
                 modifiedAt = event.modifiedAt ?: now,
                 caldavAccountId = accountId,
                 dirty = accountId != null,
+                // Первая локальная версия строки: счётчик мутаций, по которому
+                // движок потом подтвердит PUT (см. ScheduledEventDao.markPushed).
+                localRevision = 1,
             ),
         )
         if (accountId != null) syncScheduler.requestPush()
@@ -111,6 +115,10 @@ class ScheduledEventRepositoryImpl @Inject constructor(
             // (событие из вычитки после первой правки гасило бы бейдж).
             entity = entity.copy(remoteImported = row.remoteImported)
         }
+        // Локальная правка двигает счётчик мутаций: PUT, отправленный по
+        // прежней версии строки, больше не сможет снять с неё очередь
+        // (CaldavSyncEngine.settlePush сверяет именно её).
+        entity = entity.copy(localRevision = (existing?.localRevision ?: 0L) + 1)
         eventDao.update(entity)
         if (dirty) syncScheduler.requestPush()
     }
@@ -119,9 +127,15 @@ class ScheduledEventRepositoryImpl @Inject constructor(
         // Tombstone пишется вместе со строкой, одной транзакцией: вычитка,
         // случившаяся посередине, увидела бы удалённый UID и ввернула бы
         // объект обратно — а очередь DELETE ещё не доехала.
-        val row = eventDao.getByIdOnce(event.id)
-        val tombstone = row?.toTombstone(clock.millis())
+        // Снимок строки берём тоже внутри транзакции (то же правило, что у
+        // массовых удалений в CalendarRepositoryImpl): правка вычитки в
+        // промежутке оставила бы в tombstone устаревшие href/etag, и DELETE
+        // ушёл бы по адресу, где объекта уже нет, — живой объект пережил бы
+        // удаление и вернулся бы следующим pull'ом.
+        var tombstone: CaldavTombstoneEntity? = null
         tx.inTransaction {
+            val row = eventDao.getByIdOnce(event.id)
+            tombstone = row?.toTombstone(clock.millis())
             tombstone?.let { tombstoneDao.insert(it) }
             row?.let { eventDao.delete(it) }
         }

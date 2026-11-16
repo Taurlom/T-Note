@@ -93,6 +93,16 @@ class CaldavSyncScheduler @Inject constructor(@ApplicationContext private val co
         workManager.cancelUniqueWork(UNIQUE_WORK)
     }
 
+    /**
+     * Снимает обе очереди — периодическую и разовый «залп» правок. Нужно
+     * там, где подписки выключаются целиком (восстановление копии): иначе
+     * уже снятая с учёта подписка успеет сделать прогон.
+     */
+    fun cancelAll() {
+        workManager.cancelUniqueWork(UNIQUE_WORK)
+        workManager.cancelUniqueWork(ONE_TIME)
+    }
+
     private companion object {
 
         const val UNIQUE_WORK = "caldav-sync"

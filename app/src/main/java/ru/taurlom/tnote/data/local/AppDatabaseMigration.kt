@@ -315,6 +315,23 @@ object AppDatabaseMigration {
     }
 
     /**
+     * 27 → 28: счётчик локальных мутаций для CAS-подтверждения отправки.
+     * PUT идёт по снапшоту строки, взятому до сети; без опознавателя версии
+     * «успешно отправлено» снимало бы очередь и у правки, вписанной в этот
+     * сетевой ход (её сервер ещё не видел, а следующий pull стёр бы её
+     * серверной копией). [modifiedAt] для проверки не годится: две правки в
+     * одну миллисекунду неотличимы. Существующим строкам — 0: содержимое их
+     * не меняется, а очередь (dirty) остаётся как есть, и первое же
+     * подтверждение совпадёт с нулём.
+     */
+    val MIGRATION_27_28 = object : Migration(27, 28) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE scheduled_events ADD COLUMN localRevision INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN localRevision INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
      * 26 → 27: время события. Событию добавляются три nullable-колонки:
      * startMinutes и endMinutes (минуты от полуночи) и endDate (дата конца
      * события, "yyyy-MM-dd"). Существующие события остаются дневными

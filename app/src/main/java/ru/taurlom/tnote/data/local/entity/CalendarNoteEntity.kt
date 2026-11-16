@@ -37,6 +37,14 @@ data class CalendarNoteEntity(
     @ColumnInfo(defaultValue = "0")
     val dirty: Boolean = false,
 
+    /**
+     * Счётчик локальных мутаций — опознаватель отправленной версии строки:
+     * PUT подтверждается CAS'ом по нему, и правка, вписанная в сетевой ход,
+     * остаётся в очереди (см. ScheduledEventEntity.localRevision).
+     */
+    @ColumnInfo(defaultValue = "0")
+    val localRevision: Long = 0,
+
     /** Последний известный ETag серверного объекта — предусловие If-Match. */
     val etag: String? = null,
 

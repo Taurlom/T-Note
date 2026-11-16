@@ -1,8 +1,10 @@
 package ru.taurlom.tnote.data.sync
 
+import net.fortuna.ical4j.model.Calendar
 import net.fortuna.ical4j.model.component.VEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -1039,6 +1041,146 @@ class EventIcsMapperTest {
         assertTrue(marker.all { it.code < 128 })
         assertEquals(marker, cp1252Mangled(marker))
         assertEquals("[T-Note] icon=BUILD color=#FFE53935 hide=1", marker)
+    }
+
+    // Защита серверных данных вне модели: PUT пересобирает ресурс из модели
+    // одним VEVENT, поэтому объекты с чужим содержимым движок не отправляет.
+
+    /** Ресурс с произвольным числом VEVENT: строки тела обёрнуты в компоненты. */
+    private fun calendarOf(vararg events: List<String>): Calendar {
+        val body = buildList {
+            add("BEGIN:VCALENDAR")
+            add("VERSION:2.0")
+            events.forEach { lines ->
+                add("BEGIN:VEVENT")
+                addAll(lines)
+                add("END:VEVENT")
+            }
+            add("END:VCALENDAR")
+        }.joinToString("\r\n") + "\r\n"
+        return parseIcs(body) ?: error("ICS-текст не разобрался:\n$body")
+    }
+
+    /** Один VEVENT ресурса по строкам его тела. */
+    private fun veventOf(lines: List<String>): VEvent = calendarOf(lines).vevents().single()
+
+    /** Чужое дневное событие без extras — база для проверок. */
+    private val plainForeign = listOf(
+        "UID:foreign-rich@example.com",
+        "DTSTAMP:20261109T200000Z",
+        "DTSTART;VALUE=DATE:20261117",
+        "DTEND;VALUE=DATE:20261118",
+        "SUMMARY:Чужие данные",
+    )
+
+    @Test
+    fun `own export stays writable`() {
+        // Всё, что пишет наш экспорт, модель воспроизводит дословно — иначе
+        // собственная отделка заморозила бы синхронизацию целиком.
+        val events = listOf(
+            regular(),
+            regular(color = 0xFFE53935, hidePast = true),
+            repeating(unit = RepeatUnit.WEEKS, weekdays = setOf(DayOfWeek.TUESDAY), until = "2026-05-01"),
+        )
+        events.forEach { event ->
+            val vevent = parseIcs(eventCalendar(listOf(event.toIcsEvent())).icsText())
+                ?.vevents()?.single()
+                ?: error("свой VEVENT не разобрался: ${event.title}")
+            assertFalse("экспорт «${event.title}» не должен считаться чужим", vevent.hasUnmodeledContent())
+        }
+
+        // Носитель заметки везёт текст в DESCRIPTION: это payload объекта,
+        // а не данные, которых модель не знает.
+        val carrier = parseIcs(eventCalendar(listOf(note().toIcsEvent())).icsText())
+            ?.vevents()?.single()
+            ?: error("носитель не разобрался")
+        assertTrue(carrier.hasUnmodeledContent())
+        assertFalse(carrier.hasUnmodeledContent(descriptionIsOwn = true))
+    }
+
+    @Test
+    fun `server fields outside the model block rewriting`() {
+        val extras = listOf(
+            listOf("LOCATION:Офис 304"),
+            listOf("ATTENDEE;CN=Лена:mailto:lena@example.com"),
+            listOf("ORGANIZER:mailto:boss@example.com"),
+            listOf("DESCRIPTION:Набрали в веб-Яндексе"),
+            listOf("STATUS:TENTATIVE"),
+            listOf("TRANSP:TRANSPARENT"),
+            listOf("CLASS:PRIVATE"),
+            listOf("CATEGORIES:Работа"),
+            listOf("RDATE;VALUE=DATE:20261125"),
+            listOf("X-MICROSOFT-CDO-BUSYSTATUS:BUSY"),
+            listOf("BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:Напомнить", "TRIGGER:-PT15M", "END:VALARM"),
+            // Правило, которое модель не выражает: позиционный BYDAY и BYSETPOS.
+            listOf("RRULE:FREQ=MONTHLY;BYDAY=2TU"),
+            listOf("RRULE:FREQ=WEEKLY;BYDAY=TU;BYSETPOS=1"),
+            // Исключение по моменту времени: DATE-форма такое вхождение не вычеркнет.
+            listOf("EXDATE:20261118T100000Z"),
+        )
+        extras.forEach { extra ->
+            val vevent = veventOf(plainForeign + extra)
+            assertTrue("«${extra.first()}» — данные вне модели", vevent.hasUnmodeledContent())
+        }
+    }
+
+    @Test
+    fun `server defaults and our marker do not block rewriting`() {
+        // Дефолтные значения и служебный счётчик версий сервер дописывает сам,
+        // их потеря ничего пользовательского не стирает.
+        assertFalse(veventOf(plainForeign + listOf("STATUS:CONFIRMED", "SEQUENCE:0", "TRANSP:OPAQUE")).hasUnmodeledContent())
+        // Наш DESCRIPTION-маркер — собственные метаданные, а не текст человека.
+        assertFalse(veventOf(plainForeign + listOf("DESCRIPTION:[T-Note] icon=BEACH color=255")).hasUnmodeledContent())
+        // Маркер + дописанный вокруг него текст — уже данные пользователя.
+        assertTrue(veventOf(plainForeign + listOf("DESCRIPTION:[T-Note] icon=BEACH посмотри в почте")).hasUnmodeledContent())
+        // Представимое правило перезаписывается без потерь.
+        assertFalse(veventOf(plainForeign + listOf("RRULE:FREQ=WEEKLY;BYDAY=TU;INTERVAL=2")).hasUnmodeledContent())
+    }
+
+    @Test
+    fun `resource is read as its master and overrides shield it`() {
+        val calendar = calendarOf(
+            listOf(
+                "UID:series@example.com",
+                "DTSTAMP:20261109T200000Z",
+                "DTSTART;VALUE=DATE:20261117",
+                "DTEND;VALUE=DATE:20261118",
+                "SUMMARY:Зарядка",
+                "RRULE:FREQ=DAILY;COUNT=10",
+            ),
+            listOf(
+                "UID:series@example.com",
+                "RECURRENCE-ID;VALUE=DATE:20261119",
+                "DTSTAMP:20261109T200001Z",
+                "DTSTART;VALUE=DATE:20261121",
+                "DTEND;VALUE=DATE:20261122",
+                "SUMMARY:Зарядка",
+            ),
+        )
+
+        // Строкой живёт мастер: у него нет RECURRENCE-ID, и только он
+        // разворачивает серию. Override — не самостоятельное событие.
+        val master = calendar.recurrenceMaster() ?: error("мастер серии не выбран")
+        assertEquals("2026-11-17", master.toScheduledEvent()?.date)
+        assertNotNull(calendar.vevents()[1].recurrenceId)
+        assertTrue(calendar.hasRecurrenceOverrides())
+
+        // Сам мастер при этом прост: замораживает запись не он, а исключения
+        // рядом — их PUT одним VEVENT стёр бы все.
+        assertFalse(master.hasUnmodeledContent())
+
+        // Ресурс из одного исключения (мастер в другой коллекции) — не читается.
+        val orphan = calendarOf(
+            listOf(
+                "UID:orphan@example.com",
+                "RECURRENCE-ID;VALUE=DATE:20261119",
+                "DTSTART;VALUE=DATE:20261121",
+                "DTEND;VALUE=DATE:20261122",
+                "SUMMARY:Вхождение без мастера",
+            ),
+        )
+        assertNull(orphan.recurrenceMaster())
+        assertTrue(orphan.hasRecurrenceOverrides())
     }
 
     @Test

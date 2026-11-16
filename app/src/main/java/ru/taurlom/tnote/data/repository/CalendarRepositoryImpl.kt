@@ -47,16 +47,34 @@ class CalendarRepositoryImpl @Inject constructor(
         // приписанной остаётся в её коллекции. ETag/href переживают правку:
         // без них каждая правка уходила бы первой публикацией.
         val accountId = existing?.caldavAccountId ?: caldavDao.getAll().singleOrNull()?.id
-        noteDao.insert(
-            note.toEntity().copy(
-                createdAt = existing?.createdAt?.takeIf { it > 0 } ?: now,
-                modifiedAt = now,
-                caldavAccountId = accountId,
-                dirty = accountId != null,
-                etag = existing?.etag,
-                serverHref = existing?.serverHref,
-            ),
-        )
+        database.withTransaction {
+            noteDao.insert(
+                note.toEntity().copy(
+                    createdAt = existing?.createdAt?.takeIf { it > 0 } ?: now,
+                    modifiedAt = now,
+                    caldavAccountId = accountId,
+                    dirty = accountId != null,
+                    // Правка двигает счётчик локальных мутаций — по нему движок
+                    // подтверждает PUT (см. CalendarNoteDao.markPushed).
+                    localRevision = (existing?.localRevision ?: 0L) + 1,
+                    etag = existing?.etag,
+                    serverHref = existing?.serverHref,
+                ),
+            )
+            // Пересоздание заметки гасит её очередь удаления, той же
+            // транзакцией: UID носителя выводится из даты (noteUidFor), так
+            // что «удалить день, потом написать заново» — одна и та же
+            // идентичность на сервере. Оставленный tombstone снёс бы
+            // только что опубликованный объект в том же прогоне (PUT идёт
+            // раньше DELETE), а следующая вычитка вычистила бы и локальную
+            // строку как отсутствующую на сервере — заметка терялась бы
+            // совсем. Удаление локально всегда старше пересоздания, поэтому
+            // здесь не нужно сравнивать ревизии: живая строка важнее
+            // tombstone.
+            if (accountId != null) {
+                tombstoneDao.deleteForIdentity(noteUidFor(note.date), accountId)
+            }
+        }
         if (accountId != null) syncScheduler.requestPush()
     }
 
@@ -66,11 +84,20 @@ class CalendarRepositoryImpl @Inject constructor(
      * Импортированные события и приписанные заметки уходят и через
      * tombstone-очередь: иначе подтянутая вычитка вернёт их до того,
      * как доедет серверный DELETE.
+     *
+     * Кандидатов на удаление читаем ВНУТРИ транзакции (как [deletePast]):
+     * вычитка, вписавшая строку этого дня между чтением и удалением,
+     * осталась бы без tombstone — её объект живёт на сервере, и следующий
+     * pull вернул бы удалившийся день обратно. Мьютекс синхронизации здесь
+     * не бережёт: он сериализует прогоны движка и lifecycle-действия
+     * подписки (CaldavRepositoryImpl.lifecycleLock), а пользовательское
+     * удаление к ним не относится.
      */
     override suspend fun deleteDayData(date: String) {
-        val tombstones = eventDao.getByDateOnce(date).mapNotNull { it.toTombstone(clock.millis()) } +
-            listOfNotNull(noteDao.getByDateOnce(date)?.toNoteTombstone(clock.millis()))
+        var tombstones: List<CaldavTombstoneEntity> = emptyList()
         database.withTransaction {
+            tombstones = eventDao.getByDateOnce(date).mapNotNull { it.toTombstone(clock.millis()) } +
+                listOfNotNull(noteDao.getByDateOnce(date)?.toNoteTombstone(clock.millis()))
             tombstones.forEach { tombstoneDao.insert(it) }
             noteDao.deleteByDate(date)
             eventDao.deleteByDate(date)
@@ -78,10 +105,17 @@ class CalendarRepositoryImpl @Inject constructor(
         if (tombstones.isNotEmpty()) syncScheduler.requestPush()
     }
 
+    /**
+     * Чистка календаря — та же транзакция на чтение и удаление: список
+     * «что убираем» берётся целиком внутри, иначе событие или заметка,
+     * подтянутые вычиткой в промежутке, были бы стёрты без очереди
+     * удалений и воскресли бы следующим прогоном.
+     */
     override suspend fun clearCalendar() {
-        val tombstones = eventDao.getAttributed().mapNotNull { it.toTombstone(clock.millis()) } +
-            noteDao.getAttributed().mapNotNull { it.toNoteTombstone(clock.millis()) }
+        var tombstones: List<CaldavTombstoneEntity> = emptyList()
         database.withTransaction {
+            tombstones = eventDao.getAttributed().mapNotNull { it.toTombstone(clock.millis()) } +
+                noteDao.getAttributed().mapNotNull { it.toNoteTombstone(clock.millis()) }
             tombstones.forEach { tombstoneDao.insert(it) }
             noteDao.deleteAll()
             eventDao.deleteAll()

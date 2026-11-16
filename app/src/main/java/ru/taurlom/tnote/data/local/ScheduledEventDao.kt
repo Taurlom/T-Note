@@ -113,11 +113,26 @@ interface ScheduledEventDao {
     )
     suspend fun getDirtyFor(accountId: Long): List<ScheduledEventEntity>
 
-    /** PUT доехал: очередь чиста, ETag и href обновлены. */
+    /**
+     * PUT доехал: очередь чиста, ETag и href обновлены. CAS по
+     * [sentRevision] — версией строки, которую отправляли: dirty снимается
+     * лишь если за время сетевого хода строку локально не трогали. Возвращает
+     * число изменённых строк (0 — правка уже вписана, её отправим заново).
+     */
     @Query(
-        "UPDATE scheduled_events SET dirty = 0, etag = :etag, serverHref = :href WHERE id = :id",
+        "UPDATE scheduled_events SET dirty = 0, etag = :etag, serverHref = :href " +
+            "WHERE id = :id AND localRevision = :sentRevision",
     )
-    suspend fun markPushed(id: Long, etag: String?, href: String)
+    suspend fun markPushed(id: Long, etag: String?, href: String, sentRevision: Long): Int
+
+    /**
+     * Серверный ответ есть, а строка тем временем правится: ETag и href
+     * запоминаем (следующий PUT пойдёт с живого предусловия, а не как первая
+     * публикация), очередь не трогаем. Число изменённых строк: 0 — строки
+     * уже нет (её удалили в сетевой ход, и дальше работает очередь DELETE).
+     */
+    @Query("UPDATE scheduled_events SET etag = :etag, serverHref = :href WHERE id = :id")
+    suspend fun rememberServerState(id: Long, etag: String?, href: String): Int
 
     /** Бэкфилл маркера: строка встаёт в очередь отправки без правки данных. */
     @Query("UPDATE scheduled_events SET dirty = 1 WHERE id = :id")

@@ -57,6 +57,8 @@ internal val AtlasOchre = Color(0xFF987C49) // приглушённая охра
 internal val AtlasTerracotta = Color(0xFFA96F5F) // мягкая терракота
 internal val AtlasFab = Color(0xFFE4C98E) // светлый охристый FAB
 
+internal val AtlasSky = Color(0xFFAAB4CB)
+
 // ─── Примитивы темы «Океан» ───────────────────────────────────────
 internal val Abyss = Color(0xFF0C2A33) // глубокий сине-зелёный фон
 internal val Reef = Color(0xFF143E49) // поверхности
