@@ -10,6 +10,7 @@ import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import java.time.LocalDate
+import java.time.YearMonth
 
 class GetEventsForDateUseCaseTest {
 
@@ -113,11 +114,17 @@ class GetEventsForDateUseCaseTest {
         assertEquals(listOf(1L, 2L), events.map { it.id })
     }
 
-    /** Заглушка хранилища: месячный запрос — LIKE-префикс, типовой — по типу. */
+    /** Заглушка хранилища: месячный запрос — пересечение интервала, типовой — по типу. */
     private class FakeEventRepository(private val events: List<ScheduledEvent>) : ScheduledEventRepository {
-        override fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEvent>> {
-            val prefix = monthPrefix.removeSuffix("%")
-            return flowOf(events.filter { it.date.startsWith(prefix) })
+        override fun getByMonth(month: YearMonth): Flow<List<ScheduledEvent>> {
+            val start = month.atDay(1)
+            val exclusiveEnd = month.plusMonths(1).atDay(1)
+            return flowOf(
+                events.filter { event ->
+                    val last = event.endDate?.let { raw -> LocalDate.parse(raw) } ?: LocalDate.parse(event.date)
+                    LocalDate.parse(event.date) < exclusiveEnd && last >= start
+                },
+            )
         }
 
         override fun getByType(type: ScheduledEventType): Flow<List<ScheduledEvent>> = flowOf(events.filter { it.type == type })

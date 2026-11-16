@@ -3,6 +3,7 @@ package ru.taurlom.tnote.data.local
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -105,5 +106,35 @@ class ScheduledEventDaoTest {
         assertNull(dao.getByUid("own"))
         assertEquals("other-account", dao.getByUid("other-account")!!.uid)
         assertEquals("local", dao.getByUid("local")!!.uid)
+    }
+
+    /**
+     * Месячная выборка — пересечение интервала [monthStart, nextMonthStart),
+     * а не LIKE по датам: «30 января → 2 марта» обязано быть видно и в
+     * феврале, где ни начало, ни конец не имеют префикса месяца.
+     */
+    @Test
+    fun `month window selects events spanning interior months`() = runBlocking {
+        dao.insert(row("span").copy(eventDate = "2026-01-30", endDate = "2026-03-02"))
+        dao.insert(row("first").copy(eventDate = "2026-01-15"))
+        dao.insert(row("last").copy(eventDate = "2026-03-05"))
+        dao.insert(row("ends-jan").copy(eventDate = "2026-01-10", endDate = "2026-01-31"))
+        dao.insert(row("touches-start").copy(eventDate = "2026-02-01"))
+        dao.insert(row("touches-end").copy(eventDate = "2026-02-28", endDate = "2026-03-01"))
+        dao.insert(row("starts-next").copy(eventDate = "2026-03-01"))
+
+        // Промежуточный месяц длинного события, свои даты и края окна:
+        // endDate — последний день включительно, eventDate следующего
+        // месяца — уже нет.
+        assertEquals(
+            setOf("span", "touches-start", "touches-end"),
+            dao.getByMonth("2026-02-01", "2026-03-01").first().map { it.uid }.toSet(),
+        )
+
+        // Крайние месяцы того же интервала тоже видят событие.
+        val january = dao.getByMonth("2026-01-01", "2026-02-01").first().map { it.uid }.toSet()
+        assertTrue(january.containsAll(setOf("span", "first", "ends-jan")))
+        val march = dao.getByMonth("2026-03-01", "2026-04-01").first().map { it.uid }.toSet()
+        assertTrue(march.containsAll(setOf("span", "last", "starts-next", "touches-end")))
     }
 }

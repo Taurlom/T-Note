@@ -15,7 +15,9 @@ import java.util.Locale
  * Событие длиннее суток (у чужих — Google, Яндекс) в каждый покрытый день
  * показывается своим куском: первый день — до полуночи, последний — от
  * полуночи до своего конца, средние — целиком (см.
- * [ScheduledEvent.windowOn]). Само событие при этом одно и то же: одна
+ * [ScheduledEvent.windowOn]). Конец эксклюзивен: событие, кончающееся
+ * ровно в полночь, день конца не занимает — нулевого вхождения там нет.
+ * Само событие при этом одно и то же: одна
  * строка базы, один UID, а тап открывает редактор исходного события
  * целиком, а не его куска.
  *
@@ -79,10 +81,12 @@ object EventExpander {
                 val last = event.endDateOrNull()
                 if (anchor != null && last != null && last.isAfter(anchor)) {
                     // Событие длиннее суток: в каждый покрытый день месяца
-                    // — то же самое событие (одна строка базы), часы дня
-                    // считаются по окну дня (ScheduledEvent.windowOn).
+                    // — то же самое событие (одна строка базы). Покрытие
+                    // решает windowOn — тот же закон, что у сводки дня и
+                    // подписи часов: событие, кончающееся ровно в полночь,
+                    // последний день не занимает, перебор там и гаснет.
                     var cursor = maxOf(anchor, first)
-                    while (cursor.isBefore(lastExclusive) && !cursor.isAfter(last)) {
+                    while (cursor.isBefore(lastExclusive) && event.windowOn(cursor) != null) {
                         byDate.getOrPut(cursor.toString()) { mutableListOf() } += event
                         cursor = cursor.plusDays(1)
                     }

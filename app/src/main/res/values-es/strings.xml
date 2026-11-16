@@ -73,6 +73,18 @@
         <item quantity="one">El servidor sobrescribió %1$d cambio</item>
         <item quantity="other">El servidor sobrescribió %1$d cambios</item>
     </plurals>
+    <!-- Un borrado local cedió ante una edición del servidor más reciente
+         (DELETE condicional respondió 412); snackbar (MainActivity). -->
+    <plurals name="sync_restored">
+        <item quantity="one">El servidor restauró %1$d evento borrado: su edición es más reciente</item>
+        <item quantity="other">El servidor restauró %1$d eventos borrados: sus ediciones son más recientes</item>
+    </plurals>
+    <!-- Un objeto borrado en el servidor fue recuperado por una edición
+         local (last-write-wins); snackbar (MainActivity). -->
+    <plurals name="sync_resurrected">
+        <item quantity="one">Una edición local recuperó %1$d evento borrado en el servidor</item>
+        <item quantity="other">Una edición local recuperó %1$d eventos borrados en el servidor</item>
+    </plurals>
     <string name="sync_last_never">Todavía sin sincronizar</string>
     <string name="sync_last_at">Última sincronización: %1$s</string>
     <string name="sync_badge_yandex">Yandex</string>

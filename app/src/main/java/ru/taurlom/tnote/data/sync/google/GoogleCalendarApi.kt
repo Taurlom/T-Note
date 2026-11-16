@@ -18,6 +18,7 @@ import ru.taurlom.tnote.data.sync.CaldavRemoteEvent
 import ru.taurlom.tnote.data.sync.CaldavWriteResponse
 import ru.taurlom.tnote.data.sync.byName
 import ru.taurlom.tnote.data.sync.hasTnoteMetadata
+import ru.taurlom.tnote.data.sync.normalizeEtag
 import ru.taurlom.tnote.data.sync.noteBySummary
 import ru.taurlom.tnote.data.sync.noteText
 import ru.taurlom.tnote.data.sync.parseIcs
@@ -43,11 +44,15 @@ import javax.inject.Singleton
  *    свой объект, как в CalDAV;
  *  - username = адрес Google-аккаунта (ключ OAuth-токена), password —
  *    не используется (место заглушки ради общей сигнатуры);
- *  - «создать, только если нет» (If-None-Match:*) = POST insert; «объект
- *    уже есть» API отвечает 409/400 — возвращается движку как 412, его
- *    конфликтный путь (перечитка, LWW) работает без изменений;
- *    If-Match Google не проверяет — окно потерянной правки закрывается
- *    LWW по меткам времени;
+ *  - «создать, только если нет» = POST insert: условного создания Google
+ *    не поддерживает, но вставка по занятому id отвечает 409/400 —
+ *    возвращается движку как 412, его конфликтный путь (перечитка, LWW)
+ *    работает без изменений; обновление по известному ETag идёт с If-Match
+ *    — Google проверяет предусловие и при несовпадении отвечает 412
+ *    (conditional modification, «Get specific versions of resources»), так
+ *    что правка другого устройства между вычиткой и PUT не затирается
+ *    вслепую; без ETag PUT уходит безусловно — это окно закрывает
+ *    перечитка объекта движком после принятой записи (refetchEtag);
  *  - отменённые события (status=cancelled) из вычитки не выдаются: движок
  *    увидит их отсутствие и удалит строки сам; DELETE несуществующего
  *    объекта Google отвечает 404/410 — обе формы для движка «и так нет»;
@@ -213,18 +218,28 @@ class GoogleCalendarApi @Inject constructor(
         } else {
             "$BASE/calendars/${urlSegment(calendarId)}/events/$eventId"
         }
-        val response = request(method, url, username, json)
+        // Условная правка (RFC 7232 conditional modification): PUT несёт
+        // If-Match по ETag из последней вычитки — Google сверяет его с
+        // текущей версией события и при несовпадении отвечает 412, не
+        // применяя запись: вписанная другим устройством между вычиткой и
+        // отправкой правка не затирается вслепую. Для insert предусловий
+        // нет (Google их не поддерживает) — там занятость id даёт 409.
+        val ifMatch = if (method == "PUT") googleIfMatch(etag) else null
+        val response = request(method, url, username, json, ifMatch)
         // Коды движения: 2xx — успех; «идентификатор занят» при первой
-        // публикации — 412 (движок перечитает и решит LWW); 5xx — временный
-        // сбой, движок отложит строку до следующего прогона; прочие 4xx —
-        // постоянный отказ: наружу с телом и названием события, карточка
-        // аккаунта покажет причину (молча-деферить 400 нельзя — повторится
-        // вечно; так нашлась и причина 400 — дефисы в id).
+        // публикации и несовпавший If-Match на обновлении — 412 (движок
+        // перечитает и решит LWW); 5xx — временный сбой, движок отложит
+        // строку до следующего прогона; прочие 4xx — постоянный отказ:
+        // наружу с телом и названием события, карточка аккаунта покажет
+        // причину (молча-деферить 400 нельзя — повторится вечно; так
+        // нашлась и причина 400 — дефисы в id).
         when {
             response.code in 200..299 -> Unit
 
             createIfAbsent && etag == null && response.code == 409 ->
                 return CaldavWriteResponse(412, null)
+
+            response.code == 412 -> return CaldavWriteResponse(412, null)
 
             response.code in 500..599 -> return CaldavWriteResponse(response.code, null)
 
@@ -243,22 +258,27 @@ class GoogleCalendarApi @Inject constructor(
         return CaldavWriteResponse(response.code, responseEtag)
     }
 
-    override suspend fun deleteEvent(url: String, username: String, password: String): Int {
+    override suspend fun deleteEvent(url: String, username: String, password: String, etag: String?): Int {
         val (calendarId, eventId) = splitResourceUrl(url)
             ?: throw CaldavSyncException.Server("Нечитаемая ссылка объекта: $url")
+        // Удаление, как и правка, условно по имеющемуся ETag: Google
+        // проверяет If-Match и на DELETE (conditional modification —
+        // «Get specific versions of resources»), при несовпадении отвечает
+        // 412 — движок перечитает объект и решит конфликт удаления с правкой.
         val response = request(
             "DELETE",
             "$BASE/calendars/${urlSegment(calendarId)}/events/$eventId",
             username,
             null,
+            googleIfMatch(etag),
         )
         // 410 Gone («уже отменено») для движка неотличимо от «и так нет»;
-        // 5xx — временный сбой (Deferred); прочие 4xx — постоянный отказ
-        // с телом наружу.
+        // 412 — конфликт, его разрешение на движке; 5xx — временный сбой;
+        // прочие 4xx — постоянный отказ с телом наружу.
         return when {
             response.code == 410 -> 404
 
-            response.code in 200..299 || response.code == 404 -> response.code
+            response.code in 200..299 || response.code == 404 || response.code == 412 -> response.code
 
             response.code in 500..599 -> response.code
 
@@ -320,27 +340,34 @@ class GoogleCalendarApi @Inject constructor(
 
     override fun objectHref(collectionUrl: String, uid: String): String = "$collectionUrl/${googleEventIdFor(uid)}"
 
-    /** Один HTTP-запрос с Bearer-токеном; тело — JSON или null. */
+    /** Ответ простого запроса: код и тело. */
     private data class RawResponse(val code: Int, val body: String)
 
-    private suspend fun request(method: String, url: String, accountName: String, body: JSONObject?): RawResponse =
-        withContext(Dispatchers.IO) {
-            var token = tokenSource.token(accountName)
-            var response = call(method, url, token, body)
-            // Просроченный кеш токена чинится на месте: сброс и один повтор.
-            if (response.code == 401) {
-                runCatching { GoogleAuthUtil.clearToken(context, token) }
-                token = tokenSource.token(accountName)
-                response = call(method, url, token, body)
-            }
-            response
+    /** Один HTTP-запрос с Bearer-токеном; тело — JSON или null; ifMatch — условная правка (If-Match). */
+    private suspend fun request(
+        method: String,
+        url: String,
+        accountName: String,
+        body: JSONObject?,
+        ifMatch: String? = null,
+    ): RawResponse = withContext(Dispatchers.IO) {
+        var token = tokenSource.token(accountName)
+        var response = call(method, url, token, body, ifMatch)
+        // Просроченный кеш токена чинится на месте: сброс и один повтор.
+        if (response.code == 401) {
+            runCatching { GoogleAuthUtil.clearToken(context, token) }
+            token = tokenSource.token(accountName)
+            response = call(method, url, token, body, ifMatch)
         }
+        response
+    }
 
-    private fun call(method: String, url: String, token: String, body: JSONObject?): RawResponse {
+    private fun call(method: String, url: String, token: String, body: JSONObject?, ifMatch: String?): RawResponse {
         val builder = Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")
             .header("User-Agent", "T-Note/1.0 GoogleCalendar")
+        ifMatch?.let { builder.header("If-Match", it) }
         if (body != null) {
             val payload = body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
             builder.method(method, payload)
@@ -392,4 +419,17 @@ class GoogleCalendarApi @Inject constructor(
         const val KIND_CALENDAR_LIST = "calendar#calendarList"
         val WRITABLE_ROLES = setOf("owner", "writer")
     }
+}
+
+/**
+ * Значение If-Match по RFC 7232 — в цитированной форме. Google отдаёт
+ * «etag» в теле уже с кавычками (normalizeEtag их не удваивает). Пустое
+ * значение или слабый валидатор («W/...») — предусловия нет: PUT уходит
+ * безусловно (слабый ETag Google в If-Match не принимает — отвечал бы
+ * 412 вечно), свежий ETag вернёт перечитка объекта движком.
+ */
+internal fun googleIfMatch(etag: String?): String? {
+    val trimmed = etag?.trim().orEmpty()
+    if (trimmed.isEmpty() || trimmed.startsWith("W/")) return null
+    return normalizeEtag(trimmed)
 }

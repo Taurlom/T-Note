@@ -190,7 +190,9 @@ data class ScheduledEvent(
      * Событие длиннее суток (у чужих — Google, Яндекс) в каждый день
      * показывается своей частью: первый день — до полуночи, последний — от
      * полуночи до своего конца, средние — целиком. null — событие в этот
-     * день не идёт.
+     * день не идёт. Конец эксклюзивен (DTEND по RFC 5545): если момент
+     * конца — ровно полночь дня конца (endMinutes == 0), тот день событием
+     * не касается — нулевого вхождения «00:00–00:00» не бывает.
      */
     fun windowOn(day: LocalDate): Pair<Int?, Int?>? {
         val start = dateOrNull() ?: return null
@@ -198,6 +200,8 @@ data class ScheduledEvent(
         if (day.isBefore(start) || day.isAfter(end)) return null
         // Событие в одни сутки: его часы и есть окно дня.
         if (end == start) return startMinutes to endMinutes
+        // Конец ровно в полночь — граница «до начала этого дня».
+        if (day == end && endMinutes == 0) return null
         val from = if (day == start) startMinutes else 0
         val until = if (day == end) endMinutes else MINUTES_PER_DAY
         return from to until

@@ -653,6 +653,72 @@ class EventIcsMapperTest {
     }
 
     @Test
+    fun `foreign timed exdate series is representable and rewritable`() {
+        // Исключение с временем в timed-серии — воспроизводимая форма
+        // (модель хранит дату, время задаёт сама серия): объект не обязан
+        // считаться чужим только из-за буквы «T» в EXDATE.
+        val lines = listOf(
+            "UID:foreign-14t@example.com",
+            "DTSTAMP:20261109T200000Z",
+            "DTSTART:20261117T100000",
+            "DTEND:20261117T110000",
+            "RRULE:FREQ=WEEKLY;BYDAY=TU",
+            "EXDATE:20261124T100000",
+            "SUMMARY:Зарядка",
+        )
+        assertFalse(veventOf(lines).hasUnmodeledContent())
+        val parsed = foreign(*lines.toTypedArray()) ?: error("VEVENT не распознан")
+        assertEquals(setOf(LocalDate.parse("2026-11-24")), parsed.exdates)
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-24")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-12-01")))
+    }
+
+    @Test
+    fun `day series until exports bare date`() {
+        val source = repeating(anchor = "2026-02-17", unit = RepeatUnit.DAYS, interval = 1, until = "2026-03-01")
+        val ics = eventCalendar(listOf(source.toIcsEvent())).icsText()
+        assertTrue("UNTIL дневной серии — дата без времени", ics.contains("UNTIL=20260301"))
+        assertFalse(ics.contains("T235959"))
+        val parsed = roundTrip(source)
+        assertEquals("2026-03-01", parsed.repeatUntil)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-03-01")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-03-02")))
+    }
+
+    @Test
+    fun `timed series until exports floating end of day inclusive`() {
+        // RFC 5545 §3.3.10: при DTSTART с временем UNTIL обязан быть тем же
+        // типом. Граница модели «включая последний день», поэтому конец
+        // дня, а не полночь: вхождение 1 марта в 10:00 остаётся внутри.
+        val source = repeating(anchor = "2026-02-17", unit = RepeatUnit.DAYS, interval = 1, until = "2026-03-01")
+            .copy(startMinutes = 600, endMinutes = 660)
+        val ics = eventCalendar(listOf(source.toIcsEvent())).icsText()
+        assertTrue(ics.contains("DTSTART:20260217T100000"))
+        assertTrue("UNTIL timed-серии — DATE-TIME без зоны: ${lineWith(ics, "UNTIL")}", ics.contains("UNTIL=20260301T235959"))
+        val parsed = roundTrip(source)
+        assertEquals("2026-03-01", parsed.repeatUntil)
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-03-01")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-03-02")))
+    }
+
+    @Test
+    fun `timed series exdates export at occurrence time and round-trip`() {
+        // DATE-исключение в timed-серии серверы с вхождением не сверяют —
+        // экспорт пишет момент вхождения (плавающий, тот же, что DTSTART).
+        val source = repeating(anchor = "2026-11-16", unit = RepeatUnit.WEEKS, interval = 1, weekdays = setOf(DayOfWeek.MONDAY))
+            .copy(startMinutes = 600, endMinutes = 660, exdates = setOf(LocalDate.parse("2026-11-30")))
+        val ics = eventCalendar(listOf(source.toIcsEvent())).icsText()
+        assertTrue("EXDATE timed-серии — время вхождения: ${lineWith(ics, "EXDATE")}", ics.contains("EXDATE:20261130T100000"))
+        val parsed = roundTrip(source)
+        assertEquals(source.copy(position = 0, id = 0), parsed)
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-30")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-12-07")))
+    }
+
+    /** Складка ICS режет длинные линии — для текста ошибки показываем линию с маркером. */
+    private fun lineWith(ics: String, marker: String): String = ics.lineSequence().firstOrNull { it.contains(marker) }?.trim().orEmpty()
+
+    @Test
     fun `foreign multi-day event becomes daily repeat until last day`() {
         // Отпуск 1–5 марта: DTEND эксклюзивен, значит последний видимый
         // день — 5-е. Визуально это «каждый день до 5 марта» — готовая
@@ -784,6 +850,32 @@ class EventIcsMapperTest {
         // Повтора нет: событие не расползлось на повтор.
         assertNull(parsed.repeatUnit)
         assertNull(parsed.repeatUntil)
+    }
+
+    /**
+     * DTEND ровно в полночь: «1 марта 23:30 → 2 марта 00:00». Конец
+     * эксклюзивен — событие идёт только 1 марта. Модель хранит границу
+     * как (endDate, 00:00), развёртка останавливается на ней (нулевого
+     * вхождения на дне конца нет), экспорт обязан вернуть тот же DTEND.
+     */
+    @Test
+    fun `event ending at midnight parses without extra day and exports back`() {
+        val parsed = foreign(
+            "UID:foreign-17z@example.com",
+            "DTSTART:20260301T233000",
+            "DTEND:20260302T000000",
+            "SUMMARY:Ночная смена",
+        ) ?: error("VEVENT не распознан")
+        assertEquals("2026-03-01", parsed.date)
+        assertEquals(23 * 60 + 30, parsed.startMinutes)
+        assertEquals(0, parsed.endMinutes)
+        assertEquals("2026-03-02", parsed.endDate)
+        // Первый день — до полуночи, день конца — не покрыт вовсе.
+        assertEquals((23 * 60 + 30) to 24 * 60, parsed.windowOn(LocalDate.parse("2026-03-01")))
+        assertNull(parsed.windowOn(LocalDate.parse("2026-03-02")))
+        // Экспорт — тот же эксклюзивный момент конца.
+        val ics = eventCalendar(listOf(parsed.toIcsEvent())).icsText()
+        assertTrue("конец — та же полночь: $ics", ics.contains("DTEND:20260302T000000"))
     }
 
     @Test
@@ -1081,6 +1173,11 @@ class EventIcsMapperTest {
             regular(),
             regular(color = 0xFFE53935, hidePast = true),
             repeating(unit = RepeatUnit.WEEKS, weekdays = setOf(DayOfWeek.TUESDAY), until = "2026-05-01"),
+            // Timed-серия: UNTIL и исключения уходят в DATE-TIME форме — она
+            // собственная, не чужая. Иначе каждый такой объект замирал бы
+            // на второй же вычитке (неперезаписываемый).
+            repeating(unit = RepeatUnit.DAYS, interval = 1, until = "2026-05-01")
+                .copy(startMinutes = 600, endMinutes = 660, exdates = setOf(LocalDate.parse("2026-02-20"))),
         )
         events.forEach { event ->
             val vevent = parseIcs(eventCalendar(listOf(event.toIcsEvent())).icsText())
@@ -1115,8 +1212,6 @@ class EventIcsMapperTest {
             // Правило, которое модель не выражает: позиционный BYDAY и BYSETPOS.
             listOf("RRULE:FREQ=MONTHLY;BYDAY=2TU"),
             listOf("RRULE:FREQ=WEEKLY;BYDAY=TU;BYSETPOS=1"),
-            // Исключение по моменту времени: DATE-форма такое вхождение не вычеркнет.
-            listOf("EXDATE:20261118T100000Z"),
         )
         extras.forEach { extra ->
             val vevent = veventOf(plainForeign + extra)

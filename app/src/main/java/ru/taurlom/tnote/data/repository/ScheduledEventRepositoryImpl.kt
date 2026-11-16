@@ -16,6 +16,7 @@ import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.domain.repository.ScheduledEventRepository
 import java.time.Clock
+import java.time.YearMonth
 import javax.inject.Inject
 
 /**
@@ -35,8 +36,9 @@ class ScheduledEventRepositoryImpl @Inject constructor(
     private val clock: Clock,
 ) : ScheduledEventRepository {
 
-    override fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEvent>> =
-        eventDao.getByMonthPrefix(monthPrefix).map { list -> list.map { it.toDomain() } }
+    override fun getByMonth(month: YearMonth): Flow<List<ScheduledEvent>> =
+        eventDao.getByMonth(month.atDay(1).toString(), month.plusMonths(1).atDay(1).toString())
+            .map { list -> list.map { it.toDomain() } }
 
     override fun getByType(type: ScheduledEventType): Flow<List<ScheduledEvent>> =
         eventDao.getByType(type.name).map { list -> list.map { it.toDomain() } }

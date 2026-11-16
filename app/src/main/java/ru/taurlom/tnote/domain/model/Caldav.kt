@@ -63,6 +63,10 @@ data class CaldavSyncResult(
     val pushed: Int = 0,
     /** Строк, перезаписанных более свежей серверной версией (last-write-wins). */
     val overwritten: Int = 0,
+    /** Локальных удалений, уступивших более свежей серверной правке; объекты возвращены в приложение. */
+    val restored: Int = 0,
+    /** Объектов, удалённых на сервере и воскрешённых локальными правками (last-write-wins). */
+    val resurrected: Int = 0,
 ) {
     /** Суммирование результатов по всем аккаунтам за один прогон. */
     operator fun plus(other: CaldavSyncResult): CaldavSyncResult = CaldavSyncResult(
@@ -71,5 +75,7 @@ data class CaldavSyncResult(
         removed = removed + other.removed,
         pushed = pushed + other.pushed,
         overwritten = overwritten + other.overwritten,
+        restored = restored + other.restored,
+        resurrected = resurrected + other.resurrected,
     )
 }

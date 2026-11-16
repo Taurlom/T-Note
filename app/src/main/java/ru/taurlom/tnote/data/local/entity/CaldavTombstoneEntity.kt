@@ -24,9 +24,12 @@ data class CaldavTombstoneEntity(
     val accountId: Long,
     /** Href объекта с сервера (для DELETE); null — объект не публиковался. */
     val href: String? = null,
-    /** Последний известный ETag — на будущее; DELETE ходит без предусловий. */
+    /**
+     * Последний известный ETag — на условный DELETE (If-Match): чтобы
+     * удаление не снесло чужую правку, вписанную после нашего удаления.
+     */
     val etag: String? = null,
-    /** Момент удаления (epoch millis). */
+    /** Момент удаления (epoch millis); при 412 сравнивается с серверной меткой правки (last-write-wins). */
     val deletedAt: Long,
 )
 

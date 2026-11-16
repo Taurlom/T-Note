@@ -35,6 +35,7 @@ import ru.taurlom.tnote.domain.usecase.SyncCaldavAccountUseCase
 import ru.taurlom.tnote.domain.usecase.UpdateScheduledEventUseCase
 import ru.taurlom.tnote.presentation.error.launchCatching
 import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 
 @HiltViewModel
@@ -66,9 +67,10 @@ class CalendarViewModel @Inject constructor(
         monthDataJob?.cancel()
         val yearMonth = _uiState.value.yearMonth
         val prefix = yearMonth.monthPrefix()
+        val month = YearMonth.of(yearMonth.year, yearMonth.month)
         monthDataJob = combine(
             getNotesByMonthUseCase(prefix),
-            getEventsByMonthUseCase(prefix),
+            getEventsByMonthUseCase(month),
             getBirthdayEventsUseCase(),
             getRepeatingEventsUseCase(),
             getWeekendDatesUseCase(),

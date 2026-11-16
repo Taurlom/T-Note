@@ -165,6 +165,54 @@ class GoogleEventJsonTest {
     }
 
     @Test
+    fun `timed exdate lines survive the google import`() {
+        // С 11-го бага экспорт пишет исключения timed-серий с временем —
+        // обратный ход обязан их понимать: и «naive», и UTC-форму. День
+        // терялся бы молча, если разбор ожидал только DATE.
+        val parsed = googleEventToVEvent(
+            googleJson(
+                "id" to "11111111-2222-3333-4444-555555555555",
+                "status" to "confirmed",
+                "summary" to "Зарядка",
+                "start" to JSONObject().put("dateTime", "2026-11-16T10:00:00+03:00"),
+                "end" to JSONObject().put("dateTime", "2026-11-16T11:00:00+03:00"),
+                "recurrence" to org.json.JSONArray()
+                    .put("RRULE:FREQ=WEEKLY;BYDAY=MO")
+                    .put("EXDATE:20261130T100000")
+                    .put("EXDATE;TZID=Europe/Moscow:20261207T100000"),
+            ),
+        )?.toScheduledEvent() ?: error("VEVENT не распознан")
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-11-30")))
+        assertFalse(parsed.occursOn(LocalDate.parse("2026-12-07")))
+        assertTrue(parsed.occursOn(LocalDate.parse("2026-12-14")))
+    }
+
+    @Test
+    fun `own timed series goes to google with datetime until and exdate`() {
+        // На обратном ходе та же форма: RRULE с UNTIL конца дня (плавающим)
+        // и EXDATE с моментом вхождения — Google так описывает timed-повторы.
+        val source = ScheduledEvent(
+            uid = "11111111-2222-3333-4444-555555555555",
+            date = "2026-11-16",
+            title = "Зарядка",
+            type = ScheduledEventType.REPEATING,
+            repeatUnit = RepeatUnit.WEEKS,
+            repeatInterval = 1,
+            repeatWeekdays = setOf(java.time.DayOfWeek.MONDAY),
+            repeatUntil = "2026-12-28",
+            startMinutes = 600,
+            endMinutes = 660,
+            exdates = setOf(LocalDate.parse("2026-11-30")),
+        )
+        val vevent = parseIcs(eventCalendar(listOf(source.toIcsEvent())).icsText())
+            ?.vevents()?.single() ?: error("ICS не разобрался")
+        val recurrence = veventToGoogleJson(vevent).getJSONArray("recurrence")
+        val lines = (0 until recurrence.length()).map { index -> recurrence.getString(index) }
+        assertTrue(lines.any { it.startsWith("RRULE:") && it.contains("UNTIL=20261228T235959") })
+        assertTrue(lines.any { it.startsWith("EXDATE") && it.contains("20261130T100000") })
+    }
+
+    @Test
     fun `own event round trips through google json`() {
         val source = ScheduledEvent(
             uid = "11111111-2222-3333-4444-555555555555",

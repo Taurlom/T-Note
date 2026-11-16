@@ -13,16 +13,20 @@ import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
 interface ScheduledEventDao {
 
     /**
-     * События месяца по префиксу даты. Много-дневное событие (у чужих:
-     * Google, Яндекс) попадает в месяц и по дате конца — «1 февраля — 5
-     * марта» должно давать вхождения и в феврале, и в марте.
+     * События, пересекающиеся с месяцем [monthStart, nextMonthStart):
+     * много-дневное событие видно в каждом месяце своего интервала,
+     * включая промежуточные — у «30 января → 2 марта» ни одна дата не
+     * имеет февральского префикса, но февраль он занимает. Даты
+     * «yyyy-MM-dd» сравнимы лексикографически; endDate — последний
+     * день включительно (см. ScheduledEvent.windowOn), без него интервал
+     * вырождается в eventDate.
      */
     @Query(
-        "SELECT * FROM scheduled_events WHERE eventDate LIKE :monthPrefix " +
-            "OR (endDate IS NOT NULL AND endDate LIKE :monthPrefix) " +
+        "SELECT * FROM scheduled_events WHERE eventDate < :nextMonthStart " +
+            "AND COALESCE(endDate, eventDate) >= :monthStart " +
             "ORDER BY position ASC, id ASC",
     )
-    fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEventEntity>>
+    fun getByMonth(monthStart: String, nextMonthStart: String): Flow<List<ScheduledEventEntity>>
 
     @Query("SELECT * FROM scheduled_events WHERE type = :type ORDER BY eventDate ASC")
     fun getByType(type: String): Flow<List<ScheduledEventEntity>>

@@ -85,6 +85,74 @@ class EventExpanderTest {
         assertNull(event.windowOn(day("2026-03-02")))
     }
 
+    /**
+     * Конец эксклюзивен (DTEND по RFC 5545): «23:30 1 марта → 00:00
+     * 2 марта» идёт только 1-го марта до полуночи. Нулевое окно 00:00–00:00
+     * на дне конца — лишний день в сетке, сводке и дайджесте.
+     */
+    @Test
+    fun `event ending at midnight does not cover the end day`() {
+        val nightShift = ScheduledEvent(
+            date = "2026-03-01",
+            title = "Ночная смена",
+            type = ScheduledEventType.REGULAR,
+            startMinutes = 23 * 60 + 30,
+            endMinutes = 0,
+            endDate = "2026-03-02",
+        )
+        // Первый день — до полуночи (day == start, не end).
+        assertEquals((23 * 60 + 30) to 24 * 60, nightShift.windowOn(day("2026-03-01")))
+        // День конца при полуночном конце — не покрыт вовсе.
+        assertNull(nightShift.windowOn(day("2026-03-02")))
+
+        val byDate = EventExpander.forMonth(
+            monthEvents = listOf(nightShift),
+            birthdays = emptyList(),
+            repeating = emptyList(),
+            year = 2026,
+            month = 3,
+            today = day("2026-02-20"),
+        )
+        assertTrue("1 марта событие видно", byDate.containsKey("2026-03-01"))
+        assertTrue("лишний 2 марта в сетке", !byDate.containsKey("2026-03-02"))
+
+        val summary = EventExpander.forDate(
+            monthEvents = listOf(nightShift),
+            birthdays = emptyList(),
+            repeating = emptyList(),
+            date = day("2026-03-02"),
+            today = day("2026-02-20"),
+        )
+        assertTrue(summary.isEmpty())
+    }
+
+    @Test
+    fun `multi-day span ending at midnight covers every day but the boundary`() {
+        // «23:30 1 марта → 00:00 3 марта»: покрыты 1-е (до полуночи) и 2-е
+        // целиком; 3-е — граница, его нет.
+        val event = ScheduledEvent(
+            date = "2026-03-01",
+            title = "Вахта",
+            type = ScheduledEventType.REGULAR,
+            startMinutes = 23 * 60 + 30,
+            endMinutes = 0,
+            endDate = "2026-03-03",
+        )
+        assertEquals((23 * 60 + 30) to 24 * 60, event.windowOn(day("2026-03-01")))
+        assertEquals(0 to 24 * 60, event.windowOn(day("2026-03-02")))
+        assertNull(event.windowOn(day("2026-03-03")))
+
+        val byDate = EventExpander.forMonth(
+            monthEvents = listOf(event),
+            birthdays = emptyList(),
+            repeating = emptyList(),
+            year = 2026,
+            month = 3,
+            today = day("2026-02-20"),
+        )
+        assertEquals(setOf("2026-03-01", "2026-03-02"), byDate.keys)
+    }
+
     @Test
     fun `own event with end before start is invalid`() {
         // Свои события живут в одних сутках: конец раньше начала — ошибка

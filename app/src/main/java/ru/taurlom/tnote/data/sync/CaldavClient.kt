@@ -134,11 +134,12 @@ interface CaldavApi {
     ): CaldavWriteResponse
 
     /**
-     * DELETE без предусловий (RFC 7232 If-Match на DELETE для tombstone не
-     * даёт практичной выгоды, а 412-танцы усложняют редкий сценарий): 404 —
+     * DELETE строки-удаления: с [etag] — условный (If-Match), сервер отвечает
+     * 412, если объект правился после нашей вычитки, — движок перечитает и
+     * разрешит конфликт удаления с правкой; без ETag — безусловный. 404 —
      * «и так нет», тоже успех. Код движку — он решает, что дальше.
      */
-    suspend fun deleteEvent(url: String, username: String, password: String): Int
+    suspend fun deleteEvent(url: String, username: String, password: String, etag: String? = null): Int
 
     /**
      * Точечный PROPFIND depth 0 по одному объекту: событие вместе с адресом
@@ -313,14 +314,16 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
         ifNoneMatchStar = createIfAbsent && etag == null,
     )
 
-    override suspend fun deleteEvent(url: String, username: String, password: String): Int = http.writeRequest(
+    override suspend fun deleteEvent(url: String, username: String, password: String, etag: String?): Int = http.writeRequest(
         method = "DELETE",
         url = url,
         body = null,
         contentType = null,
         username = username,
         password = password,
-        ifMatch = null,
+        // Условное удаление: сервер правился после нашей вычитки — 412,
+        // conflict'ом решит движок (caldav DELETE принимает If-Match).
+        ifMatch = etag,
         ifNoneMatchStar = false,
     ).code
 

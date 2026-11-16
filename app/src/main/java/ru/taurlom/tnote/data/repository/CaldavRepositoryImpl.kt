@@ -205,11 +205,15 @@ class CaldavRepositoryImpl @Inject constructor(
         val account = caldavDao.getById(accountId) ?: return CaldavSyncResult(0, 0, 0)
         return try {
             val password = passwordFor(account)
-            // Перезаписи («сервер новее») анонсируются после удачного прогона:
-            // пользователь должен увидеть это на любом экране, а не только
+            // Конфликтные исходы анонсируются после удачного прогона:
+            // пользователь должен увидеть их на любом экране, а не только
             // в настройках.
             engine.sync(account, password, transport(account))
-                .also { SyncOverwriteBus.report(it.overwritten) }
+                .also { result ->
+                    SyncOverwriteBus.report(result.overwritten)
+                    SyncOverwriteBus.reportRestored(result.restored)
+                    SyncOverwriteBus.reportResurrected(result.resurrected)
+                }
         } catch (e: CaldavSyncException) {
             caldavDao.markFailed(account.id, e.message)
             throw e

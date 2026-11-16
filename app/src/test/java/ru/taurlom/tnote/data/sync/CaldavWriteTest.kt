@@ -116,6 +116,21 @@ class CaldavWriteTest {
     }
 
     @Test
+    fun `conditional delete with etag sends if-match and surfaces 412`() = runBlocking {
+        // Tombstone помнит ETag удалённого объекта: DELETE идёт условно,
+        // сервер правился после вычитки — 412, конфликт решает движок.
+        server.enqueue(MockResponse().setResponseCode(412))
+        val url = server.url("/calendars/u%40yandex.ru/events-1/test-uid.ics").toString()
+
+        val code = api.deleteEvent(url, "user", "pass", etag = "\"stale-e\"")
+
+        assertEquals(412, code)
+        val recorded = server.takeRequest()
+        assertEquals("DELETE", recorded.method)
+        assertEquals("\"stale-e\"", recorded.getHeader("If-Match"))
+    }
+
+    @Test
     fun `auth failure on write throws typed exception`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(401))
 

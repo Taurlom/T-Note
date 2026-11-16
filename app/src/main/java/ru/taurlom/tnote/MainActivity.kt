@@ -200,6 +200,32 @@ class MainActivity : AppCompatActivity() {
                                 )
                             }
                         }
+                        // Локальное удаление уступило более свежей серверной
+                        // правке: объект вернулся в приложение.
+                        LaunchedEffect(Unit) {
+                            SyncOverwriteBus.restored.collect { count ->
+                                snackbarHostState.showSnackbar(
+                                    context.resources.getQuantityString(
+                                        R.plurals.sync_restored,
+                                        count,
+                                        count,
+                                    ),
+                                )
+                            }
+                        }
+                        // Объект, удалённый на сервере, воскресила локальная
+                        // правка — политика «правка важнее удалителя» явна.
+                        LaunchedEffect(Unit) {
+                            SyncOverwriteBus.resurrected.collect { count ->
+                                snackbarHostState.showSnackbar(
+                                    context.resources.getQuantityString(
+                                        R.plurals.sync_resurrected,
+                                        count,
+                                        count,
+                                    ),
+                                )
+                            }
+                        }
                         SnackbarHost(
                             hostState = snackbarHostState,
                             modifier = Modifier.align(Alignment.BottomCenter),

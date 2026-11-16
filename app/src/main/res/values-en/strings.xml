@@ -73,6 +73,18 @@
         <item quantity="one">Server overwrote %1$d change</item>
         <item quantity="other">Server overwrote %1$d changes</item>
     </plurals>
+    <!-- A local deletion yielded to a newer server edit (conditional DELETE
+         answered 412): the object came back; snackbar (MainActivity). -->
+    <plurals name="sync_restored">
+        <item quantity="one">Server restored %1$d deleted event: its edit is newer than yours</item>
+        <item quantity="other">Server restored %1$d deleted events: their edits are newer than yours</item>
+    </plurals>
+    <!-- An object deleted on the server was brought back by a local edit
+         (last-write-wins); snackbar (MainActivity). -->
+    <plurals name="sync_resurrected">
+        <item quantity="one">A local edit brought back %1$d event deleted on the server</item>
+        <item quantity="other">A local edit brought back %1$d events deleted on the server</item>
+    </plurals>
     <string name="sync_last_never">Not synced yet</string>
     <string name="sync_last_at">Last sync: %1$s</string>
     <string name="sync_badge_yandex">Yandex</string>

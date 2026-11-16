@@ -127,10 +127,16 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *  - повторение: RRULE FREQ=DAILY/WEEKLY/MONTHLY/YEARLY;INTERVAL=N — прямое
  *    отображение на наш якорь [ScheduledEvent.date], частоту и интервал; BYDAY
  *    у WEEKLY — это выбранные дни недели (интерфейс повторения как в Яндексе);
- *    дата-ограничитель — UNTIL (COUNT при разборе разворачивается в дату
- *    последнего вхождения);
+ *    дата-ограничитель — UNTIL в форме DTSTART (RFC 5545 §3.3.10): дневная
+ *    серия — yyyyMMdd, timed — yyyyMMddT235959 «плавающее», граница включает
+ *    последний день; COUNT при разборе разворачивается в дату последнего
+ *    вхождения;
  *  - EXDATE — отменённые вхождения повтора («5 марта отменено»): вычёркивают
- *    даты из набора, включая якорную;
+ *    даты из набора, включая якорную. Тип значения следует за формой DTSTART
+ *    (§3.8.5.1): у дневной серии — VALUE=DATE, у timed — DATE-TIME с временем
+ *    вхождения («плавающее», то же, что у DTSTART); модель хранит дату,
+ *    время задаёт сама серия, — поэтому серверные исключения обоих видов
+ *    воспроизводимы;
  *  - многодневное чужое событие без времени (DTEND на день позже якоря и
  *    больше) — адаптируется в готовую механику «каждый день до последнего
  *    дня» (частота DAYS, интервал 1, ограничитель последним днём): визуально
@@ -195,17 +201,26 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         if (type == ScheduledEventType.BIRTHDAY) {
             properties.add(RRule("FREQ=YEARLY"))
         }
-        // EXDATE — отменённые вхождения повтора. Своим событиям отмены
-        // пока не прикладываются, набор копится только от сервера.
-        // Список обязан знать тип DATE, иначе даты сериализуются формой
-        // с временем суток (T030000) и другие клиенты их не поймут.
+        // EXDATE — отменённые вхождения повтора. Тип значения следует за
+        // формой DTSTART (RFC 5545 §3.8.5.1): у дневной серии список обязан
+        // знать тип DATE, иначе даты сериализуются формой с временем суток
+        // (T030000) и другие клиенты их не поймут; у timed — DATE-TIME с
+        // временем вхождения («плавающим», тем же, что DTSTART): DATE-форма
+        // исключения в timed-серии серверу не знаком, вхождение она не
+        // вычеркивает.
+        val exDateSpan = timedSpan()
         if (exdates.isNotEmpty()) {
-            val exDateProp = ExDate(
-                DateList(Value.DATE).apply {
-                    exdates.sorted().forEach { day -> add(Date(day.format(icsDate), "yyyyMMdd")) }
-                },
-            )
-            exDateProp.parameters.add(Value.DATE)
+            val list = if (exDateSpan != null) DateList(Value.DATE_TIME) else DateList(Value.DATE)
+            exdates.sorted().forEach { day ->
+                if (exDateSpan != null) {
+                    list.add(icsDateTime(day, exDateSpan.startMinutes))
+                } else {
+                    list.add(Date(day.format(icsDate), "yyyyMMdd"))
+                }
+            }
+            val exDateProp = ExDate(list)
+            // DATE-TIME — тип по умолчанию, параметром не пишем; DATE — явный.
+            if (exDateSpan == null) exDateProp.parameters.add(Value.DATE)
             properties.add(exDateProp)
         }
         // Метки времени для разрешения конфликтов: DTSTAMP («когда объект
@@ -319,8 +334,15 @@ private fun ScheduledEvent.recurValue(unit: RepeatUnit, anchor: LocalDate): Stri
     if (unit == RepeatUnit.WEEKS) {
         ScheduledEvent.weekdaysToCode(repeatWeekdays)?.let { parts += "BYDAY=$it" }
     }
-    // UNTIL для VALUE=DATE — дата без времени (совпадает с типом DTSTART).
-    repeatUntil?.let { parts += "UNTIL=${it.replace("-", "")}" }
+    // RFC 5545 §3.3.10: тип значения UNTIL обязан совпадать с формой DTSTART —
+    // с «плавающим» (без зоны) DTSTART и UNTIL плавающий, без Z. Граница в
+    // модели — «включая последний день»: у timed-события последнее вхождение
+    // стоит внутри дня, поэтому конец дня (T235959), а не полночь — иначе
+    // сервер вычеркнул бы вхождение последнего дня.
+    repeatUntil?.let { day ->
+        val compact = day.replace("-", "")
+        parts += if (timedSpan() != null) "UNTIL=${compact}T235959" else "UNTIL=$compact"
+    }
     return parts.joinToString(";")
 }
 
@@ -597,13 +619,6 @@ internal fun VEvent.hasUnmodeledContent(descriptionIsOwn: Boolean = false): Bool
         val name = property.name
         if (name == Property.DESCRIPTION) {
             if (!descriptionIsOwn && descriptionHasTextBeyondMarker(property.value.orEmpty())) return true
-            return@forEach
-        }
-        if (name == Property.EXDATE) {
-            // Исключение по моменту времени: наша модель хранит только даты,
-            // а DATE-форма такое вхождение не вычеркнет — series с timed
-            // EXDATE правим на сервере.
-            if (property.value.orEmpty().contains('T')) return true
             return@forEach
         }
         if (name in reproducibleEventProperties) return@forEach
@@ -887,8 +902,10 @@ private fun icsDay(value: String): LocalDate? = runCatching { LocalDate.parse(va
 
 /** UNTIL/COUNT правила в наш «повторять до»; ни того ни другого — null (бессрочно). */
 private fun ScheduledEvent.windowEnd(rule: Recur?): String? {
-    // UNTIL бывает в полной форме с точным временем — через строку
-    // достаём только дату: UNTIL=20260110 или UNTIL=20260110T000000Z.
+    // UNTIL бывает дневной («20260110»), с точным временем в форме нашей
+    // вычитки («...T235959» плавающее) и в серверных полных формах с зоной
+    // («...T000000Z») — через строку достаём только дату: граница модели
+    // включает день целиком, время ограничителя её не меняет.
     val until = rule?.getUntil()?.toString()?.take(8)
         ?.let { compact -> runCatching { LocalDate.parse(compact, icsDate) }.getOrNull() }
     if (until != null) return until.toString()

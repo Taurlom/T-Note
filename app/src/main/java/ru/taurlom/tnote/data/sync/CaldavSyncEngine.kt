@@ -59,10 +59,16 @@ private val PushOutcome.reachedServer: Boolean
  *  - есть и там, и там с dirty → last-write-wins по моменту правки
  *    (у нас — modifiedAt сохранения; у сервера — LAST-MODIFIED/DTSTAMP).
  *    Сервер новее → перепись + счётчик overwritten (пользователь видит
- *    снек «не молча»); локальное новее → строка ждёт push, его ей заберёт;
+ *    снек «не молча»); локальное новее → строка ждёт push, его ей заберёт,
+ *    но серверная привязка (href/ETag) освежается вычиткой отдельно
+ *    (rememberServerState): PUT пойдёт по адресу сервера, а не по
+ *    выведенному, — иначе после восстановления бэкапа CalDAV получил бы
+ *    второй ресурс с тем же UID;
  *  - было импортировано этим аккаунтом, а на сервере исчезло: чистые
  *    строки удаляются, dirty — остаются (их PUT воскресит объект;
- *    правка пользователя важнее, чем неизвестный удалитель).
+ *    правка пользователя важнее, чем неизвестный удалитель). Воскрешение
+ *    — явный конфликт, а не молчаливое следствие: такие строки считаются
+ *    в [CaldavSyncResult.resurrected] и доносятся снеком;
  *
  * Удаления по разнице — только на полном снапшоте ([CaldavPull.complete]).
  * Нечитаемая запись вычитки (тело без calendar-data, битый ICS, VEVENT без
@@ -88,14 +94,23 @@ private val PushOutcome.reachedServer: Boolean
  * Push — очередь локальных изменений:
  *  - dirty-строки аккаунта → PUT по serverHref (или «<uid>.ics», если
  *    объект ещё не гулял по серверу), If-Match по ETag из вычитки /
- *    If-None-Match:* для первой публикации. 412 — точечная перечитка
+ *    If-None-Match:* для первой публикации. Принятая запись без ETag
+ *    в ответе — объект перечитывается сразу (refetchEtag): следующий PUT
+ *    идёт со свежим предусловием, а не вслепую. 412 — точечная перечитка
  *    объекта и LWW заново: наша правка новее → PUT с живым ETag, серверная
  *    новее → примятие серверной версии (overwritten). 404 — объект исчез:
  *    публикуем заново; перечитка, которая не разобралась, — не «объекта
  *    нет»: строка остаётся в очереди, PUT поверх живой серверной копии не
  *    уходит;
- *  - tombstones → DELETE; 204/404 → строка очереди стёрта. Исключение —
- *    идентичность, которую этот же прогон уже опубликовал PUT'ом:
+ *  - tombstones → условный DELETE по сохранённому ETag (If-Match);
+ *    204/404 → строка очереди стёрта. 412 — объект правился после нашего
+ *    удаления: точечная перечитка и last-write-wins по моменту — серверная
+ *    правка новее deletedAt tombstone → удаление уступает,
+ *    объект возвращается в базу (счётчик restored + снек), иначе — DELETE
+ *    безусловно. Без сохранённого ETag удаление остаётся безусловным:
+ *    сервер без ETag CAS не даёт, молча-новое не гарантировано.
+ *    Исключение — идентичность, которую этот же прогон уже опубликовал
+ *    PUT'ом:
  *    tombstone устарел (объект пересоздан локально под тем же UID), очередь
  *    снимается без сетевого хода. Заметки — самый частый случай: её UID
  *    выводится из даты, поэтому «удалить день и написать заново» — одна
@@ -244,8 +259,16 @@ class CaldavSyncEngine @Inject constructor(
                             if (remote.event.modifiedAt.orZero() > existing.modifiedAt.orZero()) {
                                 applyRemote(existing, remote, account)
                                 overwritten++
+                            } else {
+                                // Наша правка новее — строка остаётся на отправку
+                                // push'ем со своим содержимым и очередью. Но серверную
+                                // идентичность обновляем отдельно: после восстановления
+                                // бэкапа локальный href/ETag утеряны или врут, а объект
+                                // на сервере может жить по веб-созданному адресу. PUT по
+                                // выведенному <uid>.ics поставил бы ДВОЙНИК ресурса с тем
+                                // же UID, после чего diff и удаления неоднозначны.
+                                eventDao.rememberServerState(existing.id, remote.etag, remote.href)
                             }
-                            // Иначе — строка остаётся на отправку push'ем.
                         } else {
                             applyRemote(existing, remote, account)
                             // Бэкфилл маркера — той же очередью отправки:
@@ -273,6 +296,11 @@ class CaldavSyncEngine @Inject constructor(
                             if (remoteNote.event.modifiedAt.orZero() > existing.modifiedAt.orZero()) {
                                 noteDao.insert(applyNoteRemote(existing, remoteNote, account))
                                 overwritten++
+                            } else {
+                                // Зеркало событийной ветки: правка заметки остаётся
+                                // в очереди, а серверная привязка (href/ETag
+                                // носителя) освежается вычиткой.
+                                noteDao.rememberServerState(existing.eventDate, remoteNote.etag, remoteNote.href)
                             }
                         } else {
                             noteDao.insert(applyNoteRemote(existing, remoteNote, account))
@@ -305,6 +333,29 @@ class CaldavSyncEngine @Inject constructor(
         var stale = 0
         // Замороженные правки: серверный объект нельзя пересобирать из модели.
         var protectedRows = 0
+        // Локальные удаления, уступившие более свежей серверной правке:
+        // объект возвращён в базу из конфликтной перечитки (счёт ведёт цикл
+        // удалений).
+        var restored = 0
+        // Разница по удалению намеренно щадит dirty-строки: если опубликованная
+        // строка пропала из серверного списка, её PUT воскресит объект —
+        // продуктовая политика «правка пользователя важнее неизвестного
+        // удалителя» остаётся. Но явной: состоявшееся воскрешение считается
+        // в resurrected и доносится снеком, молча это не проходит. На неполной
+        // вычитке «нет в списке» значит «мы не прочли», поэтому не отмечаем.
+        var resurrected = 0
+        val absentEvents = mutableSetOf<String>()
+        val absentNoteDates = mutableSetOf<String>()
+        if (pulled.complete) {
+            val pulledEventUids = pulled.events.mapTo(mutableSetOf()) { it.event.uid }
+            val pulledNoteDates = pulled.notes.mapTo(mutableSetOf()) { it.event.date }
+            eventDao.getDirtyFor(account.id).forEach { row ->
+                if (row.serverHref != null && row.uid !in pulledEventUids) absentEvents += row.uid
+            }
+            noteDao.getDirtyFor(account.id).forEach { row ->
+                if (row.serverHref != null && row.eventDate !in pulledNoteDates) absentNoteDates += row.eventDate
+            }
+        }
         // UID'ы, чья правка доехала до сервера этим прогоном (или была им
         // принята): tombstone такой идентичности устарел — ниже он снимается
         // без DELETE, иначе прогон убрал бы объект, который сам же вписал.
@@ -322,11 +373,21 @@ class CaldavSyncEngine @Inject constructor(
                 published += row.uid
             }
             when (outcome) {
-                PushOutcome.Pushed -> pushed++
+                PushOutcome.Pushed -> {
+                    pushed++
+                    // PUT ушёл по строке, которой нет на сервере, — локальная
+                    // правка воскресила удалённый объект: считаем явно.
+                    if (row.uid in absentEvents) resurrected++
+                }
+
                 PushOutcome.Overwritten -> overwritten++
+
                 PushOutcome.Skipped -> Unit
+
                 PushOutcome.Stale -> stale++
+
                 PushOutcome.Deferred -> deferred++
+
                 PushOutcome.Protected -> protectedRows++
             }
         }
@@ -341,11 +402,19 @@ class CaldavSyncEngine @Inject constructor(
                 published += noteUidFor(row.eventDate)
             }
             when (outcome) {
-                PushOutcome.Pushed -> pushed++
+                PushOutcome.Pushed -> {
+                    pushed++
+                    if (row.eventDate in absentNoteDates) resurrected++
+                }
+
                 PushOutcome.Overwritten -> overwritten++
+
                 PushOutcome.Skipped -> Unit
+
                 PushOutcome.Stale -> stale++
+
                 PushOutcome.Deferred -> deferred++
+
                 PushOutcome.Protected -> protectedRows++
             }
         }
@@ -363,13 +432,60 @@ class CaldavSyncEngine @Inject constructor(
             }
             val href = tombstone.href ?: transport.objectHref(account.collectionUrl, tombstone.uid)
             requireAccountOrigin(account, href)
-            val code = transport.deleteEvent(href, account.username, password)
+            val code = transport.deleteEvent(href, account.username, password, tombstone.etag)
             when (code) {
                 in 200..299, 404 -> {
                     // 204 — удалено; 404 — «и так нет»: очистка очереди
                     // легитимна в обоих случаях.
                     tx.inTransaction { tombstoneDao.deleteByUid(tombstone.uid) }
                     pushed++
+                }
+
+                412 -> {
+                    // Сохранённый ETag не совпал: объект правился после
+                    // нашего удаления (или его успели пересоздать под тем же
+                    // адресом). Решаем тем же last-write-wins, что и правки, —
+                    // по моменту tombstone против серверной метки.
+                    when (val fresh = transport.pullEvent(href, account.username, password)) {
+                        // Пока решали, объект исчез снова: намерение удалено,
+                        // очередь закрывается.
+                        CaldavObjectResult.NotFound -> {
+                            tx.inTransaction { tombstoneDao.deleteByUid(tombstone.uid) }
+                            pushed++
+                        }
+
+                        is CaldavObjectResult.Unreadable ->
+                            deferred++
+
+                        // о серверной копии ничего не известно, ждём следующего прогона
+
+                        is CaldavObjectResult.Found -> {
+                            val remote = fresh.event
+                            if (remote.event.modifiedAt.orZero() > tombstone.deletedAt) {
+                                // Серверная правка новее удаления: удаление
+                                // уступает. Объект возвращается в базу, очередь
+                                // снимается — явно, со снеком: пользователь
+                                // удалял сам и должен увидеть воскрешение.
+                                tx.inTransaction {
+                                    tombstoneDao.deleteByUid(tombstone.uid)
+                                    restoreRemote(remote, account)
+                                }
+                                restored++
+                            } else {
+                                // Удаление — последняя операция (или метка
+                                // сервера неизвестна): подтверждаем безусловно.
+                                val confirm = transport.deleteEvent(href, account.username, password, etag = null)
+                                when (confirm) {
+                                    in 200..299, 404 -> {
+                                        tx.inTransaction { tombstoneDao.deleteByUid(tombstone.uid) }
+                                        pushed++
+                                    }
+
+                                    else -> deferred++
+                                }
+                            }
+                        }
+                    }
                 }
 
                 else -> deferred++ // временный сбой: строка удаления доживёт до следующего прогона
@@ -396,7 +512,7 @@ class CaldavSyncEngine @Inject constructor(
         if (reasons.isNotEmpty()) {
             caldavDao.markFailed(account.id, reasons.joinToString("; "))
         }
-        return CaldavSyncResult(added, updated, removed, pushed, overwritten)
+        return CaldavSyncResult(added, updated, removed, pushed, overwritten, restored, resurrected)
     }
 
     /**
@@ -513,7 +629,7 @@ class CaldavSyncEngine @Inject constructor(
             createIfAbsent = row.serverHref == null,
         )
         if (first.code in 200..299) {
-            return settlePush(row, first.etag, href)
+            return settlePush(row, first.etag ?: refetchEtag(href, account, password, transport), href)
         }
         when (first.code) {
             412, 404 -> Unit
@@ -542,7 +658,7 @@ class CaldavSyncEngine @Inject constructor(
                 if (recreate.code !in 200..299) {
                     return PushOutcome.Deferred
                 }
-                return settlePush(row, recreate.etag, href)
+                return settlePush(row, recreate.etag ?: refetchEtag(href, account, password, transport), href)
             }
 
             // Перечитка не разобралась: жив ли объект на сервере и что в
@@ -574,7 +690,7 @@ class CaldavSyncEngine @Inject constructor(
                 if (retry.code !in 200..299) {
                     return PushOutcome.Deferred
                 }
-                return settlePush(row, retry.etag, href)
+                return settlePush(row, retry.etag ?: refetchEtag(href, account, password, transport), href)
             }
         }
     }
@@ -592,6 +708,51 @@ class CaldavSyncEngine @Inject constructor(
         // Строку удалили, пока PUT был в сети: правки больше нет, а удаление
         // доезжает до сервера очередью tombstones.
         return if (eventDao.rememberServerState(row.id, etag, href) == 1) PushOutcome.Stale else PushOutcome.Skipped
+    }
+
+    /**
+     * Записывающий запрос принят, а сервер ETag не отдал (CalDAV отвечает
+     * 204 молча; у Google «etag» в теле мог не найтись): перечитываем
+     * объект точечной вычиткой. Иначе следующая локальная правка ушла бы
+     * PUT'ом вовсе без предусловия — serverHref уже есть, If-None-Match:*
+     * не ставится, If-Match выставлять нечем — и вслепую затёрла бы чужую
+     * версию, вписанную после нашей полной вычитки. Не перечиталось
+     * (объект исчез или не прочитался) — оставляем null: без свежего ETag
+     * обновление защищённым не считаем, предусловие восстановит ближайшая
+     * полная вычитка ([applyRemote] записывает ETag из снапшота).
+     */
+    private suspend fun refetchEtag(href: String, account: CaldavAccountEntity, password: String, transport: CaldavApi): String? =
+        when (val fresh = transport.pullEvent(href, account.username, password)) {
+            is CaldavObjectResult.Found -> fresh.event.etag
+
+            CaldavObjectResult.NotFound,
+            is CaldavObjectResult.Unreadable,
+            -> null
+        }
+
+    /**
+     * Возврат в базу объекта, чьё локальное удаление уступило серверной
+     * правке: та же форма вставки, что у полной вычитки, — заметка в свою
+     * таблицу, событие на позицию «максимум этого дня + 1» с припиской
+     * аккаунта. Tombstone снимается этим же прогоном (в той же транзакции),
+     * поэтому следующая вычитка объект уже не пропустит.
+     */
+    private suspend fun restoreRemote(remote: CaldavRemoteEvent, account: CaldavAccountEntity) {
+        if (noteBySummary(remote.event.title)) {
+            noteDao.insert(remote.toNoteEntity(account.id))
+        } else {
+            eventDao.insert(
+                remote.event.toEntity().copy(
+                    id = 0,
+                    caldavAccountId = account.id,
+                    remoteImported = true,
+                    position = eventDao.getMaxPosition(remote.event.date) + 1,
+                    dirty = false,
+                    etag = remote.etag,
+                    serverHref = remote.href,
+                ),
+            )
+        }
     }
 
     /**
@@ -688,7 +849,7 @@ class CaldavSyncEngine @Inject constructor(
             createIfAbsent = row.serverHref == null,
         )
         if (first.code in 200..299) {
-            return settleNotePush(row, first.etag, href)
+            return settleNotePush(row, first.etag ?: refetchEtag(href, account, password, transport), href)
         }
         when (first.code) {
             412, 404 -> Unit
@@ -709,7 +870,7 @@ class CaldavSyncEngine @Inject constructor(
                 if (recreate.code !in 200..299) {
                     return PushOutcome.Deferred
                 }
-                return settleNotePush(row, recreate.etag, href)
+                return settleNotePush(row, recreate.etag ?: refetchEtag(href, account, password, transport), href)
             }
 
             // Нечитаемая перечитка — о серверной копии ничего не известно
@@ -737,7 +898,7 @@ class CaldavSyncEngine @Inject constructor(
                 if (retry.code !in 200..299) {
                     return PushOutcome.Deferred
                 }
-                return settleNotePush(row, retry.etag, href)
+                return settleNotePush(row, retry.etag ?: refetchEtag(href, account, password, transport), href)
             }
         }
     }

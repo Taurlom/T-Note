@@ -255,16 +255,34 @@ fun veventToGoogleJson(vevent: VEvent): JSONObject {
 }
 
 /**
- * Строка свойства recurrence Google («RRULE:FREQ=…», «EXDATE;VALUE=DATE:…»)
- * в наш EXDATE-объект; неразборчивые даты пропускаются.
+ * Строка свойства recurrence Google («RRULE:FREQ=…», «EXDATE;VALUE=DATE:…»,
+ * «EXDATE:20261130T100000») в наш EXDATE-объект; неразборчивые даты
+ * пропускаются. Форма зависит от содержимого: дневные значения — DATE-список
+ * (параметр обязательный), значения со временем — DATE-TIME, приведённый к
+ * местным часам устройства (Google отдаёт и «naive», и «…Z»; параметр TZID
+ * в префиксе строки не читаем — модель и так живёт в зоне устройства).
+ * Время исключения модели не нужно (хранится дата), но терять сам день
+ * из-за незнакомой формы нельзя.
  */
 private fun exDateFrom(line: String): ExDate {
-    val dates = line.substringAfter(':').split(',')
-        .mapNotNull { raw -> googleDayValue(raw.trim()) }
-    val list = net.fortuna.ical4j.model.DateList(net.fortuna.ical4j.model.parameter.Value.DATE)
-    dates.forEach { day -> list.add(Date(day.format(icsDate), "yyyyMMdd")) }
+    val tokens = line.substringAfter(':').split(',').map { raw -> raw.trim() }.filter { it.isNotEmpty() }
+    val timed = tokens.any { raw -> raw.contains('T') }
+    val list = net.fortuna.ical4j.model.DateList(
+        if (timed) net.fortuna.ical4j.model.parameter.Value.DATE_TIME else net.fortuna.ical4j.model.parameter.Value.DATE,
+    )
+    tokens.forEach { raw ->
+        val moment = if (raw.contains('T')) runCatching { DateTime(raw) }.getOrNull()?.let(::localMomentOf) else null
+        val day = moment?.toLocalDate() ?: googleDayValue(raw) ?: return@forEach
+        list.add(
+            if (timed) {
+                icsDateTime(day, moment?.let { local -> local.hour * 60 + local.minute } ?: 0)
+            } else {
+                Date(day.format(icsDate), "yyyyMMdd")
+            },
+        )
+    }
     val exDate = ExDate(list)
-    exDate.parameters.add(net.fortuna.ical4j.model.parameter.Value.DATE)
+    if (!timed) exDate.parameters.add(net.fortuna.ical4j.model.parameter.Value.DATE)
     return exDate
 }
 

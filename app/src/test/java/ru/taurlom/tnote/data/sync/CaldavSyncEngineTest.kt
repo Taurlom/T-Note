@@ -56,18 +56,23 @@ class CaldavSyncEngineTest {
     )
 
     /** Объект сервера: с адресом и ETag — diff и предусловия этапа 2 их ждут. */
-    private fun remoteEvent(uid: String, date: String = "2026-02-17", title: String = "Из Яндекса", modifiedAt: Long? = null) =
-        CaldavRemoteEvent(
-            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/$uid.ics",
-            etag = "\"$uid\"",
-            event = ScheduledEvent(
-                uid = uid,
-                date = date,
-                title = title,
-                type = ScheduledEventType.REGULAR,
-                modifiedAt = modifiedAt,
-            ),
-        )
+    private fun remoteEvent(
+        uid: String,
+        date: String = "2026-02-17",
+        title: String = "Из Яндекса",
+        modifiedAt: Long? = null,
+        etag: String = "\"$uid\"",
+    ) = CaldavRemoteEvent(
+        href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/$uid.ics",
+        etag = etag,
+        event = ScheduledEvent(
+            uid = uid,
+            date = date,
+            title = title,
+            type = ScheduledEventType.REGULAR,
+            modifiedAt = modifiedAt,
+        ),
+    )
 
     /**
      * Ставит строку в очередь отправки — как репозиторий делает при правке:
@@ -456,6 +461,80 @@ class CaldavSyncEngineTest {
     }
 
     @Test
+    fun `successful write without etag re-reads object for precondition`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Сервер принял PUT, но ETag не отдал (CalDAV-204 молчит): если
+        // оставить пустой, следующая правка уйдёт без всякого предусловия.
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 500, title = "Локальная правка")
+        api.putResults += CaldavWriteResponse(204, null)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1", etag = "\"fresh-e\""))
+
+        val result = engine.sync(account, "pwd")
+
+        // Правка на сервере, очередь снята — и сразу со свежим предусловием
+        // из перечитки, а не вслепую до следующей полной вычитки.
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        fakeEventDao.rows.single().let { row ->
+            assertFalse(row.dirty)
+            assertEquals("\"fresh-e\"", row.etag)
+        }
+
+        // Следующая правка уходит уже с перечитанным ETag (вычитка тем
+        // временем подтверждает ту же версию сервера — привязка не плывёт).
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 700)
+        api.pull = CaldavPull(listOf(remoteEvent("u1", etag = "\"fresh-e\"")))
+        api.putResults += CaldavWriteResponse(204, "\"put-e2\"")
+        engine.sync(account, "pwd")
+        assertEquals("\"fresh-e\"", api.putCalls.last().etag)
+    }
+
+    @Test
+    fun `write without etag and unreadable re-read leaves update unprotected`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 500)
+        api.putResults += CaldavWriteResponse(204, null)
+        api.cannedPullEvent = CaldavObjectResult.Unreadable("PROPFIND без calendar-data")
+
+        val result = engine.sync(account, "pwd")
+
+        // Запись доехала — очередь снята; но без свежего ETag обновление
+        // защищённым не считается: предусловие вернёт полная вычитка.
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        val row = fakeEventDao.rows.single()
+        assertFalse(row.dirty)
+        assertNull(row.etag)
+    }
+
+    @Test
+    fun `note write without etag re-reads carrier for precondition`() = runBlocking {
+        val api = FakeApi(CaldavPull(emptyList()))
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Версия A",
+            createdAt = 100,
+            modifiedAt = 500,
+            caldavAccountId = 42L,
+            dirty = true,
+        )
+        api.putResults += CaldavWriteResponse(204, null)
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u-note", etag = "\"fresh-note\""))
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, result.pushed)
+        fakeNoteDao.rows.single().let { note ->
+            assertFalse(note.dirty)
+            assertEquals("\"fresh-note\"", note.etag)
+        }
+    }
+
+    @Test
     fun `remote-newer edit overwrites dirty row and is announced`() = runBlocking {
         val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
         val engine = engine(api)
@@ -495,6 +574,78 @@ class CaldavSyncEngineTest {
         }
     }
 
+    /**
+     * После восстановления бэкапа строка теряет серверную привязку
+     * (href/ETag пустые), а объект на сервере может жить по веб-созданному
+     * адресу. Local-wins ветка вычитки обновляет привязку отдельно от
+     * содержимого: PUT уходит по серверному адресу, а не по выведенному
+     * <uid>.ics — двойника ресурса с тем же UID CalDAV не видит.
+     */
+    @Test
+    fun `local wins refreshes href and etag of restored backup row`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        // Форма восстановленного бэкапа: локальная правка, привязки нет.
+        fakeEventDao.rows.replaceAll {
+            it.copy(dirty = true, modifiedAt = 900, title = "Локальная правка", serverHref = null, etag = null)
+        }
+        // На сервере тот же UID живёт по нестандартному адресу своей версией,
+        // но правка эта СТАРШЕ локальной — local wins.
+        val webHref = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/web-created.ics"
+        api.pull = CaldavPull(
+            listOf(remoteEvent("u1", title = "Серверная копия", modifiedAt = 100).copy(href = webHref, etag = "\"web-e\"")),
+        )
+        api.putResults += CaldavWriteResponse(204, "\"pushed-e\"")
+
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        // Ключевое: PUT по адресу с вычитки и с её ETag, а не первая публикация.
+        val put = api.putCalls.single()
+        assertEquals(webHref, put.url)
+        assertFalse(put.createIfAbsent)
+        assertEquals("\"web-e\"", put.etag)
+        assertTrue(put.ics.contains("Локальная правка"))
+        fakeEventDao.rows.single().let { row ->
+            assertEquals("Локальная правка", row.title)
+            assertFalse(row.dirty)
+            assertEquals(webHref, row.serverHref)
+            assertEquals("\"pushed-e\"", row.etag)
+        }
+    }
+
+    @Test
+    fun `local wins refreshes carrier binding of a dirty note`() = runBlocking {
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(remoteNote())))
+        val engine = engine(api)
+        engine.sync(account, "pwd")
+
+        fakeNoteDao.rows.replaceAll {
+            it.copy(dirty = true, modifiedAt = 900, text = "Локальный текст", serverHref = null, etag = null)
+        }
+        val webHref = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/web-note.ics"
+        api.pull = CaldavPull(
+            events = emptyList(),
+            notes = listOf(remoteNote(modifiedAt = 100).copy(href = webHref, etag = "\"web-note-e\"")),
+        )
+        api.putResults += CaldavWriteResponse(204, "\"pushed-note-e\"")
+
+        val result = engine.sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        val put = api.putCalls.single()
+        assertEquals(webHref, put.url)
+        assertFalse(put.createIfAbsent)
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("Локальный текст", note.text)
+            assertFalse(note.dirty)
+            assertEquals(webHref, note.serverHref)
+            assertEquals("\"pushed-note-e\"", note.etag)
+        }
+    }
+
     @Test
     fun `dirty row that vanished from server is resurrected by put`() = runBlocking {
         val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
@@ -512,7 +663,9 @@ class CaldavSyncEngineTest {
 
         val result = engine.sync(account, "pwd")
 
-        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        // PUT состоялся на пустом месте — правка воскресила удалённый объект,
+        // конфликт явный: счётчик resurrected.
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1, resurrected = 1), result)
         // Первая попытка — If-Match-обновление, вторая — безусловное создание.
         assertFalse(api.putCalls[0].createIfAbsent)
         assertTrue(api.putCalls[1].createIfAbsent)
@@ -602,10 +755,14 @@ class CaldavSyncEngineTest {
 
         // Адрес объекта в базе ведёт на чужой хост (подменённая база — тот же
         // класс угрозы, что импорт копии): PUT туда не уходит, прогон
-        // прерывается с внятной причиной вместо отправки пароля.
+        // прерывается с внятной причиной вместо отправки пароля. Вычитка —
+        // пустая: если бы объект в ней был, его привязка закономерно
+        // освежилась бы серверным адресом ещё до push'а (local-wins ветка),
+        // а защита нужна как раз для строк, которые вычитка не видела.
         fakeEventDao.rows.replaceAll {
             it.copy(dirty = true, serverHref = "https://evil.example/x.ics")
         }
+        api.pull = CaldavPull(emptyList())
 
         val thrown = runCatching { engine(api).sync(account, "pwd") }
 
@@ -638,7 +795,7 @@ class CaldavSyncEngineTest {
         assertTrue(fakeEventDao.rows.isEmpty())
         assertEquals(
             "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
-            api.deleteCalls.single(),
+            api.deleteCalls.single().url,
         )
         assertTrue(fakeTombstoneDao.rows.isEmpty())
     }
@@ -659,8 +816,151 @@ class CaldavSyncEngineTest {
         // DELETE идёт по стандартному адресу <uid>.ics из адреса коллекции.
         assertEquals(
             "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/fresh-uid.ics",
-            api.deleteCalls.single(),
+            api.deleteCalls.single().url,
         )
+        // ETag не сохранён — предусловия нет, удаление безусловно, как раньше.
+        assertNull(api.deleteCalls.single().etag)
+    }
+
+    @Test
+    fun `delete conflict yields to newer server edit and restores the object`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        // Пользователь удалил событие (deletedAt 700), а второе устройство
+        // отредактировало его на сервере позже (modifiedAt 800). Сохранённый
+        // ETag не совпадает — условный DELETE отвечает 412.
+        fakeEventDao.rows.clear()
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 42,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            etag = "\"u1\"",
+            deletedAt = 700,
+        )
+        api.deleteResults += 412
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1", title = "Серверная правка", modifiedAt = 800))
+
+        val result = engine(api).sync(account, "pwd")
+
+        // Правка новее удаления — удаление уступает: объект возвращается
+        // в базу явно (restored), безусловный DELETE не уходит.
+        assertEquals(1, result.restored)
+        assertEquals(0, result.pushed)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        fakeEventDao.rows.single().let { row ->
+            assertEquals("Серверная правка", row.title)
+            assertFalse(row.dirty)
+            assertEquals(42L, row.caldavAccountId)
+        }
+        assertEquals(1, api.deleteCalls.size)
+        assertEquals("\"u1\"", api.deleteCalls.single().etag)
+    }
+
+    @Test
+    fun `delete conflict confirms deletion when server edit is older`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        // 412 есть, но серверная метка (800) СТАРШЕ момента удаления (900):
+        // последняя операция — удаление, оно подтверждается безусловно.
+        fakeEventDao.rows.clear()
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 42,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            etag = "\"u1\"",
+            deletedAt = 900,
+        )
+        api.deleteResults += 412
+        api.deleteResults += 204
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteEvent("u1", modifiedAt = 800))
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, result.pushed)
+        assertEquals(0, result.restored)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        assertTrue(fakeEventDao.rows.isEmpty())
+        assertEquals(listOf("\"u1\"", null), api.deleteCalls.map { it.etag })
+    }
+
+    @Test
+    fun `delete conflict with vanished object closes the queue`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        fakeEventDao.rows.clear()
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 42,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            etag = "\"u1\"",
+            deletedAt = 700,
+        )
+        api.deleteResults += 412
+        // Пока движок решал конфликт, объект удалили совсем: «и так нет».
+        api.cannedPullEvent = CaldavObjectResult.NotFound
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, result.pushed)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        assertTrue(fakeEventDao.rows.isEmpty())
+        assertEquals(1, api.deleteCalls.size)
+    }
+
+    @Test
+    fun `unreadable delete conflict defers the tombstone`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
+        engine(api).sync(account, "pwd")
+
+        fakeEventDao.rows.clear()
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 42,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            etag = "\"u1\"",
+            deletedAt = 700,
+        )
+        api.deleteResults += 412
+        api.cannedPullEvent = CaldavObjectResult.Unreadable("PROPFIND без calendar-data")
+
+        val result = engine(api).sync(account, "pwd")
+
+        // О серверной копии ничего не известно: ни удалять, ни воскрешать
+        // нельзя — очередь доживёт до следующего прогона.
+        assertEquals(0, result.pushed)
+        assertEquals(0, result.restored)
+        assertEquals(1, fakeTombstoneDao.rows.size)
+        assertTrue(fakeCaldavDao.lastError.orEmpty().contains("Не отправлено: 1"))
+    }
+
+    @Test
+    fun `delete conflict restores note into its own table`() = runBlocking {
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(remoteNote())))
+        engine(api).sync(account, "pwd")
+
+        fakeNoteDao.rows.clear()
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = noteUidFor("2026-02-17"),
+            accountId = 42L,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/${noteUidFor("2026-02-17")}.ics",
+            etag = "\"n1\"",
+            deletedAt = 700,
+        )
+        api.deleteResults += 412
+        api.cannedPullEvent = CaldavObjectResult.Found(remoteNote(text = "Серверный текст", modifiedAt = 800))
+
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, result.restored)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("Серверный текст", note.text)
+            assertFalse(note.dirty)
+            assertEquals(42L, note.caldavAccountId)
+        }
     }
 
     @Test
@@ -1136,7 +1436,7 @@ private class FakeEventDao : ScheduledEventDao {
     val rows = mutableListOf<ScheduledEventEntity>()
     private var nextId = 1L
 
-    override fun getByMonthPrefix(monthPrefix: String): Flow<List<ScheduledEventEntity>> = flowOf(emptyList())
+    override fun getByMonth(monthStart: String, nextMonthStart: String): Flow<List<ScheduledEventEntity>> = flowOf(emptyList())
 
     override fun getByType(type: String): Flow<List<ScheduledEventEntity>> = flowOf(emptyList())
 
@@ -1401,6 +1701,8 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
 
     data class PutCall(val url: String, val etag: String?, val createIfAbsent: Boolean, val ics: String)
 
+    data class DeleteCall(val url: String, val etag: String?)
+
     var pull: CaldavPull = pull
 
     /** Очередь ответов PUT; когда кончилась — «успех 204 со свежим ETag». */
@@ -1416,7 +1718,7 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
     var onPut: (() -> Unit)? = null
 
     val putCalls = mutableListOf<PutCall>()
-    val deleteCalls = mutableListOf<String>()
+    val deleteCalls = mutableListOf<DeleteCall>()
     val deleteResults = mutableListOf<Int>()
 
     override suspend fun discoverCalendars(server: String, username: String, password: String): List<CaldavCalendarRef> = emptyList()
@@ -1436,8 +1738,8 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
         return putResults.removeFirstOrNull() ?: CaldavWriteResponse(204, "\"pushed-$etag\"")
     }
 
-    override suspend fun deleteEvent(url: String, username: String, password: String): Int {
-        deleteCalls += url
+    override suspend fun deleteEvent(url: String, username: String, password: String, etag: String?): Int {
+        deleteCalls += DeleteCall(url, etag)
         return deleteResults.removeFirstOrNull() ?: 204
     }
 

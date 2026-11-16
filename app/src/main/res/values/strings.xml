@@ -89,6 +89,22 @@
         <item quantity="many">Сервер перезаписал %1$d правок</item>
         <item quantity="other">Сервер перезаписал %1$d правок</item>
     </plurals>
+    <!-- Локальное удаление уступило более свежей серверной правке (условный
+         DELETE ответил 412): объект возвращён; снек (MainActivity). -->
+    <plurals name="sync_restored">
+        <item quantity="one">Сервер вернул %1$d удалённое событие: на нём правка новее вашей</item>
+        <item quantity="few">Сервер вернул %1$d удалённых события: на них правка новее вашей</item>
+        <item quantity="many">Сервер вернул %1$d удалённых событий: на них правка новее вашей</item>
+        <item quantity="other">Сервер вернул %1$d удалённых событий: на них правка новее вашей</item>
+    </plurals>
+    <!-- Объект удалён на сервере, локальная правка воскресила его
+         (last-write-wins); снек (MainActivity). -->
+    <plurals name="sync_resurrected">
+        <item quantity="one">Локальная правка вернула %1$d событие, удалённое на сервере</item>
+        <item quantity="few">Локальная правка вернула %1$d события, удалённые на сервере</item>
+        <item quantity="many">Локальная правка вернула %1$d событий, удалённых на сервере</item>
+        <item quantity="other">Локальная правка вернула %1$d событий, удалённых на сервере</item>
+    </plurals>
     <string name="sync_last_never">Ещё не синхронизировалось</string>
     <string name="sync_last_at">Последняя синхронизация: %1$s</string>
     <string name="sync_badge_yandex">Яндекс</string>
