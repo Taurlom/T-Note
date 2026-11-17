@@ -73,7 +73,7 @@ class ScheduledEventDaoTest {
         assertEquals(2, dao.detachFromAccount(1L))
 
         // Обе строки аккаунта остались, привязка и очередь стёрты, uid цел.
-        dao.getByUid("own")!!.let { kept ->
+        dao.getByUid(1L, "own")!!.let { kept ->
             assertNull(kept.caldavAccountId)
             assertNull(kept.serverHref)
             assertNull(kept.etag)
@@ -81,19 +81,19 @@ class ScheduledEventDaoTest {
             assertEquals("own", kept.uid)
             assertEquals("Событие own", kept.title)
         }
-        dao.getByUid("imported")!!.let { kept ->
+        dao.getByUid(1L, "imported")!!.let { kept ->
             assertNull(kept.caldavAccountId)
             assertNull(kept.serverHref)
             // Бейдж источника остаётся честным: содержимое приехало вычиткой.
             assertTrue(kept.remoteImported)
         }
         // Чужие строки не тронуты: у другой подписки привязка на месте.
-        dao.getByUid("other-account")!!.let { untouched ->
+        dao.getByUid(2L, "other-account")!!.let { untouched ->
             assertEquals(2L, untouched.caldavAccountId)
             assertEquals("/calendars/other-account.ics", untouched.serverHref)
         }
         // Ничьи строки не пострадали.
-        assertNull(dao.getByUid("local")!!.caldavAccountId)
+        assertNull(dao.getByUid(1L, "local")!!.caldavAccountId)
     }
 
     @Test
@@ -103,9 +103,29 @@ class ScheduledEventDaoTest {
         dao.insert(row("local", accountId = null))
 
         assertEquals(1, dao.deleteByCaldavAccount(1L))
-        assertNull(dao.getByUid("own"))
-        assertEquals("other-account", dao.getByUid("other-account")!!.uid)
-        assertEquals("local", dao.getByUid("local")!!.uid)
+        assertNull(dao.getByUid(1L, "own"))
+        assertEquals("other-account", dao.getByUid(2L, "other-account")!!.uid)
+        assertEquals("local", dao.getByUid(1L, "local")!!.uid)
+    }
+
+    /**
+     * Баг 18 (этап 2): уникальность UID живёт внутри подписки. Один UID с
+     * двух серверов — две строки базы, и REPLACE при повторной вычитке
+     * переписывает строку своей подписки, не касаясь чужой.
+     */
+    @Test
+    fun `same uid in two accounts coexists as distinct rows`() = runBlocking {
+        dao.insert(row("shared", accountId = 1L).copy(title = "Своя копия"))
+        dao.insert(row("shared", accountId = 2L).copy(title = "Чужая копия"))
+
+        assertEquals("Своя копия", dao.getByUid(1L, "shared")!!.title)
+        assertEquals("Чужая копия", dao.getByUid(2L, "shared")!!.title)
+
+        // Перезапись своей подписки — чужой строки не касается.
+        dao.insert(row("shared", accountId = 1L).copy(title = "Обновлённая своя"))
+        assertEquals("Обновлённая своя", dao.getByUid(1L, "shared")!!.title)
+        assertEquals("Чужая копия", dao.getByUid(2L, "shared")!!.title)
+        assertEquals(2, dao.getByMonth("2026-03-01", "2026-04-01").first().size)
     }
 
     /**
@@ -136,5 +156,31 @@ class ScheduledEventDaoTest {
         assertTrue(january.containsAll(setOf("span", "first", "ends-jan")))
         val march = dao.getByMonth("2026-03-01", "2026-04-01").first().map { it.uid }.toSet()
         assertTrue(march.containsAll(setOf("span", "last", "starts-next", "touches-end")))
+    }
+
+    /**
+     * Баг 19: diff-удаление не передаёт список снапшота bind'ами — SQLite
+     * Android до API 30 отказывается от запросов больше ~999 переменных, а
+     * снапшот Google — 2500 объектов страницей. Разница считается в памяти,
+     * удаление идёт чанками по 500 id: здесь 1200 строк, из них обречены
+     * 600 (пересекают обе границы чанка), dirty-строка вне снапшота
+     * выживает.
+     */
+    @Test
+    fun `diff delete survives snapshots beyond sqlite bind limit`() = runBlocking {
+        repeat(1200) { i -> dao.insert(row("u$i", dirty = i == 1)) }
+
+        val keep = (0 until 1200 step 2).map { "u$it" }
+        val removed = dao.deleteNotInUids(1L, keep)
+
+        assertEquals(599, removed)
+        val left = dao.getByMonth("2026-03-01", "2026-04-01").first().map { it.uid }.toSet()
+        assertEquals(601, left.size)
+        // Границы чанков: первый удалённый нечётный и последний нечётный
+        // ушли, сохранённые чётные и единственная dirty — на месте.
+        assertFalse("u3" in left)
+        assertFalse("u1199" in left)
+        assertTrue("u1" in left)
+        assertTrue("u1000" in left)
     }
 }

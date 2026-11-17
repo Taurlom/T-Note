@@ -48,7 +48,9 @@ private val PushOutcome.reachedServer: Boolean
 
 /**
  * Движок синхронизации одного аккаунта: вычитка (calendar-query) и
- * отправка локальных изменений (этап 2). Ключ сопоставления — UID.
+ * отправка локальных изменений (этап 2). Ключ сопоставления —
+ * (аккаунт, UID): один и тот же UID на двух серверах — две разные
+ * идентичности, каждая живёт своей строкой в базе.
  *
  * Pull — разница против сервера:
  *  - событие есть на сервере и его нет у нас → insert (позиция — «максимум
@@ -88,8 +90,12 @@ private val PushOutcome.reachedServer: Boolean
  * Заметки дня едут тем же обменом событиями-носителями (NoteIcsMapper):
  * имя «✍️ Заметка», текст в DESCRIPTION, UID детерминированный от даты
  * (заметка одна на день). В вычитке они расходятся по таблице
- * calendar_notes, минуя события; пропавшие на сервере заметки удаляются
- * той же разницей, dirty-заметки — очередь PUT с тем же LWW.
+ * calendar_notes, минуя события; фактический UID серверного носителя —
+ * он может отличаться от производного (объект создан в веб-форме или
+ * чужим клиентом) — запоминается в строке (remoteUid) и по нему же
+ * строятся очередь удалений и подавление вычитки. Пропавшие на сервере
+ * заметки удаляются той же разницей, dirty-заметки — очередь PUT с тем
+ * же LWW.
  *
  * Push — очередь локальных изменений:
  *  - dirty-строки аккаунта → PUT по serverHref (или «<uid>.ics», если
@@ -232,7 +238,7 @@ class CaldavSyncEngine @Inject constructor(
                 // доехал сервером, а не воскрешался каждую вычитку.
                 if (tombstones.containsKey(remote.event.uid)) continue
 
-                when (val existing = eventDao.getByUid(remote.event.uid)) {
+                when (val existing = eventDao.getByUid(account.id, remote.event.uid)) {
                     null -> {
                         val position = eventDao.getMaxPosition(remote.event.date) + 1
                         eventDao.insert(
@@ -281,11 +287,17 @@ class CaldavSyncEngine @Inject constructor(
                 }
             }
             // Заметки-носители («✍️ …») идут своей таблицей: та же разница
-            // и тот же LWW, ключ — детерминированный UID от даты.
+            // и тот же LWW, ключ — день (UID носителя детерминирован от
+            // даты и одинаков у всех подписок, поэтому строку дня чужой
+            // подписки вычитка не трогает: иначе href/etag одного сервера
+            // ложатся на владельца другого).
             for (remoteNote in pulled.notes) {
                 if (tombstones.containsKey(remoteNote.event.uid)) continue
 
-                when (val existing = noteDao.getByDateOnce(remoteNote.event.date)) {
+                val existing = noteDao.getByDateOnce(remoteNote.event.date)
+                if (existing != null && existing.caldavAccountId != null && existing.caldavAccountId != account.id) continue
+
+                when (existing) {
                     null -> {
                         noteDao.insert(remoteNote.toNoteEntity(account.id))
                         added++
@@ -299,8 +311,10 @@ class CaldavSyncEngine @Inject constructor(
                             } else {
                                 // Зеркало событийной ветки: правка заметки остаётся
                                 // в очереди, а серверная привязка (href/ETag
-                                // носителя) освежается вычиткой.
-                                noteDao.rememberServerState(existing.eventDate, remoteNote.etag, remoteNote.href)
+                                // носителя) освежается вычиткой — вместе с
+                                // фактическим UID: по нему строит tombstone
+                                // удаление и вычитку же подавляет.
+                                noteDao.rememberServerState(existing.eventDate, remoteNote.etag, remoteNote.href, remoteNote.event.uid)
                             }
                         } else {
                             noteDao.insert(applyNoteRemote(existing, remoteNote, account))
@@ -392,14 +406,18 @@ class CaldavSyncEngine @Inject constructor(
             }
         }
         for (row in noteDao.getDirtyFor(account.id)) {
-            // Ключ носителя — детерминированный UID от даты (noteUidFor).
-            val outcome = if (noteUidFor(row.eventDate) in protectedUids) {
+            // Ключ носителя — фактический UID с сервера (remoteUid); у
+            // своей, ещё не перечитанной заметки — производный от даты.
+            // Те же ключи у tombstones: published снимает очередь именно
+            // той идентичности, которую прогон опубликовал (баг 15).
+            val carrierUid = row.remoteUid ?: noteUidFor(row.eventDate)
+            val outcome = if (carrierUid in protectedUids) {
                 PushOutcome.Protected
             } else {
                 pushNoteRow(account, row, password, transport)
             }
             if (outcome.reachedServer) {
-                published += noteUidFor(row.eventDate)
+                published += carrierUid
             }
             when (outcome) {
                 PushOutcome.Pushed -> {
@@ -437,7 +455,7 @@ class CaldavSyncEngine @Inject constructor(
                 in 200..299, 404 -> {
                     // 204 — удалено; 404 — «и так нет»: очистка очереди
                     // легитимна в обоих случаях.
-                    tx.inTransaction { tombstoneDao.deleteByUid(tombstone.uid) }
+                    tx.inTransaction { tombstoneDao.deleteForIdentity(tombstone.uid, account.id) }
                     pushed++
                 }
 
@@ -450,7 +468,7 @@ class CaldavSyncEngine @Inject constructor(
                         // Пока решали, объект исчез снова: намерение удалено,
                         // очередь закрывается.
                         CaldavObjectResult.NotFound -> {
-                            tx.inTransaction { tombstoneDao.deleteByUid(tombstone.uid) }
+                            tx.inTransaction { tombstoneDao.deleteForIdentity(tombstone.uid, account.id) }
                             pushed++
                         }
 
@@ -467,7 +485,7 @@ class CaldavSyncEngine @Inject constructor(
                                 // снимается — явно, со снеком: пользователь
                                 // удалял сам и должен увидеть воскрешение.
                                 tx.inTransaction {
-                                    tombstoneDao.deleteByUid(tombstone.uid)
+                                    tombstoneDao.deleteForIdentity(tombstone.uid, account.id)
                                     restoreRemote(remote, account)
                                 }
                                 restored++
@@ -477,7 +495,7 @@ class CaldavSyncEngine @Inject constructor(
                                 val confirm = transport.deleteEvent(href, account.username, password, etag = null)
                                 when (confirm) {
                                     in 200..299, 404 -> {
-                                        tx.inTransaction { tombstoneDao.deleteByUid(tombstone.uid) }
+                                        tx.inTransaction { tombstoneDao.deleteForIdentity(tombstone.uid, account.id) }
                                         pushed++
                                     }
 
@@ -739,7 +757,11 @@ class CaldavSyncEngine @Inject constructor(
      */
     private suspend fun restoreRemote(remote: CaldavRemoteEvent, account: CaldavAccountEntity) {
         if (noteBySummary(remote.event.title)) {
-            noteDao.insert(remote.toNoteEntity(account.id))
+            // То же правило, что у вычитки: день другой подписки не затираем.
+            val existing = noteDao.getByDateOnce(remote.event.date)
+            if (existing == null || existing.caldavAccountId == null || existing.caldavAccountId == account.id) {
+                noteDao.insert(remote.toNoteEntity(account.id))
+            }
         } else {
             eventDao.insert(
                 remote.event.toEntity().copy(
@@ -770,7 +792,7 @@ class CaldavSyncEngine @Inject constructor(
     ): PushOutcome {
         var outcome = PushOutcome.Skipped
         tx.inTransaction {
-            val current = eventDao.getByUid(snapshot.uid)
+            val current = eventDao.getByUid(account.id, snapshot.uid)
             outcome = when {
                 current == null -> PushOutcome.Skipped
 
@@ -800,6 +822,10 @@ class CaldavSyncEngine @Inject constructor(
         createdAt = existing.createdAt.takeIf { it > 0 } ?: remote.event.createdAt.orZero(),
         modifiedAt = remote.event.modifiedAt.orZero(),
         caldavAccountId = existing.caldavAccountId ?: account.id,
+        // Фактический UID серверного носителя — идентичность очереди
+        // удалений и подавления вычитки (баг 15): веб-созданный объект
+        // живёт под своим uid, производный от даты его не описывает.
+        remoteUid = remote.event.uid,
         // Строка переписана сервером — локальной правки нет: очередь чиста,
         // ETag и href — от свежей вычитки. Счётчик локальных мутаций не
         // двигается: перепись сервером — не локальная правка (см. pushRow).
@@ -816,6 +842,7 @@ class CaldavSyncEngine @Inject constructor(
         createdAt = event.createdAt.orZero(),
         modifiedAt = event.modifiedAt.orZero(),
         caldavAccountId = accountId,
+        remoteUid = event.uid,
         dirty = false,
         etag = etag,
         serverHref = href,
@@ -906,7 +933,9 @@ class CaldavSyncEngine @Inject constructor(
     /** Подтверждение PUT'а заметки — CAS по localRevision, зеркало [settlePush]. */
     private suspend fun settleNotePush(row: CalendarNoteEntity, etag: String?, href: String): PushOutcome {
         if (noteDao.markPushed(row.eventDate, etag, href, row.localRevision) == 1) return PushOutcome.Pushed
-        return if (noteDao.rememberServerState(row.eventDate, etag, href) == 1) PushOutcome.Stale else PushOutcome.Skipped
+        // Фактический uid не перепроверяли (точечная вычитка тела не даёт) —
+        // строка сохраняет известный; полная вычитка освежит.
+        return if (noteDao.rememberServerState(row.eventDate, etag, href, null) == 1) PushOutcome.Stale else PushOutcome.Skipped
     }
 
     /**

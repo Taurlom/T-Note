@@ -7,13 +7,23 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "scheduled_events",
-    indices = [Index("eventDate"), Index("uid", unique = true), Index("caldavAccountId")],
+    indices = [
+        Index("eventDate"),
+        Index(value = ["caldavAccountId", "uid"], unique = true),
+        Index("caldavAccountId"),
+    ],
 )
 data class ScheduledEventEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 
-    /** CalDAV UID события (см. ScheduledEvent.uid): уникален по архитектуре. */
+    /**
+     * CalDAV UID события (см. ScheduledEvent.uid): идентифицирует объект
+     * внутри одной подписки — (caldavAccountId, uid) составной уникальный
+     * ключ. Два сервера могут хранить разные объекты под одним UID
+     * (перенос события между календарями сохраняет UID), и оба обязаны
+     * переживать в базе отдельными строками.
+     */
     @ColumnInfo(defaultValue = "")
     val uid: String,
     val eventDate: String,

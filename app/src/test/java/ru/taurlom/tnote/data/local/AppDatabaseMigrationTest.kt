@@ -1,6 +1,7 @@
 package ru.taurlom.tnote.data.local
 
 import android.content.Context
+import android.database.sqlite.SQLiteConstraintException
 import androidx.room.migration.AutoMigrationSpec
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.driver.AndroidSQLiteDriver
@@ -517,6 +518,127 @@ class AppDatabaseMigrationTest {
             assertTrue(stmt.step())
             assertTrue(stmt.isNull(0))
             assertEquals(0L, stmt.getLong(1))
+        }
+        db.close()
+    }
+
+    /**
+     * 28 → 29: составная идентичность синхронизации (баг 18). Уникальность
+     * UID событий сужается до подписки: один UID с двух серверов теперь
+     * две строки, а внутри одной подписки по-прежнему одна. Очередь
+     * удалений переезжает на составной PK (uid, accountId) с пересозданием
+     * таблицы — старые записи переживают переезд.
+     */
+    @Test
+    fun `migrate 28 to 29 scopes uid identity per account`() {
+        helper.createDatabase(28).use { db ->
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                    "remoteImported, dirty, etag, serverHref, createdAt, modifiedAt, localRevision) " +
+                    "VALUES (1, 'u1', '2026-11-16', 'Событие', 'REGULAR', 'NOTE', 0, " +
+                    "NULL, 1, NULL, NULL, NULL, 0, 0, 1, 1, 0, '\"e1\"', '/c/u1.ics', 100, 200, 0)",
+            ).use { it.step() }
+            db.prepare(
+                "INSERT INTO caldav_tombstones (uid, accountId, href, etag, deletedAt) " +
+                    "VALUES ('u1', 1, '/c/u1.ics', '\"e1\"', 42)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            29,
+            listOf(AppDatabaseMigration.MIGRATION_28_29),
+        )
+
+        // Событие пережило смену индекса.
+        db.prepare(
+            "SELECT title FROM scheduled_events WHERE uid = 'u1' AND caldavAccountId = 1",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("Событие", stmt.getText(0))
+        }
+        // Тот же UID из второй подписки — соседняя строка: глобальный индекс больше не мешает.
+        db.prepare(
+            "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                "remoteImported, dirty, etag, serverHref, createdAt, modifiedAt, localRevision) " +
+                "VALUES (2, 'u1', '2026-11-16', 'Копия', 'REGULAR', 'NOTE', 0, " +
+                "NULL, 1, NULL, NULL, NULL, 0, 0, 2, 1, 0, '\"e2\"', '/g/u1.ics', 100, 200, 0)",
+        ).use { it.step() }
+        // Внутри одной подписки уникальность осталась: повтор пары — конфликт.
+        val conflict = try {
+            db.prepare(
+                "INSERT INTO scheduled_events (id, uid, eventDate, title, type, " +
+                    "icon, colorArgb, repeatUnit, repeatInterval, repeatWeekdays, " +
+                    "repeatUntil, exdates, hidePast, position, caldavAccountId, " +
+                    "remoteImported, dirty, etag, serverHref, createdAt, modifiedAt, localRevision) " +
+                    "VALUES (3, 'u1', '2026-11-16', 'Дубль', 'REGULAR', 'NOTE', 0, " +
+                    "NULL, 1, NULL, NULL, NULL, 0, 0, 1, 1, 0, '\"e3\"', '/c/u1.ics', 100, 200, 0)",
+            ).use { it.step() }
+            false
+        } catch (_: SQLiteConstraintException) {
+            true
+        }
+        assertTrue("uid внутри подписки по-прежнему уникален", conflict)
+
+        // Очередь удалений пережила пересоздание таблицы...
+        db.prepare(
+            "SELECT href, etag, deletedAt FROM caldav_tombstones WHERE uid = 'u1' AND accountId = 1",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("/c/u1.ics", stmt.getText(0))
+            assertEquals("\"e1\"", stmt.getText(1))
+            assertEquals(42L, stmt.getLong(2))
+        }
+        // ...и принимает тот же UID второго аккаунта соседней записью.
+        db.prepare(
+            "INSERT INTO caldav_tombstones (uid, accountId, href, etag, deletedAt) " +
+                "VALUES ('u1', 2, '/g/u1.ics', '\"e2\"', 43)",
+        ).use { it.step() }
+        db.prepare("SELECT COUNT(*) FROM caldav_tombstones WHERE uid = 'u1'").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(2L, stmt.getLong(0))
+        }
+        db.close()
+    }
+
+    /**
+     * 29 → 30: строка заметки получает поле фактического UID носителя
+     * (баг 15). Существующим строкам заполнять нечем — серверный uid
+     * раньше не запоминался, — null; производный ключ работает до первой
+     * вычитки, которая запишет настоящее.
+     */
+    @Test
+    fun `migrate 29 to 30 adds carrier remoteUid without touching bindings`() {
+        helper.createDatabase(29).use { db ->
+            db.prepare(
+                "INSERT INTO calendar_notes (eventDate, text, createdAt, modifiedAt, " +
+                    "caldavAccountId, dirty, etag, serverHref, localRevision) " +
+                    "VALUES ('2026-11-16', 'Полив', 100, 200, 1, 1, '\"e1\"', '/c/n.ics', 3)",
+            ).use { it.step() }
+        }
+        val db = helper.runMigrationsAndValidate(
+            30,
+            listOf(AppDatabaseMigration.MIGRATION_29_30),
+        )
+        db.prepare(
+            "SELECT text, dirty, localRevision, remoteUid FROM calendar_notes WHERE eventDate = '2026-11-16'",
+        ).use { stmt ->
+            assertTrue(stmt.step())
+            // Привязка и очередь пережили миграцию, uid ещё неизвестен.
+            assertEquals("Полив", stmt.getText(0))
+            assertEquals(1L, stmt.getLong(1))
+            assertEquals(3L, stmt.getLong(2))
+            assertTrue(stmt.isNull(3))
+        }
+        // Поле записываемо: первая же вычитка впишет фактический uid.
+        db.prepare(
+            "UPDATE calendar_notes SET remoteUid = 'web-note-uid' WHERE eventDate = '2026-11-16'",
+        ).use { it.step() }
+        db.prepare("SELECT remoteUid FROM calendar_notes").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals("web-note-uid", stmt.getText(0))
         }
         db.close()
     }

@@ -5,9 +5,19 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 import ru.taurlom.tnote.data.local.entity.ScheduledEventEntity
+
+/**
+ * Сколько bind-параметров попадается в один чанк списочного запроса:
+ * SQLite в Android до 11 версии включительно отказывается от подготовленных
+ * statements более чем с ~999 переменными (SQLITE_MAX_VARIABLE_NUMBER),
+ * а minSdk проекта — 24. Запас — вдвое, на случай будущих условий в том
+ * же запросе.
+ */
+internal const val DELETE_BIND_CHUNK = 500
 
 @Dao
 interface ScheduledEventDao {
@@ -71,18 +81,62 @@ interface ScheduledEventDao {
     @Delete
     suspend fun delete(events: List<ScheduledEventEntity>)
 
-    /** Единственное событие по серверному UID — ключ применения diff'а. */
-    @Query("SELECT * FROM scheduled_events WHERE uid = :uid LIMIT 1")
-    suspend fun getByUid(uid: String): ScheduledEventEntity?
-
-    /** Импортированные этим аккаунтом события больше не на сервере.
-     *  dirty-строки исключены: локальная правка репетирует PUT и
-     *  воскресит объект сама — здесь её удалять нельзя. */
+    /**
+     * Событие подписки по серверному UID — ключ применения diff'а.
+     * Идентичность — пара (аккаунт, UID): строка другой подписки с тем же
+     * UID (копия события, перенесённая между календарями, живёт под ним на
+     * обоих серверах) здесь чужая и находке не помеха. Неприписанные
+     * строки — кандидаты: «отключить и оставить события» стирает приписку,
+     * а повторная вычитка того же календаря обязана присвоить строку
+     * обратно по UID, а не завести дубликат; при выборе между своей и
+     * неприписанной решает своя.
+     */
     @Query(
-        "DELETE FROM scheduled_events WHERE caldavAccountId = :accountId " +
-            "AND dirty = 0 AND uid NOT IN (:uids)",
+        "SELECT * FROM scheduled_events WHERE uid = :uid " +
+            "AND (caldavAccountId = :accountId OR caldavAccountId IS NULL) " +
+            "ORDER BY caldavAccountId IS NULL LIMIT 1",
     )
-    suspend fun deleteNotInUids(accountId: Long, uids: List<String>): Int
+    suspend fun getByUid(accountId: Long, uid: String): ScheduledEventEntity?
+
+    /** Импортированные этим аккаунтом события — кандидаты удаления по
+     *  разнице вычитки (dirty исключены: их правка ещё не уехала, см.
+     *  [deleteNotInUids]). */
+    @Query("SELECT * FROM scheduled_events WHERE caldavAccountId = :accountId AND dirty = 0")
+    suspend fun getCleanFor(accountId: Long): List<ScheduledEventEntity>
+
+    /**
+     * Удаление по заранее вычисленному набору id — безопасная половина
+     * [deleteNotInUids]: чанки фиксированного множества не могут съесть
+     * друг друга, а повторная проверка приписки и очереди в SQL бережёт
+     * строку, сменившую состояние между выбором и удалением.
+     */
+    @Query(
+        "DELETE FROM scheduled_events WHERE id IN (:ids) " +
+            "AND caldavAccountId = :accountId AND dirty = 0",
+    )
+    suspend fun deleteCleanByIds(ids: List<Long>, accountId: Long): Int
+
+    /**
+     * Импортированные этим аккаунтом события больше не на сервере.
+     * dirty-строки исключены: локальная правка репетирует PUT и
+     * воскресит объект сама — здесь её удалять нельзя.
+     *
+     * UID снапшота в запрос НЕ передаётся: Google отдаёт до 2500 объектов
+     * страницей, а SQLite Android до 11 отказывается от bind'ов больше
+     * ~999 — на большом календаре «uid NOT IN (:uids)» ронял бы разницу
+     * каждого прогона (баг 19). Разница считается в памяти (кандидаты —
+     * [getCleanFor]), удаление идёт чанками заранее вычисленных id —
+     * так, что первый чанк не может удалить объекты остальных, чем
+     * кончилось бы прямое чанкование «NOT IN».
+     */
+    @Transaction
+    suspend fun deleteNotInUids(accountId: Long, uids: List<String>): Int {
+        val keep = uids.toSet()
+        val doomed = getCleanFor(accountId).filterNot { it.uid in keep }.map { it.id }
+        var removed = 0
+        doomed.chunked(DELETE_BIND_CHUNK).forEach { removed += deleteCleanByIds(it, accountId) }
+        return removed
+    }
 
     /** Все события источника — при отключении аккаунта. */
     @Query("DELETE FROM scheduled_events WHERE caldavAccountId = :accountId")

@@ -79,12 +79,16 @@ fun CalendarNote.toIcsEvent(): VEvent {
 /**
  * Tombstone заметки приписанной подписке: сервер должен узнать об удалении
  * заметки так же, как об удалении события. null — заметка локальная
- * (на сервере её не было). Href с сервера важнее выведенного из UID:
- * веб-созданные ✍️-события сервер называет по-своему.
+ * (на сервере её не было). Идентичность — фактический UID носителя с
+ * сервера (remoteUid): вычитка гасит объекты по нему, и производный ключ
+ * для веб-созданного ✍️-объекта очередь не подавляет (баг 15). Свой, ещё
+ * не перечитанный носитель, — производный uid от даты: PUT ставит его в
+ * тело сам. Href с сервера важнее выведенного из UID: веб-созданные
+ * ✍️-события сервер называет по-своему.
  */
 fun CalendarNoteEntity.toNoteTombstone(deletedAt: Long): CaldavTombstoneEntity? = caldavAccountId?.let {
     CaldavTombstoneEntity(
-        uid = noteUidFor(eventDate),
+        uid = remoteUid ?: noteUidFor(eventDate),
         accountId = it,
         href = serverHref,
         etag = etag,

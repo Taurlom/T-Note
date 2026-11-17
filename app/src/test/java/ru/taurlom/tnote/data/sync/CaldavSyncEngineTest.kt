@@ -1350,6 +1350,91 @@ class CaldavSyncEngineTest {
     }
 
     /**
+     * Баг 15: носитель, созданный на сервере не нашим PUT'ом (веб-форма,
+     * чужой клиент), живёт под своим UID — производный от даты его не
+     * описывает. Вычитка запоминает фактический uid в строке, удаление
+     * строит из него tombstone, и когда DELETE не доехал (сбой сервера),
+     * следующая вычитка — узнав очередь по тому же uid — заметку не
+     * воскрешает. До исправления очередь хранила производный ключ, и
+     * удаление возвращалось каждой вычиткой до подтверждения DELETE.
+     */
+    @Test
+    fun `web-created carrier uid survives to tombstone and suppresses pull after deferred delete`() = runBlocking {
+        val web = CaldavRemoteEvent(
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/summer-note.ics",
+            etag = "\"web-1\"",
+            event = ScheduledEvent(
+                uid = "web-note-uid",
+                date = "2026-02-17",
+                title = NOTE_SUMMARY,
+                type = ScheduledEventType.REGULAR,
+                modifiedAt = 300,
+            ),
+            noteText = "Борщ",
+        )
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(web)))
+
+        // Вычитка: строка помнит фактический uid серверного носителя.
+        engine(api).sync(account, "pwd")
+        val row = fakeNoteDao.rows.single()
+        assertEquals("web-note-uid", row.remoteUid)
+
+        // Пользователь удаляет заметку — как репозиторий, через маппер.
+        val tombstone = row.toNoteTombstone(700L)!!
+        assertEquals("web-note-uid", tombstone.uid)
+        fakeNoteDao.rows.clear()
+        fakeTombstoneDao.rows += tombstone
+
+        // DELETE не доехал (временный сбой): очередь ждёт, вычитка не воскресает.
+        api.deleteResults += 503
+        val deferred = engine(api).sync(account, "pwd")
+        assertEquals(0, deferred.added)
+        assertTrue(fakeNoteDao.rows.isEmpty())
+        assertEquals(1, fakeTombstoneDao.rows.size)
+
+        // DELETE состоялся — очередь закрыта, заметки в базе нет.
+        val confirmed = engine(api).sync(account, "pwd")
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), confirmed)
+        assertTrue(fakeTombstoneDao.rows.isEmpty())
+        assertTrue(fakeNoteDao.rows.isEmpty())
+        // DELETE шёл по сохранённому адресу веб-объекта, а не по выведенному.
+        assertTrue(api.deleteCalls.all { it.url.endsWith("/summer-note.ics") })
+    }
+
+    /**
+     * Баг 15, правка заметки: локальное редактирование не теряет ни
+     * серверную привязку, ни фактический uid — PUT подтверждается по
+     * живому ETag, а очередь удалений строится из настоящего uid.
+     */
+    @Test
+    fun `editing a note keeps carrier remote uid for the queue`() = runBlocking {
+        val web = CaldavRemoteEvent(
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/summer-note.ics",
+            etag = "\"web-1\"",
+            event = ScheduledEvent(
+                uid = "web-note-uid",
+                date = "2026-02-17",
+                title = NOTE_SUMMARY,
+                type = ScheduledEventType.REGULAR,
+                modifiedAt = 300,
+            ),
+            noteText = "Борщ",
+        )
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(web)))
+        engine(api).sync(account, "pwd")
+
+        // Правка как saveNote: содержимое локальное, привязки пережились.
+        fakeNoteDao.rows.replaceAll { row ->
+            row.copy(text = "Борщ с сметаной", modifiedAt = 400, dirty = true, localRevision = row.localRevision + 1)
+        }
+
+        val tombstone = fakeNoteDao.rows.single().toNoteTombstone(500L)!!
+        assertEquals("web-note-uid", tombstone.uid)
+        assertEquals("https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/summer-note.ics", tombstone.href)
+        assertEquals("\"web-1\"", tombstone.etag)
+    }
+
+    /**
      * Заметку дня удалили (её UID — детерминирован от даты), до серверного
      * DELETE написали новую на тот же день: PUT и DELETE одной идентичности
      * в одном прогоне стёрли бы свежий объект на сервере, а следующая
@@ -1430,6 +1515,124 @@ class CaldavSyncEngineTest {
             assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
         }
     }
+
+    /**
+     * Баг 18 (этап 2): одинаковый UID на двух серверах — две идентичности.
+     * Вычитка подписки находила строку чужой подписки по глобальному UID и
+     * переписывала её своим содержимым со своими href/etag; теперь поиск
+     * идёт в пределах (аккаунт, uid): чужая строка остаётся нетронутой, а
+     * объект заводится отдельной строкой этой подписки.
+     */
+    @Test
+    fun `same uid owned by another subscription stays untouched and gains own row`() = runBlocking {
+        fakeEventDao.rows += ScheduledEventEntity(
+            id = 7L,
+            uid = "shared",
+            eventDate = "2026-02-17",
+            title = "Из Гугла",
+            type = "REGULAR",
+            icon = "NOTE",
+            colorArgb = 0,
+            repeatUnit = null,
+            repeatInterval = 1,
+            repeatWeekdays = null,
+            repeatUntil = null,
+            hidePast = false,
+            position = 0,
+            caldavAccountId = 99L,
+            remoteImported = true,
+            etag = "\"foreign-etag\"",
+            serverHref = "https://caldav.example.org/foreign/shared.ics",
+        )
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("shared", title = "Из Яндекса"))))
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(1, result.added)
+        assertEquals(0, result.removed)
+        // Чужая строка цела: своё содержимое и своя серверная привязка.
+        fakeEventDao.rows.single { it.caldavAccountId == 99L }.let { foreign ->
+            assertEquals("Из Гугла", foreign.title)
+            assertEquals("\"foreign-etag\"", foreign.etag)
+            assertEquals("https://caldav.example.org/foreign/shared.ics", foreign.serverHref)
+        }
+        // Эта подписка завела под тем же UID свою строку.
+        fakeEventDao.rows.single { it.caldavAccountId == 42L }.let { mine ->
+            assertEquals("Из Яндекса", mine.title)
+            assertEquals("\"shared\"", mine.etag)
+        }
+    }
+
+    /**
+     * Баг 18 в очередях: tombstone одного аккаунта под UID X и tombstone
+     * другого под тем же UID — два намерения (у заметок-носителей UID из
+     * даты, совпадение гарантировано). Подтверждённый DELETE закрывает
+     * запись своего аккаунта; раньше удаление шло «WHERE uid» и сносило бы
+     * обе очереди, а REPLACE при постановке — молча перезаписал бы чужую.
+     */
+    @Test
+    fun `tombstone delete closes only this account queue`() = runBlocking {
+        val api = FakeApi(CaldavPull(events = emptyList()))
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 99L,
+            href = "https://caldav.example.org/foreign/u1.ics",
+            etag = "\"foreign\"",
+            deletedAt = 500,
+        )
+        fakeTombstoneDao.rows += CaldavTombstoneEntity(
+            uid = "u1",
+            accountId = 42L,
+            href = "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            etag = "\"mine\"",
+            deletedAt = 600,
+        )
+
+        val result = engine(api).sync(account, "pwd")
+
+        // DELETE ушёл только в свою коллекцию, своя очередь закрыта.
+        assertEquals(CaldavSyncResult(0, 0, 0, pushed = 1), result)
+        assertEquals(1, api.deleteCalls.size)
+        assertEquals(
+            "https://caldav.yandex.ru/calendars/taur-lom%40yandex.ru/events-1/u1.ics",
+            api.deleteCalls.single().url,
+        )
+        assertEquals("\"mine\"", api.deleteCalls.single().etag)
+        // Чужая запись очереди осталась — доживёт до прогона своего аккаунта.
+        fakeTombstoneDao.rows.single().let { left ->
+            assertEquals(99L, left.accountId)
+            assertEquals("u1", left.uid)
+        }
+    }
+
+    /**
+     * Баг 18 в заметках: UID носителя выводится из даты и одинаков у всех
+     * подписок, а ключ строки — день. Вычитка второй подписки не обязана
+     * трогать день, принадлежащий первой: иначе содержимое и href/etag
+     * одного сервера ложились на строку другого владельца.
+     */
+    @Test
+    fun `note pull skips a day owned by another subscription`() = runBlocking {
+        fakeNoteDao.rows += CalendarNoteEntity(
+            eventDate = "2026-02-17",
+            text = "Борщ",
+            createdAt = 100,
+            modifiedAt = 200,
+            caldavAccountId = 99L,
+            etag = "\"foreign-note\"",
+            serverHref = "https://caldav.example.org/foreign/note.ics",
+        )
+        val api = FakeApi(CaldavPull(events = emptyList(), notes = listOf(remoteNote(text = "Молоко"))))
+        val result = engine(api).sync(account, "pwd")
+
+        assertEquals(CaldavSyncResult(0, 0, 0), result)
+        // День остался чужим: свои текст, владелец и серверная привязка.
+        fakeNoteDao.rows.single().let { note ->
+            assertEquals("Борщ", note.text)
+            assertEquals(99L, note.caldavAccountId)
+            assertEquals("\"foreign-note\"", note.etag)
+            assertEquals("https://caldav.example.org/foreign/note.ics", note.serverHref)
+        }
+    }
 }
 
 private class FakeEventDao : ScheduledEventDao {
@@ -1475,14 +1678,20 @@ private class FakeEventDao : ScheduledEventDao {
         rows.removeAll { it.id in ids }
     }
 
-    override suspend fun getByUid(uid: String): ScheduledEventEntity? = rows.firstOrNull { it.uid == uid }
+    /** Как в Room: своя строка подписки или неприписанная (условие OR NULL), своя приоритетнее. */
+    override suspend fun getByUid(accountId: Long, uid: String): ScheduledEventEntity? =
+        rows.filter { it.uid == uid && (it.caldavAccountId == accountId || it.caldavAccountId == null) }
+            .minByOrNull { if (it.caldavAccountId == null) 1 else 0 }
 
-    override suspend fun deleteNotInUids(accountId: Long, uids: List<String>): Int {
+    /** Как в Room: кандидаты diff-удаления — приписанные чистые строки. */
+    override suspend fun getCleanFor(accountId: Long): List<ScheduledEventEntity> =
+        rows.filter { it.caldavAccountId == accountId && !it.dirty }
+
+    /** Как в Room: удаление по заранее вычисленному множеству id. */
+    override suspend fun deleteCleanByIds(ids: List<Long>, accountId: Long): Int {
         val before = rows.size
-        val keep = uids.toSet()
-        rows.removeAll {
-            it.caldavAccountId == accountId && !it.dirty && it.uid !in keep
-        }
+        val doomed = ids.toSet()
+        rows.removeAll { it.id in doomed && it.caldavAccountId == accountId && !it.dirty }
         return before - rows.size
     }
 
@@ -1593,18 +1802,27 @@ private class FakeNoteDao : CalendarNoteDao {
         return 1
     }
 
-    override suspend fun rememberServerState(date: String, etag: String?, href: String): Int {
+    override suspend fun rememberServerState(date: String, etag: String?, href: String, remoteUid: String?): Int {
         if (rows.none { it.eventDate == date }) return 0
-        rows.replaceAll { if (it.eventDate == date) it.copy(etag = etag, serverHref = href) else it }
+        rows.replaceAll {
+            if (it.eventDate == date) {
+                it.copy(etag = etag, serverHref = href, remoteUid = remoteUid ?: it.remoteUid)
+            } else {
+                it
+            }
+        }
         return 1
     }
 
-    override suspend fun deleteNotInDates(accountId: Long, dates: List<String>): Int {
+    /** Как в Room: кандидаты diff-удаления — приписанные чистые строки. */
+    override suspend fun getCleanFor(accountId: Long): List<CalendarNoteEntity> =
+        rows.filter { it.caldavAccountId == accountId && !it.dirty }
+
+    /** Как в Room: удаление по заранее вычисленному множеству дней. */
+    override suspend fun deleteCleanByDates(dates: List<String>, accountId: Long): Int {
         val before = rows.size
-        val keep = dates.toSet()
-        rows.removeAll {
-            it.caldavAccountId == accountId && !it.dirty && it.eventDate !in keep
-        }
+        val doomed = dates.toSet()
+        rows.removeAll { it.eventDate in doomed && it.caldavAccountId == accountId && !it.dirty }
         return before - rows.size
     }
 
@@ -1626,7 +1844,7 @@ private class FakeNoteDao : CalendarNoteDao {
         rows.replaceAll { row ->
             if (row.caldavAccountId == accountId) {
                 detached++
-                row.copy(caldavAccountId = null, serverHref = null, etag = null, dirty = false)
+                row.copy(caldavAccountId = null, serverHref = null, etag = null, dirty = false, remoteUid = null)
             } else {
                 row
             }
@@ -1671,17 +1889,10 @@ private class FakeTombstoneDao : CaldavTombstoneDao {
 
     override suspend fun getAllFor(accountId: Long): List<CaldavTombstoneEntity> = rows.filter { it.accountId == accountId }
 
-    override suspend fun getByUid(uid: String): CaldavTombstoneEntity? = rows.firstOrNull { it.uid == uid }
-
     override suspend fun insert(tombstone: CaldavTombstoneEntity) {
-        rows.removeAll { it.uid == tombstone.uid }
+        // REPLACE как в Room: в пределах идентичности (uid, accountId).
+        rows.removeAll { it.uid == tombstone.uid && it.accountId == tombstone.accountId }
         rows += tombstone
-    }
-
-    override suspend fun deleteByUid(uid: String): Int {
-        val before = rows.size
-        rows.removeAll { it.uid == uid }
-        return before - rows.size
     }
 
     override suspend fun deleteForIdentity(uid: String, accountId: Long): Int {

@@ -332,6 +332,66 @@ object AppDatabaseMigration {
     }
 
     /**
+     * 29 → 30: фактический UID носителя заметки (этап 2, баг 15). Сервер
+     * хранит ✍️-объекты не только от наших PUT'ов: веб-форма и чужие
+     * клиенты заводят носители под своими uid. Вычитка опознаёт их по
+     * заголовку и ведёт строку по дате, а uid раньше терялся — tombstone
+     * производился от даты и не совпадал с очередью, из-за чего
+     * неподтверждённое удаление воскрешало заметку каждой вычиткой.
+     * Колонка nullable без DEFAULT: у существующих строк uid сервера не
+     * восстановим — заполнит первая же вычитка, до неё работает старый
+     * производный ключ.
+     */
+    val MIGRATION_29_30 = object : Migration(29, 30) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE calendar_notes ADD COLUMN remoteUid TEXT")
+        }
+    }
+
+    /**
+     * 28 → 29: составная идентичность синхронизации (этап 2). Уникальность
+     * UID событий сужается до (caldavAccountId, uid): два сервера вправе
+     * носить разные объекты под одним UID (перенос копии между календарями
+     * сохраняет UID), и глобальный индекс при этом молча стирал бы строку
+     * чужой подписки REPLACE'ом. Очередь удалений переезжает на составной
+     * PK (uid, accountId): раньше второй аккаунт под тем же UID подменял
+     * accountId/href/etag первой записи — удаление первого сервера
+     * терялось; локальное уникальное сходство UID у заметок делает это
+     * гарантированным, а не теоретическим.
+     */
+    val MIGRATION_28_29 = object : Migration(28, 29) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP INDEX IF EXISTS index_scheduled_events_uid")
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_scheduled_events_caldavAccountId_uid " +
+                    "ON scheduled_events(caldavAccountId, uid)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS caldav_tombstones_new (
+                    uid TEXT NOT NULL,
+                    accountId INTEGER NOT NULL,
+                    href TEXT,
+                    etag TEXT,
+                    deletedAt INTEGER NOT NULL,
+                    PRIMARY KEY (uid, accountId)
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "INSERT INTO caldav_tombstones_new (uid, accountId, href, etag, deletedAt) " +
+                    "SELECT uid, accountId, href, etag, deletedAt FROM caldav_tombstones",
+            )
+            db.execSQL("DROP TABLE caldav_tombstones")
+            db.execSQL("ALTER TABLE caldav_tombstones_new RENAME TO caldav_tombstones")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_caldav_tombstones_accountId " +
+                    "ON caldav_tombstones(accountId)",
+            )
+        }
+    }
+
+    /**
      * 26 → 27: время события. Событию добавляются три nullable-колонки:
      * startMinutes и endMinutes (минуты от полуночи) и endDate (дата конца
      * события, "yyyy-MM-dd"). Существующие события остаются дневными
