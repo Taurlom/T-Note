@@ -15,6 +15,7 @@ import net.fortuna.ical4j.model.property.Uid
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.taurlom.tnote.data.sync.byName
+import ru.taurlom.tnote.data.sync.descriptionHasTextBeyondMarker
 import ru.taurlom.tnote.data.sync.icsDateTime
 import ru.taurlom.tnote.data.sync.noteUidFor
 import java.time.Instant
@@ -121,8 +122,12 @@ fun googleEventToVEvent(json: JSONObject): VEvent? {
 
     // Событие с точным временем: момент приводим к зоне устройства — встреча
     // показывается по местным часам, а её дата — по локальной дате того же
-    // момента. Без времени — дневная метка, как была.
-    val startMoment = localMoment(start.optString("dateTime").takeIf { it.isNotEmpty() })
+    // момента. dateTime без offset читается в зоне timeZone слота (см.
+    // localMoment). Без времени — дневная метка, как была.
+    val startMoment = localMoment(
+        start.optString("dateTime").takeIf { it.isNotEmpty() },
+        start.optString("timeZone").takeIf { it.isNotEmpty() },
+    )
     val anchor = startMoment?.toLocalDate() ?: googleDay(start) ?: return null
 
     return VEvent().apply {
@@ -134,8 +139,9 @@ fun googleEventToVEvent(json: JSONObject): VEvent? {
             // Конец — свой момент со своей датой: событие может длиться
             // через полночь. Вседневный конец у события с временем — разнороден
             // и не переносится.
+            val endZone = end?.optString("timeZone")?.takeIf { it.isNotEmpty() }
             end?.optString("dateTime")?.takeIf { it.isNotEmpty() }
-                ?.let { localMoment(it) }
+                ?.let { localMoment(it, endZone) }
                 ?.let { moment ->
                     properties.add(DtEnd(icsDateTime(moment.toLocalDate(), moment.hour * 60 + moment.minute)))
                 }
@@ -178,14 +184,41 @@ fun googleEventToVEvent(json: JSONObject): VEvent? {
 internal fun JSONObject.seriesExceptionParentId(): String? = optString("recurringEventId").takeIf { it.isNotEmpty() }
 
 /**
+ * День, в который мастер серии разворачивает это вхождение, — «исходный»
+ * слот: originalStartTime (Google даёт его и перенесённым, и отменённым
+ * экземплярам), а без него — собственное начало экземпляра. Вычитка
+ * примешивает эти дни к exdates мастера: вхождение отменено или перенесено,
+ * и развёртка его, как живого, показала бы фантом в прежнем слоте. Новое
+ * время перенесённого вхождения моделью невыразимо — день просто выпадает
+ * из развёртки (полное решение — хранение исходного JSON — покажет и его).
+ */
+internal fun JSONObject.originalOccurrenceDay(): LocalDate? {
+    val slot = optJSONObject("originalStartTime") ?: optJSONObject("start") ?: return null
+    return localMoment(
+        slot.optString("dateTime").takeIf { it.isNotEmpty() },
+        slot.optString("timeZone").takeIf { it.isNotEmpty() },
+    )?.toLocalDate() ?: googleDay(slot)
+}
+
+/**
  * Есть ли в событии Google поля, которых нет в модели T-Note. Наш экспорт
  * отправляет полный ресурс (PUT), и сервер стёр бы всё перечисленное:
- * место, участники, вложения, видеоконференция, «источник», цвет,
- * видимость/прозрачность не по умолчанию, гостевые права, напоминания,
- * расширенные свойства, служебные типы событий (вне офиса, фокус) и
- * правила повторяемости вне RRULE/EXDATE (RDATE и прочее).
+ * описание, набранное человеком (наш PUT перезаписывает description целиком —
+ * маркером [T-Note] у событий или текстом заметки у носителей «✍️»), место,
+ * участники, вложения, видеоконференция, «источник», цвет,
+ * видимость/прозрачность не по умолчанию, гостевые права, напоминания
+ * (включая явное «без напоминаний»), расширенные свойства, служебные типы
+ * событий (вне офиса, фокус) и правила повторяемости вне RRULE/EXDATE
+ * (RDATE и прочее).
+ *
+ * [descriptionIsOwn] — description является payload'ом самого объекта: у
+ * события-носителя заметки это текст заметки (NoteIcsMapper), который экспорт
+ * воспроизводит дословно, поэтому признаком чужих данных он не служит.
  */
-internal fun JSONObject.hasUnmodeledContent(): Boolean {
+internal fun JSONObject.hasUnmodeledContent(descriptionIsOwn: Boolean = false): Boolean {
+    // Текст человека вокруг нашего маркера (или вместо него): PUT затёр бы его
+    // служебной строкой. Та же проверка, что у CalDAV-ресурса, — закон один.
+    if (!descriptionIsOwn && descriptionHasTextBeyondMarker(optString("description"))) return true
     if (optString("location").isNotBlank()) return true
     if (optJSONArray("attendees")?.length() ?: 0 > 0) return true
     if (optJSONArray("attachments")?.length() ?: 0 > 0) return true
@@ -194,7 +227,14 @@ internal fun JSONObject.hasUnmodeledContent(): Boolean {
         if (source.optString("title").isNotBlank() || source.optString("url").isNotBlank()) return true
     }
     if (optJSONObject("extendedProperties")?.let { it.has("private") || it.has("shared") } == true) return true
-    if (optJSONObject("reminders")?.optJSONArray("overrides")?.length() ?: 0 > 0) return true
+    val reminders = optJSONObject("reminders")
+    if (reminders != null) {
+        // И нестандартные overrides, и явное «без напоминаний» (useDefault=false
+        // с пустым списком) — выбор человека: наш PUT reminders не отправляет,
+        // и Google вернул бы событию напоминания по умолчанию календаря.
+        if (!reminders.optBoolean("useDefault", true)) return true
+        if (reminders.optJSONArray("overrides")?.length() ?: 0 > 0) return true
+    }
     if (optString("colorId").isNotBlank() || optString("color").isNotBlank()) return true
     // Значения по умолчанию Google не отдаёт; всё, что пришло явно и не
     // дефолт, — выбор человека, теряемый при перезаписи.
@@ -296,15 +336,28 @@ private fun googleDay(obj: JSONObject): LocalDate? = googleDayValue(
 
 /**
  * Строка времени Google («2026-11-20T10:00:00+03:00», RFC 3339) → местный
- * момент устройства. Смещение из строки приводится к зоне устройства:
- * встреча должна показываться по часам пользователя.
+ * момент устройства. Смещение в самой строке старше поля [timeZone]: момент
+ * однозначен и приводится к зоне устройства (встреча показывается по часам
+ * пользователя).
+ *
+ * dateTime без offset — форма, разрешённая контрактом API (для повторяющихся
+ * событий Google её и требует: «include timeZone if you include recurrence»):
+ * смысл стенного времени задаёт IANA-имя в поле timeZone слота — момент
+ * переводится из зоны события в зону устройства, иначе встреча в другой
+ * стране показывалась бы по чужим часам, а у значений около полуночи
+ * сдвигалась бы и дата. Без timeZone (или с нечитаемым именем) стенное
+ * время сохраняется как есть — зона устройства.
  */
-private fun localMoment(value: String?): LocalDateTime? {
+private fun localMoment(value: String?, timeZone: String? = null): LocalDateTime? {
     if (value.isNullOrEmpty()) return null
-    return runCatching { OffsetDateTime.parse(value).toInstant() }
+    runCatching { OffsetDateTime.parse(value).toInstant() }
         .getOrNull()
-        ?.let { LocalDateTime.ofInstant(it, ZoneId.systemDefault()) }
-        ?: runCatching { LocalDateTime.parse(value) }.getOrNull()
+        ?.let { return LocalDateTime.ofInstant(it, ZoneId.systemDefault()) }
+    val naive = runCatching { LocalDateTime.parse(value) }.getOrNull() ?: return null
+    val zone = timeZone?.takeIf { it.isNotEmpty() }
+        ?.let { name -> runCatching { ZoneId.of(name) }.getOrNull() }
+        ?: return naive
+    return naive.atZone(zone).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
 }
 
 /**

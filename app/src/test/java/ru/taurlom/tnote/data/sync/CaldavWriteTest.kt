@@ -13,6 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import ru.taurlom.tnote.domain.repository.CaldavSyncException
+import java.time.LocalDate
 
 /**
  * Транспорт записи (этап 2) на реальном HTTP-стеке: MockWebServer закрепляет
@@ -430,6 +431,112 @@ class CaldavWriteTest {
         // Исключение стоит первым — мастер всё равно берётся мастер.
         val remote = (found as CaldavObjectResult.Found).event
         assertEquals("2026-11-17", remote.event.date)
+        assertTrue(remote.notReproducible)
+    }
+
+    /**
+     * Исключения серии перечёркивают вхождения, которые они замещают:
+     * отменённое (STATUS:CANCELLED) не случится вовсе, перенесённое не
+     * случится в исходный день. Без подавления мастер развернул бы их как
+     * живые — «удалённое вхождение возвращается». Новое время перенесённого
+     * вхождения моделью невыразимо — день выпадает из развёртки целиком
+     * (объект заморожен, инъекция визуальная и на сервер не уезжает).
+     */
+    @Test
+    fun `pull suppresses overridden occurrences in the master exdates`() = runBlocking {
+        val collection = server.url("/calendars/u%40yandex.ru/events-1/").toString()
+        val seriesIcs = """
+            BEGIN:VCALENDAR
+            VERSION:2.0
+            BEGIN:VEVENT
+            UID:series@example.com
+            DTSTAMP:20261109T200000Z
+            DTSTART;VALUE=DATE:20261117
+            DTEND;VALUE=DATE:20261118
+            SUMMARY:Зарядка
+            RRULE:FREQ=DAILY;COUNT=10
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:series@example.com
+            RECURRENCE-ID;VALUE=DATE:20261119
+            DTSTAMP:20261109T200001Z
+            STATUS:CANCELLED
+            DTSTART;VALUE=DATE:20261119
+            DTEND;VALUE=DATE:20261120
+            SUMMARY:Зарядка
+            END:VEVENT
+            BEGIN:VEVENT
+            UID:series@example.com
+            RECURRENCE-ID;VALUE=DATE:20261120
+            DTSTAMP:20261109T200002Z
+            DTSTART;VALUE=DATE:20261121
+            DTEND;VALUE=DATE:20261122
+            SUMMARY:Зарядка
+            END:VEVENT
+            END:VCALENDAR
+        """.trimIndent()
+        server.enqueue(
+            MockResponse().setResponseCode(207).setBody(
+                multistatusOf(
+                    davEntry("/calendars/u%40yandex.ru/events-1/series.ics", "\"e-1\"", seriesIcs),
+                ),
+            ),
+        )
+
+        val pulled = api.pullEvents(collection, "user", "pass")
+
+        val remote = pulled.events.single()
+        assertEquals("2026-11-17", remote.event.date)
+        assertTrue(remote.notReproducible)
+        // Отменённое (19-е) и перенесённое (20-е → 21-е) вхождения больше
+        // не разворачиваются мастером.
+        assertEquals(
+            setOf(LocalDate.parse("2026-11-19"), LocalDate.parse("2026-11-20")),
+            remote.event.exdates,
+        )
+    }
+
+    /** Точечная перечитка подавляет перечёркнутые вхождения тем же алгоритмом. */
+    @Test
+    fun `point read suppresses overridden occurrences too`() = runBlocking {
+        val url = server.url("/calendars/u%40yandex.ru/events-1/series.ics").toString()
+        server.enqueue(
+            MockResponse().setResponseCode(207).setBody(
+                multistatusOf(
+                    davEntry(
+                        "/calendars/u%40yandex.ru/events-1/series.ics",
+                        "\"e-2\"",
+                        """
+                            BEGIN:VCALENDAR
+                            VERSION:2.0
+                            BEGIN:VEVENT
+                            UID:series@example.com
+                            DTSTAMP:20261109T200000Z
+                            DTSTART;VALUE=DATE:20261117
+                            DTEND;VALUE=DATE:20261118
+                            SUMMARY:Зарядка
+                            RRULE:FREQ=DAILY;COUNT=10
+                            END:VEVENT
+                            BEGIN:VEVENT
+                            UID:series@example.com
+                            RECURRENCE-ID;VALUE=DATE:20261119
+                            DTSTAMP:20261109T200001Z
+                            STATUS:CANCELLED
+                            DTSTART;VALUE=DATE:20261119
+                            DTEND;VALUE=DATE:20261120
+                            SUMMARY:Зарядка
+                            END:VEVENT
+                            END:VCALENDAR
+                        """.trimIndent(),
+                    ),
+                ),
+            ),
+        )
+
+        val found = api.pullEvent(url, "user", "pass")
+
+        val remote = (found as CaldavObjectResult.Found).event
+        assertEquals(setOf(LocalDate.parse("2026-11-19")), remote.event.exdates)
         assertTrue(remote.notReproducible)
     }
 

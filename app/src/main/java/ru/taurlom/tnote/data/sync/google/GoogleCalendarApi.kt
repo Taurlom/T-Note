@@ -18,8 +18,8 @@ import ru.taurlom.tnote.data.sync.CaldavRemoteEvent
 import ru.taurlom.tnote.data.sync.CaldavWriteResponse
 import ru.taurlom.tnote.data.sync.byName
 import ru.taurlom.tnote.data.sync.hasTnoteMetadata
+import ru.taurlom.tnote.data.sync.isNoteCarrier
 import ru.taurlom.tnote.data.sync.normalizeEtag
-import ru.taurlom.tnote.data.sync.noteBySummary
 import ru.taurlom.tnote.data.sync.noteText
 import ru.taurlom.tnote.data.sync.parseIcs
 import ru.taurlom.tnote.data.sync.toScheduledEvent
@@ -27,6 +27,7 @@ import ru.taurlom.tnote.data.sync.vevents
 import ru.taurlom.tnote.domain.model.CaldavCalendarRef
 import ru.taurlom.tnote.domain.repository.CaldavSyncException
 import java.io.IOException
+import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,12 +57,18 @@ import javax.inject.Singleton
  *  - отменённые события (status=cancelled) из вычитки не выдаются: движок
  *    увидит их отсутствие и удалит строки сам; DELETE несуществующего
  *    объекта Google отвечает 404/410 — обе формы для движка «и так нет»;
- *  - вхождения серий (объекты с recurringEventId) в базу не попадают вовсе:
- *    экземпляр уже разворачивает мастер, а отдельная строка была бы дублем.
- *    Серия с такими объектами помечается [CaldavRemoteEvent.notReproducible]
- *    — PUT по мастеру перечеркнул бы исключения, поэтому её правки остаются
- *    локальными (учёт самих исключений как EXDATE/overrides — за полным
- *    решением с хранением исходного JSON);
+ *  - вхождения серий (объекты с recurringEventId — перенесённые и отменённые
+ *    вхождения) в базу не попадают вовсе: экземпляр уже разворачивает мастер,
+ *    а отдельная строка была бы дублем. Их UID'ы уходят в protectedUids —
+ *    наследные строки прежних версий приложения нельзя отправлять обратно;
+ *    серия с такими объектами помечается [CaldavRemoteEvent.notReproducible] —
+ *    PUT по мастеру перечеркнул бы исключения, поэтому её правки остаются
+ *    локальными. Дни отменённых и перенесённых вхождений примешиваются к
+ *    exdates мастера, чтобы развёртка не показывала их живыми; новое время
+ *    перенесённого вхождения моделью невыразимо — это остаётся за полным
+ *    решением с хранением исходного JSON. Исключения учитываются по всему
+ *    списку, а не постранично: мастер и его вхождение могут попасть на
+ *    разные страницы;
  *  - вычитка обязана быть списком: ответ без «items» и без верного «kind»
  *    — отказ прогона, а не «пустой календарь», иначе движок стёр бы всё
  *    локальное по пустому ответу прокси; нечитаемые items (без id, start,
@@ -108,19 +115,21 @@ class GoogleCalendarApi @Inject constructor(
     }
 
     override suspend fun pullEvents(collectionUrl: String, username: String, password: String): CaldavPull {
-        val events = mutableListOf<CaldavRemoteEvent>()
-        val notes = mutableListOf<CaldavRemoteEvent>()
-        // UID'ы вхождений серий: в базу они не попадают, но их старые
-        // локальные строки (наследие прежней вычитки) нельзя отправлять
-        // обратно — PUT вернул бы на сервер дубль или отменённый экземпляр.
-        val exceptionUids = mutableSetOf<String>()
-        var unreadable = 0
+        // Страницы накапливаются целиком до разбора: исключения серии могут
+        // попасть на другую страницу, чем её мастер, и постраничная обработка
+        // не увидела бы признака «у серии есть исключения» (мастер остался бы
+        // размороженным). Память — тот же staging, что у движка: календарь
+        // личный, сотни-тысячи объектов.
+        val items = mutableListOf<JSONObject?>()
         var pageToken: String? = null
         do {
             val url = buildString {
                 append(BASE).append("/calendars/").append(urlSegment(collectionUrl))
                 // singleEvents закреплён явно: при false (серверное умолчание)
                 // приходят мастера серий, а не развёрнутые вхождения.
+                // showDeleted=true обязателен: отменённые вхождения серий
+                // Google отдаёт объектами со status=cancelled — без него
+                // отменённое вхождение исчезло бы из списка бесследно.
                 append("/events?maxResults=2500&showDeleted=true&singleEvents=false")
                 pageToken?.let { append("&pageToken=").append(it) }
             }
@@ -129,74 +138,15 @@ class GoogleCalendarApi @Inject constructor(
             // «calendar#events»); ни items, ни конверта — это не вычитка, а
             // пустой ответ (прокси-заглушка, обрезанный ответ). Как «пустой
             // календарь» он не годится: движок стёр бы все локальные строки.
-            val items = listItems(json, KIND_EVENTS, "список событий")
-            if (items != null) {
-                // Отдельные объекты-исключения (recurringEventId) при полном
-                // списке идут рядом с мастерами. Собираем id серий заранее:
-                // мастер мог стоять в списке раньше своего исключения.
-                // Ограничение — серия, чьё исключение уехало на следующую
-                // страницу, этого признака не увидит; полный учёт за собой
-                // оставит хранение исходного JSON (см. CaldavSyncEngine).
-                val seriesWithExceptions = mutableSetOf<String>()
-                for (index in 0 until items.length()) {
-                    items.optJSONObject(index)
-                        ?.seriesExceptionParentId()
-                        ?.let { seriesWithExceptions += it }
-                }
-                for (index in 0 until items.length()) {
-                    val item = items.optJSONObject(index)
-                    if (item == null) {
-                        unreadable++
-                        continue
-                    }
-                    // Вхождение серии (перенесённое или отменённое):
-                    // самостоятельной строкой оно быть не может — тот же
-                    // экземпляр уже разворачивает мастер, а PUT по мастеру
-                    // перечеркнул бы исключение. В базу оно не идёт; его UID
-                    // уходит в protectedUids (см. CaldavPull).
-                    if (item.seriesExceptionParentId() != null) {
-                        item.optString("id")
-                            .takeIf { it.isNotEmpty() }
-                            ?.let { id -> exceptionUids += googleUidFromEventId(id) }
-                        continue
-                    }
-                    // Отменённый мастер — это «удалено»: его отсутствия в
-                    // списке движок ждать и должен, полноте оно не мешает.
-                    if (item.optString("status") == "cancelled") continue
-                    val vevent = googleEventToVEvent(item)
-                    if (vevent == null) {
-                        // Без id/start или с нечитаемой датой: объект на
-                        // сервере есть, а прочесть его нечем — за удалённый
-                        // выдавать нельзя.
-                        unreadable++
-                        continue
-                    }
-                    val mapped = vevent.toScheduledEvent()
-                    if (mapped == null) {
-                        unreadable++
-                        continue
-                    }
-                    val href = objectHref(collectionUrl, mapped.uid)
-                    val isNote = noteBySummary(mapped.title)
-                    val remote = CaldavRemoteEvent(
-                        href = href,
-                        etag = item.optString("etag").takeIf { it.isNotEmpty() },
-                        event = mapped,
-                        metadataFromIcs = vevent.hasTnoteMetadata(),
-                        noteText = if (isNote) vevent.noteText() else null,
-                        // Google кладёт текст в поле description — без этого
-                        // флага бэкфилл маркера считал бы описание пустым и
-                        // затёр бы его при первой же отделке локальной строки.
-                        hasDescription = item.optString("description").isNotBlank(),
-                        notReproducible = item.hasUnmodeledContent() ||
-                            seriesWithExceptions.contains(item.optString("id")),
-                    )
-                    if (isNote) notes += remote else events += remote
+            val pageItems = listItems(json, KIND_EVENTS, "список событий")
+            if (pageItems != null) {
+                for (index in 0 until pageItems.length()) {
+                    items += pageItems.optJSONObject(index)
                 }
             }
             pageToken = json.optString("nextPageToken").takeIf { it.isNotEmpty() }
         } while (pageToken != null)
-        return CaldavPull(events = events, notes = notes, unreadable = unreadable, protectedUids = exceptionUids)
+        return googlePullFromItems(collectionUrl, items)
     }
 
     override suspend fun putEvent(
@@ -322,23 +272,27 @@ class GoogleCalendarApi @Inject constructor(
                     ?: return CaldavObjectResult.Unreadable("Событие Google не разбирается")
                 val event = vevent.toScheduledEvent()
                     ?: return CaldavObjectResult.Unreadable("VEVENT Google без UID/DTSTART")
-                val isNote = noteBySummary(event.title)
+                // Явные метки (маркер DESCRIPTION) объявляют объект своим:
+                // ✍ в имени не маркер заметки, а пользовательский текст
+                // (isNoteCarrier) — тот же шлюз, что у CalDAV-канала.
+                val metadataFromIcs = vevent.hasTnoteMetadata()
+                val isNote = isNoteCarrier(event.title, metadataFromIcs)
                 CaldavObjectResult.Found(
                     CaldavRemoteEvent(
                         href = url,
                         etag = json.optString("etag").takeIf { it.isNotEmpty() },
                         event = event,
-                        metadataFromIcs = vevent.hasTnoteMetadata(),
+                        metadataFromIcs = metadataFromIcs,
                         noteText = if (isNote) vevent.noteText() else null,
                         hasDescription = json.optString("description").isNotBlank(),
-                        notReproducible = json.hasUnmodeledContent(),
+                        notReproducible = json.hasUnmodeledContent(descriptionIsOwn = isNote),
                     ),
                 )
             }
         }
     }
 
-    override fun objectHref(collectionUrl: String, uid: String): String = "$collectionUrl/${googleEventIdFor(uid)}"
+    override fun objectHref(collectionUrl: String, uid: String): String = googleObjectHref(collectionUrl, uid)
 
     /** Ответ простого запроса: код и тело. */
     private data class RawResponse(val code: Int, val body: String)
@@ -432,4 +386,98 @@ internal fun googleIfMatch(etag: String?): String? {
     val trimmed = etag?.trim().orEmpty()
     if (trimmed.isEmpty() || trimmed.startsWith("W/")) return null
     return normalizeEtag(trimmed)
+}
+
+/** Адрес публикации события Google: «<calendarId>/<eventId>» (см. [splitResourceUrl]). */
+internal fun googleObjectHref(collectionUrl: String, uid: String): String = "$collectionUrl/${googleEventIdFor(uid)}"
+
+/**
+ * Разбор накопленных items вычитки в staging [CaldavPull]. Два прохода:
+ * исключения серий (объекты с recurringEventId — перенесённые и отменённые
+ * вхождения) учитываются до мастеров независимо от порядка в списке и от
+ * границ страниц.
+ *
+ * Первый проход: вхождение серии не попадает в базу — экземпляр разворачивает
+ * мастер, отдельная строка была бы дублем; его UID уходит в protectedUids
+ * (наследную строку прежней версии приложения нельзя отправлять обратно —
+ * PUT вернул бы на сервер дубль или отменённый экземпляр); id серии
+ * запоминается «с исключениями» (мастер замёрзнет: PUT пересобрал бы
+ * recurrence и перечеркнул исключения), а день исходного вхождения
+ * ([originalOccurrenceDay]) — в подавление развёртки мастера.
+ *
+ * Второй проход: мастера и одиночные события. Дни отменённых и перенесённых
+ * вхождений примешиваются к exdates мастера — приложение не показывает их
+ * живыми; инъекция визуальная (серия заморожена, на сервер она не уезжает, а
+ * при исчезновении исключений следующая вычитка перепишет строку чистым
+ * мастером). Отменённый мастер пропускается — для diff'а движка это «удалён».
+ * Нечитаемые items (null, без id/start/даты) делают снапшот неполным.
+ */
+internal fun googlePullFromItems(collectionUrl: String, items: List<JSONObject?>): CaldavPull {
+    val events = mutableListOf<CaldavRemoteEvent>()
+    val notes = mutableListOf<CaldavRemoteEvent>()
+    val exceptionUids = mutableSetOf<String>()
+    val seriesWithExceptions = mutableSetOf<String>()
+    val suppressedDays = mutableMapOf<String, MutableSet<LocalDate>>()
+    var unreadable = 0
+    for (item in items) {
+        val parentId = item?.seriesExceptionParentId() ?: continue
+        item.optString("id")
+            .takeIf { it.isNotEmpty() }
+            ?.let { id -> exceptionUids += googleUidFromEventId(id) }
+        seriesWithExceptions += parentId
+        item.originalOccurrenceDay()?.let { day ->
+            suppressedDays.getOrPut(parentId) { mutableSetOf() } += day
+        }
+    }
+    for (item in items) {
+        if (item == null) {
+            // Элемент списка не объект: прочесть его нечем — за удалённый
+            // выдавать нельзя, снапшот неполон.
+            unreadable++
+            continue
+        }
+        // Вхождение серии — учтено первым проходом, самостоятельной строкой
+        // быть не может.
+        if (item.seriesExceptionParentId() != null) continue
+        // Отменённый мастер — это «удалено»: его отсутствия в списке движок
+        // ждать и должен, полноте оно не мешает.
+        if (item.optString("status") == "cancelled") continue
+        val vevent = googleEventToVEvent(item)
+        if (vevent == null) {
+            // Без id/start или с нечитаемой датой: объект на сервере есть,
+            // а прочесть его нечем — за удалённый выдавать нельзя.
+            unreadable++
+            continue
+        }
+        val mapped = vevent.toScheduledEvent()
+        if (mapped == null) {
+            unreadable++
+            continue
+        }
+        // Явные метки (маркер DESCRIPTION) объявляют объект своим: ✍ в имени
+        // не маркер заметки, а пользовательский текст (isNoteCarrier).
+        val metadataFromIcs = vevent.hasTnoteMetadata()
+        val isNote = isNoteCarrier(mapped.title, metadataFromIcs)
+        val suppressed = suppressedDays[item.optString("id")]
+        val event = if (suppressed.isNullOrEmpty()) {
+            mapped
+        } else {
+            mapped.copy(exdates = mapped.exdates + suppressed)
+        }
+        val remote = CaldavRemoteEvent(
+            href = googleObjectHref(collectionUrl, event.uid),
+            etag = item.optString("etag").takeIf { it.isNotEmpty() },
+            event = event,
+            metadataFromIcs = metadataFromIcs,
+            noteText = if (isNote) vevent.noteText() else null,
+            // Google кладёт текст в поле description — без этого флага
+            // бэкфилл маркера считал бы описание пустым и затёр бы его при
+            // первой же отделке локальной строки.
+            hasDescription = item.optString("description").isNotBlank(),
+            notReproducible = item.hasUnmodeledContent(descriptionIsOwn = isNote) ||
+                seriesWithExceptions.contains(item.optString("id")),
+        )
+        if (isNote) notes += remote else events += remote
+    }
+    return CaldavPull(events = events, notes = notes, unreadable = unreadable, protectedUids = exceptionUids)
 }

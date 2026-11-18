@@ -266,8 +266,8 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
             // в порядке компонентов). Их наличие лишь помечает объект
             // «не перезаписывать»: PUT одним VEVENT стёр бы все overrides.
             val vevent = calendar.recurrenceMaster()
-            val mapped = vevent?.toScheduledEvent()
-            if (vevent == null || mapped == null) {
+            val parsed = vevent?.toScheduledEvent()
+            if (vevent == null || parsed == null) {
                 // Ни разбираемого мастера, ни обычного VEVENT в ресурсе нет
                 // (только исключения, тело не VEVENT, VEVENT без UID/DTSTART):
                 // для разницы по UID объект всё равно что исчез, а он может
@@ -275,13 +275,21 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
                 unreadable++
                 continue
             }
-            val isNote = noteBySummary(mapped.title)
+            // Вхождения, перечёркнутые исключениями (отменённые и перенесённые),
+            // подавляются в развёртке мастера: объект заморожен
+            // (hasRecurrenceOverrides → notReproducible), инъекция визуальная
+            // и на сервер не уезжает (см. recurrenceOverrideDays).
+            val mapped = parsed.copy(exdates = parsed.exdates + calendar.recurrenceOverrideDays())
+            // Явные метки (X-*/маркер) объявляют объект своим: ✍ в имени
+            // тогда не маркер заметки, а пользовательский текст (isNoteCarrier).
+            val metadataFromIcs = vevent.hasTnoteMetadata()
+            val isNote = isNoteCarrier(mapped.title, metadataFromIcs)
             // Заметка едет своим списком: маркер — ✍ в починенном имени.
             val remote = CaldavRemoteEvent(
                 href = href,
                 etag = entry.etag,
                 event = mapped,
-                metadataFromIcs = vevent.hasTnoteMetadata(),
+                metadataFromIcs = metadataFromIcs,
                 noteText = if (isNote) vevent.noteText() else null,
                 hasDescription = vevent.hasDescriptionText(),
                 notReproducible = calendar.hasRecurrenceOverrides() ||
@@ -367,15 +375,21 @@ class CaldavClient @Inject constructor(private val http: CaldavHttpClient) : Cal
         val vevent = calendar.recurrenceMaster() ?: return CaldavObjectResult.Unreadable(
             if (calendar.vevents().isEmpty()) "В объекте нет VEVENT: $href" else "В объекте только исключения серии: $href",
         )
-        val event = vevent.toScheduledEvent()
+        val parsed = vevent.toScheduledEvent()
             ?: return CaldavObjectResult.Unreadable("VEVENT без UID/DTSTART: $href")
-        val isNote = noteBySummary(event.title)
+        // Тот же алгоритм, что у полной вычитки: перечёркнутые исключениями
+        // вхождения подавляются в развёртке мастера.
+        val event = parsed.copy(exdates = parsed.exdates + calendar.recurrenceOverrideDays())
+        // Явные метки объявляют объект своим: ✍ в имени не маркер заметки
+        // (isNoteCarrier) — тот же шлюз, что в полной вычитке.
+        val metadataFromIcs = vevent.hasTnoteMetadata()
+        val isNote = isNoteCarrier(event.title, metadataFromIcs)
         return CaldavObjectResult.Found(
             CaldavRemoteEvent(
                 href = href,
                 etag = entry.etag,
                 event = event,
-                metadataFromIcs = vevent.hasTnoteMetadata(),
+                metadataFromIcs = metadataFromIcs,
                 noteText = if (isNote) vevent.noteText() else null,
                 hasDescription = vevent.hasDescriptionText(),
                 notReproducible = calendar.hasRecurrenceOverrides() ||

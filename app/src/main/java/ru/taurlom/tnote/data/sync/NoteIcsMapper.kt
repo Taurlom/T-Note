@@ -48,6 +48,18 @@ fun noteUidFor(date: String): String = "note-$date@taurlom"
 internal fun noteBySummary(title: String): Boolean = title.trimStart().startsWith(NOTE_ICON)
 
 /**
+ * Признак заметки-носителя при вычитке: ✍-префикс имени работает только для
+ * объектов без наших явных меток ([hasOwnMetadata] — X-TNOTE-* или маркер
+ * DESCRIPTION). Свои события опознаются метками честно, и ✍ в имени обычного
+ * события — пользовательский текст, который тип менять не должен (баг 16):
+ * без шлюза «✍ Курс каллиграфии» уезжало бы из событий в заметки.
+ * Носители заметок явных меток не несут (DESCRIPTION занят текстом заметки,
+ * NoteIcsMapper), веб-созданные ✍-объекты — тем более, поэтому для них и
+ * для чужих событий остаётся имя — тот же приём, что у 🎂/☀️.
+ */
+internal fun isNoteCarrier(title: String, hasOwnMetadata: Boolean): Boolean = !hasOwnMetadata && noteBySummary(title)
+
+/**
  * Текст заметки из DESCRIPTION (починка кракозябр — как у имён).
  * Свойства DESCRIPTION у объекта может не быть (текст потерян сервером
  * или правился старой версией приложения) — тогда пустая строка.

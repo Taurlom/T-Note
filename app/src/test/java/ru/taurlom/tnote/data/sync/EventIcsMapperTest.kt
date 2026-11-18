@@ -334,6 +334,47 @@ class EventIcsMapperTest {
     }
 
     @Test
+    fun `foreign utc exdate near midnight localizes to device day`() {
+        // Исключение UTC-моментом: 21:30Z — в Москве уже следующие локальные
+        // сутки. Исключение обязано лечь на локальный день момента (та же
+        // локализация, что у якоря DTSTART), а не на литеральную дату строки —
+        // иначе отменённое вхождение осталось бы в развёртке, а соседний день
+        // пропал бы.
+        val parsed = foreign(
+            "UID:foreign-14z@example.com",
+            "DTSTAMP:20261109T200000Z",
+            "DTSTART:20261117T213000Z",
+            "DTEND:20261117T223000Z",
+            "RRULE:FREQ=DAILY",
+            "EXDATE:20261119T213000Z",
+            "SUMMARY:Ночная зарядка",
+        ) ?: error("VEVENT не распознан")
+        val occurrenceDay = ZonedDateTime.of(2026, 11, 19, 21, 30, 0, 0, ZoneOffset.UTC)
+            .withZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
+        assertEquals(setOf(occurrenceDay), parsed.exdates)
+        assertFalse(parsed.occursOn(occurrenceDay))
+    }
+
+    @Test
+    fun `foreign utc until near midnight localizes to device day`() {
+        // Граница UNTIL UTC-моментом приводится к зоне устройства — согласно
+        // с локализацией якоря и EXDATE: 21:00Z — в Москве полночь следующих
+        // суток, серия длится по этот локальный день включительно.
+        val parsed = foreign(
+            "UID:foreign-4z@example.com",
+            "DTSTAMP:20261109T200000Z",
+            "DTSTART:20261117T213000Z",
+            "DTEND:20261117T223000Z",
+            "RRULE:FREQ=DAILY;UNTIL=20261119T210000Z",
+            "SUMMARY:Ночная зарядка",
+        ) ?: error("VEVENT не распознан")
+        val boundaryDay = ZonedDateTime.of(2026, 11, 19, 21, 0, 0, 0, ZoneOffset.UTC)
+            .withZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
+        assertEquals(boundaryDay.toString(), parsed.repeatUntil)
+        assertTrue(parsed.occursOn(boundaryDay))
+    }
+
+    @Test
     fun `foreign daily rrule becomes repeating with until from count`() {
         val parsed = foreign(
             "UID:foreign-3@example.com",
@@ -979,6 +1020,19 @@ class EventIcsMapperTest {
     }
 
     @Test
+    fun `note carrier recognition requires no own metadata`() {
+        // ✍ в имени — маркер заметки только для объектов без наших явных
+        // меток: свои события называют тип честно (type= маркера), и ✍ в
+        // имени обычного события — пользовательский текст, который тип
+        // менять не должен (баг 16). Носители заметок меток не несут —
+        // для них и для веб-созданных ✍-объектов остаётся имя.
+        assertTrue(isNoteCarrier("✍️ Заметка", hasOwnMetadata = false))
+        assertTrue(isNoteCarrier("✍ Купить хлеб", hasOwnMetadata = false))
+        assertFalse(isNoteCarrier("✍ Курс каллиграфии", hasOwnMetadata = true))
+        assertFalse(isNoteCarrier("План на день", hasOwnMetadata = false))
+    }
+
+    @Test
     fun `note without description parses as empty text`() {
         val vevent = note().toIcsEvent().apply {
             properties.removeAll { it.name == "DESCRIPTION" }
@@ -1036,9 +1090,9 @@ class EventIcsMapperTest {
         // бы «метаданных нет» — сброс иконки/цвета не доехал бы до других
         // устройств. Цвет по умолчанию — ключа нет (форма 1:1 с X-TNOTE-COLOR).
         val defaults = regular(icon = EventIcon.NOTE).toIcsEvent()
-        assertEquals("[T-Note] icon=NOTE", defaults.properties.byName("DESCRIPTION")?.value)
+        assertEquals("[T-Note] icon=NOTE type=REGULAR", defaults.properties.byName("DESCRIPTION")?.value)
         val colored = regular(color = 0xFFE53935).toIcsEvent()
-        assertEquals("[T-Note] icon=BUILD color=#FFE53935", colored.properties.byName("DESCRIPTION")?.value)
+        assertEquals("[T-Note] icon=BUILD color=#FFE53935 type=REGULAR", colored.properties.byName("DESCRIPTION")?.value)
     }
 
     @Test
@@ -1069,6 +1123,55 @@ class EventIcsMapperTest {
         ) ?: error("VEVENT не распознан")
         assertEquals(EventIcon.BUILD, parsed.icon)
         assertEquals(1L, parsed.colorArgb)
+    }
+
+    @Test
+    fun `marker type token declares type without x-properties`() {
+        // type= в маркере — явная метка типа для каналов без X-свойств
+        // (Яндекс режет X-TNOTE-*, Google API их не имеет). Имя события —
+        // пользовательский текст: ☀️-префикс при явном типе тип не
+        // переключает (баг 16), имя остаётся как набрали.
+        val parsed = foreign(
+            "UID:foreign-typetoken@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "SUMMARY:☀️ Отдых",
+            "DESCRIPTION:[T-Note] icon=NOTE type=REGULAR",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+        assertEquals("☀️ Отдых", parsed.title)
+    }
+
+    @Test
+    fun `x-properties type wins over marker type`() {
+        // Тот же закон старшинства, что у иконки и цвета: X-TNOTE-TYPE
+        // дословно донёсший сервер — источник типа, маркер дополняет поля.
+        val parsed = foreign(
+            "UID:foreign-typewins@example.com",
+            "DTSTART;VALUE=DATE:20261117",
+            "SUMMARY:Оба канала",
+            "DESCRIPTION:[T-Note] icon=NOTE type=REPEATING",
+            "X-TNOTE-TYPE:REGULAR",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REGULAR, parsed.type)
+    }
+
+    @Test
+    fun `marker type keeps cake title repeating instead of birthday`() {
+        // Своя годовая серия, пользователь начал имя с 🎂: явный type=
+        // REPEATING объявляет серию повторением. Без метки имя годового
+        // круга конвертировалось бы в день рождения — с обнулением
+        // repeatUnit, и правки серии ушли бы мимо правила.
+        val parsed = foreign(
+            "UID:foreign-cakereg@example.com",
+            "DTSTAMP:20261109T200000Z",
+            "DTSTART;VALUE=DATE:20260101",
+            "RRULE:FREQ=YEARLY",
+            "SUMMARY:🎂 Маша",
+            "DESCRIPTION:[T-Note] icon=NOTE type=REPEATING",
+        ) ?: error("VEVENT не распознан")
+        assertEquals(ScheduledEventType.REPEATING, parsed.type)
+        assertEquals(RepeatUnit.YEARS, parsed.repeatUnit)
+        assertEquals("🎂 Маша", parsed.title)
     }
 
     @Test
@@ -1129,10 +1232,10 @@ class EventIcsMapperTest {
         // Канал без BOM: маркер обязан состоять из одних ASCII, чтобы
         // пережить cp1252-прочтение байт-в-байт (ASCII в обеих кодировках
         // совпадает) — repairMojibake его не трогает.
-        val marker = tnoteDescriptionMarker(EventIcon.BUILD, 0xFFE53935, true)
+        val marker = tnoteDescriptionMarker(ScheduledEventType.REPEATING, EventIcon.BUILD, 0xFFE53935, true)
         assertTrue(marker.all { it.code < 128 })
         assertEquals(marker, cp1252Mangled(marker))
-        assertEquals("[T-Note] icon=BUILD color=#FFE53935 hide=1", marker)
+        assertEquals("[T-Note] icon=BUILD color=#FFE53935 hide=1 type=REPEATING", marker)
     }
 
     // Защита серверных данных вне модели: PUT пересобирает ресурс из модели

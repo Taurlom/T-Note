@@ -118,12 +118,12 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *    со всеми неизвестными X-свойствами (проба 2026-11), поэтому копия без
  *    X-TNOTE-* не стирает локальные значения этих полей при переписи
  *    (hasTnoteMetadata → CaldavRemoteEvent.metadataFromIcs → applyRemote);
- *  - иконка, цвет и «прошлые вхождения скрыты» едут и через серверы без
+ *  - иконка, цвет, тип и «прошлые вхождения скрыты» едут и через серверы без
  *    X-свойств: экспорт пишет в DESCRIPTION маркер-строку
- *    «[T-Note] icon=… color=… hide=1» ([tnoteDescriptionMarker]) — стандартное
- *    свойство Яндекс хранит дословно, как и текст заметок дня (NoteIcsMapper).
- *    При разборе источники по старшинству: X-TNOTE-* → DESCRIPTION-маркер →
- *    локальные значения (чужое событие без метаданных);
+ *    «[T-Note] icon=… color=… hide=1 type=…» ([tnoteDescriptionMarker]) —
+ *    стандартное свойство Яндекс хранит дословно, как и текст заметок дня
+ *    (NoteIcsMapper). При разборе источники по старшинству: X-TNOTE-* →
+ *    DESCRIPTION-маркер → локальные значения (чужое событие без метаданных);
  *  - повторение: RRULE FREQ=DAILY/WEEKLY/MONTHLY/YEARLY;INTERVAL=N — прямое
  *    отображение на наш якорь [ScheduledEvent.date], частоту и интервал; BYDAY
  *    у WEEKLY — это выбранные дни недели (интерфейс повторения как в Яндексе);
@@ -161,7 +161,11 @@ private const val COUNT_EXPANSION_LIMIT_DAYS = 100_000
  *  - метка «Выходной» (WEEKEND) — событие на весь день без повторения;
  *    наружу уходит с ☀️-префиксом имени (форма переноса, как 🎂 у дня
  *    рождения), на входе «☀️ Имя» без правила конвертируется в WEEKEND
- *    с чистым именем.
+ *    с чистым именем;
+ *  - конверсии по имени (🎂/☀️ выше) — приём только ЧУЖИХ объектов: у своих
+ *    тип объявлен явно (X-TNOTE-TYPE или type= маркера), и пользовательское
+ *    имя тип переопределять не должно (баг 16). Не объявленный явно ✍ в
+ *    имени заметкой-носителем считается на уровне вычитки (isNoteCarrier).
  *
  * Годовые селекторы-дубликаты якоря «BYMONTH=<месяц якоря>;
  * BYMONTHDAY=<день якоря>» (форма годовых событий веб-Яндекса, проверено
@@ -241,7 +245,7 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
         // включая дефолты: сброс иконки/цвета доезжает до других устройств
         // только явным «icon=NOTE» — отсутствие маркера при разборе значит
         // «метаданных нет» и включает хранение локальных значений.
-        properties.add(Description(tnoteDescriptionMarker(icon, colorArgb, hidePastOccurrences)))
+        properties.add(Description(tnoteDescriptionMarker(exportType, icon, colorArgb, hidePastOccurrences)))
     }
 }
 
@@ -470,13 +474,44 @@ internal fun Calendar.recurrenceMaster(): VEvent? = vevents().firstOrNull { it.r
 internal fun Calendar.hasRecurrenceOverrides(): Boolean = vevents().any { it.recurrenceId != null }
 
 /**
+ * Дни вхождений, перечёркнутые исключениями серии (VEVENT с RECURRENCE-ID).
+ * Отменённое вхождение (STATUS:CANCELLED) не случится вовсе, перенесённое не
+ * случится в исходный день — мастер же разворачивает их, как будто ничего не
+ * произошло. Вычитка примешивает дни к exdates мастера, и приложение не
+ * показывает фантомных вхождений; новое время перенесённого вхождения моделью
+ * невыразимо — день просто выпадает из развёртки (полное решение — хранение
+ * исходного ICS — покажет и его).
+ *
+ * Инъекция чисто визуальная: ресурс с исключениями заморожен
+ * ([hasRecurrenceOverrides] → notReproducible), на сервер она не уезжает, а
+ * если исключения с сервера исчезнут, следующая вычитка перепишет строку
+ * чистым мастером. Форма даты следует форме DTSTART: VALUE=DATE читается
+ * календарным днём, точное время приводится к зоне устройства — те же
+ * правила, что у якоря в [toScheduledEvent].
+ */
+internal fun Calendar.recurrenceOverrideDays(): Set<LocalDate> = vevents()
+    .mapNotNull { event -> event.recurrenceId?.date }
+    .mapNotNull { value -> localDateTimeOf(value)?.toLocalDate() ?: icsDay(value.toString()) }
+    .toSet()
+
+/**
  * Строка-маркер метаданных для DESCRIPTION: «[T-Note] icon=TRAVEL color=42
- * hide=1». Канал для серверов, режущих X-TNOTE-* (Яндекс — проба 2026-11):
- * DESCRIPTION — стандартное свойство, Яндекс хранит его дословно (текст
- * заметок дня уже ездит им, NoteIcsMapper). Маркер составлен из одних
- * ASCII-символов и потому неуязвим для cp1252-прочтения тел без BOM —
- * ASCII в cp1252 и UTF-8 это одни и те же байты, repairMojibake его не
- * трогает.
+ * hide=1 type=REPEATING». Канал для серверов без наших X-свойств — Яндекс
+ * режет X-TNOTE-* (проба 2026-11), у Google API их нет вовсе; DESCRIPTION —
+ * стандартное свойство, оба хранят его дословно (текст заметок дня уже ездит
+ * им, NoteIcsMapper). Маркер составлен из одних ASCII-символов и потому
+ * неуязвим для cp1252-прочтения тел без BOM — ASCII в cp1252 и UTF-8 это одни
+ * и те же байты, repairMojibake его не трогает.
+ *
+ * type — явная метка типа (баг 16): на этих каналах тип иначе выводится
+ * только из пользовательского имени (✍️/🎂/☀️ — эвристика приёма чужих
+ * объектов, например шаблона «день рождения» Яндекса), и имя своего события
+ * подменяло бы его тип: «✍ Курс каллиграфии» стало бы заметкой, годовая
+ * «🎂 Маша» — днём рождения. Пишется всегда, включая REGULAR: пропуск
+ * значил бы «тип не объявлен» и оставлял решение эвристике имени. Токен
+ * дописан в конец: порядок ключей разбору не важен, а незнакомый ключ
+ * старые сборки пропускают — новые маркеры читаются старыми (без type=
+ * эвристика имени работает, как раньше).
  *
  * Пишется всегда, включая дефолты: отсутствие маркера при разборе значит
  * «метаданных нет» (чужое событие), поэтому сброс иконки/цвета доезжает
@@ -484,7 +519,7 @@ internal fun Calendar.hasRecurrenceOverrides(): Boolean = vevents().any { it.rec
  * цатеричный ARGB («#FFE53935»); ключи color/hide опускаются при значении
  * по умолчанию — та же условность, что у экспорта X-свойств.
  */
-internal fun tnoteDescriptionMarker(icon: EventIcon, colorArgb: Long, hidePast: Boolean): String = buildString {
+internal fun tnoteDescriptionMarker(type: ScheduledEventType, icon: EventIcon, colorArgb: Long, hidePast: Boolean): String = buildString {
     append(MARKER_PREFIX)
     append(" icon=").append(icon.name)
     if (colorArgb != ScheduledEvent.DEFAULT_COLOR) {
@@ -500,6 +535,7 @@ internal fun tnoteDescriptionMarker(icon: EventIcon, colorArgb: Long, hidePast: 
         }
     }
     if (hidePast) append(" hide=1")
+    append(" type=").append(type.name)
 }
 
 /**
@@ -521,7 +557,7 @@ private fun markerColor(value: String): Long? {
 }
 
 /** Распознанные поля DESCRIPTION-маркера; null — ключа нет в строке. */
-internal data class TnoteMarker(val icon: EventIcon?, val colorArgb: Long?, val hidePast: Boolean?)
+internal data class TnoteMarker(val type: ScheduledEventType?, val icon: EventIcon?, val colorArgb: Long?, val hidePast: Boolean?)
 
 /**
  * Разбор DESCRIPTION-маркера. Маркер ищется в любом месте текста —
@@ -533,6 +569,7 @@ internal data class TnoteMarker(val icon: EventIcon?, val colorArgb: Long?, val 
  */
 internal fun tnoteMarkerFrom(description: String): TnoteMarker? {
     val start = description.indexOf(MARKER_PREFIX).takeIf { it >= 0 } ?: return null
+    var type: ScheduledEventType? = null
     var icon: EventIcon? = null
     var color: Long? = null
     var hide: Boolean? = null
@@ -540,6 +577,8 @@ internal fun tnoteMarkerFrom(description: String): TnoteMarker? {
         val match = markerToken.matchEntire(token) ?: break
         val (key, value) = match.destructured
         when (key) {
+            "type" -> type = ScheduledEventType.entries.find { it.name == value }
+
             "icon" -> icon = EventIcon.entries.find { it.name == value }
 
             "color" -> color = markerColor(value)
@@ -550,7 +589,11 @@ internal fun tnoteMarkerFrom(description: String): TnoteMarker? {
             else -> Unit
         }
     }
-    return if (icon == null && color == null && hide == null) null else TnoteMarker(icon, color, hide)
+    return if (type == null && icon == null && color == null && hide == null) {
+        null
+    } else {
+        TnoteMarker(type, icon, color, hide)
+    }
 }
 
 /**
@@ -641,9 +684,13 @@ internal fun VEvent.hasUnmodeledContent(descriptionIsOwn: Boolean = false): Bool
 /**
  * Осталась ли в DESCRIPTION жизнь вне нашего маркера: текст до префикса или
  * токен после префикса без формы «ключ=значение» — это набрал человек в другом
- * клиенте, и PUT маркером стёр бы его.
+ * клиенте, и PUT маркером стёр бы его. Общая проверка обоих транспортов:
+ * CalDAV-ресурса ([VEvent.hasUnmodeledContent]) и события Google
+ * ([ru.taurlom.tnote.data.sync.google.hasUnmodeledContent]) — канал описания
+ * у них один (DESCRIPTION/description), и закон «текст человека неприкосно-
+ * венен» тоже один.
  */
-private fun descriptionHasTextBeyondMarker(description: String): Boolean {
+internal fun descriptionHasTextBeyondMarker(description: String): Boolean {
     val start = description.indexOf(MARKER_PREFIX)
     if (start < 0) return description.isNotBlank()
     if (description.substring(0, start).isNotBlank()) return true
@@ -717,10 +764,15 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
 
     // Отменённые вхождения повтора (EXDATE): могут идти несколькими строками
     // и с перечислением через запятую; VALUE=DATE и точное время — обе формы.
+    // Значения с точным временем приводятся к зоне устройства, как якорь:
+    // у UTC/TZID-значений около полуночи литеральная дата момента и локальные
+    // сутки расходятся на день, и исключение без локализации легло бы не на
+    // тот день (рассогласованно с якорем, который локализуется всегда).
+    // Дневная и плавающая формы читаются календарным днём как есть.
     val exdates = properties
         .filter { it.name == Property.EXDATE }
         .flatMap { property -> (property as? ExDate)?.dates ?: emptyList() }
-        .mapNotNull { exception -> icsDay(exception.toString()) }
+        .mapNotNull { exception -> localDateTimeOf(exception)?.toLocalDate() ?: icsDay(exception.toString()) }
         .toSet()
 
     // Метки времени для разрешения конфликтов (этап 2, «последняя правка
@@ -732,8 +784,21 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
 
     val rule = (properties.byName(Property.RRULE) as? RRule)?.recur
 
+    // Маркер в DESCRIPTION — запасной канал метаданных для серверов без
+    // наших X-свойств: Яндекс режет X-TNOTE-* (проба 2026-11), у Google API
+    // их нет вовсе. X-TNOTE-* старше: сервер, донёсший их дословно, донёс
+    // и маркер — расхождения между каналами нет, а при неполной потере
+    // X-свойств именно они точнее.
+    val marker = tnoteMarkerFrom(properties.byName(Property.DESCRIPTION)?.value ?: "")
+
+    // Тип: X-TNOTE-TYPE → type= маркера → вывод по правилу (REPEATING,
+    // если правило выразимо) или REGULAR. Явное объявление типа помечает
+    // объект «своим» — эвристики имени (🎂/☀️ ниже) остаются только чужим
+    // событиям: пользовательское имя своего события тип переопределять
+    // не должно (баг 16).
     val declaredType = properties.byName(PROP_TYPE)?.value
         ?.let { value -> ScheduledEventType.entries.find { it.name == value } }
+        ?: marker?.type
     val frequency = rule?.getFrequency()?.name
 
     // Частота из FREQ; INTERVAL в RFC не обязателен — умолчание 1.
@@ -867,12 +932,6 @@ fun VEvent.toScheduledEvent(): ScheduledEvent? {
         else -> resolved
     }
 
-    // Маркер в DESCRIPTION — запасной канал метаданных для серверов без
-    // X-свойств (Яндекс). X-TNOTE-* старше: сервер, донёсший их дословно,
-    // донёс и маркер — расхождения между каналами нет, а при неполной
-    // потере X-свойств именно они точнее.
-    val marker = tnoteMarkerFrom(properties.byName(Property.DESCRIPTION)?.value ?: "")
-
     // Старшинство источников: X-TNOTE-* → маркер DESCRIPTION → дефолт.
     // «Скрыть прошлое» различает и явное «0» у X-свойства (присутствует,
     // но ложь) от отсутствия свойства (тогда решает маркер).
@@ -904,10 +963,14 @@ private fun icsDay(value: String): LocalDate? = runCatching { LocalDate.parse(va
 private fun ScheduledEvent.windowEnd(rule: Recur?): String? {
     // UNTIL бывает дневной («20260110»), с точным временем в форме нашей
     // вычитки («...T235959» плавающее) и в серверных полных формах с зоной
-    // («...T000000Z») — через строку достаём только дату: граница модели
-    // включает день целиком, время ограничителя её не меняет.
-    val until = rule?.getUntil()?.toString()?.take(8)
-        ?.let { compact -> runCatching { LocalDate.parse(compact, icsDate) }.getOrNull() }
+    // («...T210000Z»). Дневная и плавающая формы читаются календарным днём
+    // как есть (граница модели включает день целиком, время нашего
+    // ограничителя её не меняет); момент с зоной приводится к зоне
+    // устройства — то же правило, что у якоря DTSTART и EXDATE: у значений
+    // около полуночи литеральная дата момента и локальные сутки расходятся
+    // на день, и смешение правил сдвинуло бы границу относительно вхождений.
+    val untilValue = rule?.getUntil()
+    val until = untilValue?.let { localDateTimeOf(it)?.toLocalDate() ?: icsDay(it.toString()) }
     if (until != null) return until.toString()
     val count = rule?.getCount()?.takeIf { it > 0 } ?: return null
     return nthOccurrence(count)?.toString()

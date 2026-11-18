@@ -18,6 +18,7 @@ import ru.taurlom.tnote.domain.model.RepeatUnit
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
@@ -109,6 +110,69 @@ class GoogleEventJsonTest {
         val localEnd = OffsetDateTime.parse("2026-11-20T10:00:00+03:00")
             .atZoneSameInstant(ZoneId.systemDefault())
         assertEquals(localEnd.hour * 60 + localEnd.minute, parsed.endMinutes)
+    }
+
+    @Test
+    fun `naive dateTime with slot timeZone is interpreted in the event zone`() {
+        // Форма из контракта API: dateTime без offset + поле timeZone слота
+        // (для повторяющихся событий Google её и требует). Стенное время
+        // читается в зоне события, а не в зоне устройства — иначе встреча
+        // в другой стране показывалась бы по чужим часам, а у значений
+        // около полуночи сдвигалась бы и дата.
+        val event = googleJson(
+            "id" to "11111111-2222-3333-4444-555555555558",
+            "status" to "confirmed",
+            "summary" to "Созвон по калифорнийскому времени",
+            "start" to JSONObject()
+                .put("dateTime", "2026-11-20T10:00:00")
+                .put("timeZone", "America/Los_Angeles"),
+            "end" to JSONObject()
+                .put("dateTime", "2026-11-20T11:00:00")
+                .put("timeZone", "America/Los_Angeles"),
+        )
+        val parsed = googleEventToVEvent(event)?.toScheduledEvent() ?: error("VEVENT не распознан")
+        val expectedStart = LocalDateTime.parse("2026-11-20T10:00:00")
+            .atZone(ZoneId.of("America/Los_Angeles"))
+            .withZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(expectedStart.toLocalDate().toString(), parsed.date)
+        assertEquals(expectedStart.hour * 60 + expectedStart.minute, parsed.startMinutes)
+        assertEquals(expectedStart.plusHours(1).hour * 60 + expectedStart.plusHours(1).minute, parsed.endMinutes)
+    }
+
+    @Test
+    fun `naive dateTime without timeZone keeps wall clock`() {
+        // Без timeZone слота стенное время сохраняется как есть — прежнее
+        // поведение, зона устройства.
+        val event = googleJson(
+            "id" to "11111111-2222-3333-4444-555555555559",
+            "status" to "confirmed",
+            "summary" to "Локальная встреча",
+            "start" to JSONObject().put("dateTime", "2026-11-20T10:00:00"),
+            "end" to JSONObject().put("dateTime", "2026-11-20T11:00:00"),
+        )
+        val parsed = googleEventToVEvent(event)?.toScheduledEvent() ?: error("VEVENT не распознан")
+        assertEquals("2026-11-20", parsed.date)
+        assertEquals(10 * 60, parsed.startMinutes)
+        assertEquals(11 * 60, parsed.endMinutes)
+    }
+
+    @Test
+    fun `offset in dateTime wins over slot timeZone`() {
+        // Смещение в самой строке однозначно и старше поля timeZone:
+        // момент приводится к зоне устройства независимо от имени зоны слота.
+        val event = googleJson(
+            "id" to "11111111-2222-3333-4444-555555555560",
+            "status" to "confirmed",
+            "summary" to "Созвон",
+            "start" to JSONObject()
+                .put("dateTime", "2026-11-20T10:00:00+03:00")
+                .put("timeZone", "America/Los_Angeles"),
+        )
+        val parsed = googleEventToVEvent(event)?.toScheduledEvent() ?: error("VEVENT не распознан")
+        val expected = OffsetDateTime.parse("2026-11-20T10:00:00+03:00")
+            .atZoneSameInstant(ZoneId.systemDefault())
+        assertEquals(expected.toLocalDate().toString(), parsed.date)
+        assertEquals(expected.hour * 60 + expected.minute, parsed.startMinutes)
     }
 
     @Test
@@ -337,11 +401,27 @@ class GoogleEventJsonTest {
             "recurrence" to org.json.JSONArray().put("RDATE:20261125"),
             "guestsCanModify" to true,
             "guestsCanInviteOthers" to false,
+            // Описание, набранное человеком: наш PUT перезаписывает description
+            // целиком (маркером [T-Note]) — текст был бы стёрт.
+            "description" to "Встреча у входа, подробности письмом",
         )
         extras.forEach { (key, value) ->
             val json = googleJson("id" to "x", "summary" to "Встреча", key to value)
             assertTrue("«$key» — данные вне модели", json.hasUnmodeledContent())
         }
+        // Явное «без напоминаний» (useDefault=false, overrides пуст) — тоже
+        // выбор человека: наш PUT reminders не отправляет, Google вернул бы
+        // напоминания по умолчанию календаря.
+        assertTrue(
+            googleJson("id" to "x", "reminders" to org.json.JSONObject().put("useDefault", false))
+                .hasUnmodeledContent(),
+        )
+        // Человеческий текст вокруг нашего маркера — тот же закон: маркер не
+        // делает описание своим.
+        assertTrue(
+            googleJson("id" to "x", "description" to "[T-Note] icon=NOTE\nИ не забыть зонт")
+                .hasUnmodeledContent(),
+        )
     }
 
     @Test
@@ -357,6 +437,24 @@ class GoogleEventJsonTest {
                 "recurrence" to org.json.JSONArray().put("RRULE:FREQ=DAILY;COUNT=5").put("EXDATE:20261125"),
             ).hasUnmodeledContent(),
         )
+        // Напоминания по умолчанию — не выбор человека, их перезапись ничего
+        // не меняет.
+        assertFalse(
+            googleJson("id" to "x", "reminders" to org.json.JSONObject().put("useDefault", true))
+                .hasUnmodeledContent(),
+        )
+        // Наш собственный маркер в description — служебная строка, а не
+        // человеческий текст: собственный экспорт обязан оставаться записываемым.
+        assertFalse(
+            googleJson("id" to "x", "description" to "[T-Note] icon=NOTE color=#FFE53935")
+                .hasUnmodeledContent(),
+        )
+        // У носителя заметки («✍️») description — payload самого объекта:
+        // экспорт воспроизводит его дословно, чужими данными он не служит.
+        assertFalse(
+            googleJson("id" to "x", "description" to "Текст заметки дня")
+                .hasUnmodeledContent(descriptionIsOwn = true),
+        )
         // Наш собственный экспорт обязан оставаться записываемым.
         val own = veventToGoogleJson(
             ScheduledEvent(
@@ -368,6 +466,57 @@ class GoogleEventJsonTest {
             ).toIcsEvent(),
         )
         assertFalse(own.hasUnmodeledContent())
+    }
+
+    @Test
+    fun `original occurrence day prefers originalStartTime`() {
+        // Перенесённое вхождение: исходный слот — в originalStartTime,
+        // собственное начало уже новое.
+        val moved = googleJson(
+            "id" to "master_R20261119",
+            "recurringEventId" to "master",
+            "originalStartTime" to dayJson("2026-11-19"),
+            "start" to dayJson("2026-11-21"),
+        )
+        assertEquals(LocalDate.parse("2026-11-19"), moved.originalOccurrenceDay())
+
+        // Отменённое вхождение: originalStartTime может отсутствовать —
+        // тогда исходный слот это собственное начало экземпляра.
+        val cancelled = googleJson(
+            "id" to "master_R20261119",
+            "recurringEventId" to "master",
+            "status" to "cancelled",
+            "start" to dayJson("2026-11-19"),
+        )
+        assertEquals(LocalDate.parse("2026-11-19"), cancelled.originalOccurrenceDay())
+
+        // Вхождение со временем: день — по локальной дате момента в зоне
+        // устройства (то же правило, что у разбора событий).
+        val timed = googleJson(
+            "start" to org.json.JSONObject().put("dateTime", "2026-11-19T09:00:00+03:00"),
+        )
+        assertEquals(
+            OffsetDateTime.parse("2026-11-19T09:00:00+03:00")
+                .atZoneSameInstant(ZoneId.systemDefault()).toLocalDate(),
+            timed.originalOccurrenceDay(),
+        )
+
+        // Слот с naive-временем и timeZone: стенное время читается в зоне
+        // события (та же локализация, что у разбора событий).
+        val naiveWithZone = googleJson(
+            "originalStartTime" to org.json.JSONObject()
+                .put("dateTime", "2026-11-19T23:30:00")
+                .put("timeZone", "Europe/Moscow"),
+        )
+        assertEquals(
+            LocalDateTime.parse("2026-11-19T23:30:00")
+                .atZone(ZoneId.of("Europe/Moscow"))
+                .withZoneSameInstant(ZoneId.systemDefault()).toLocalDate(),
+            naiveWithZone.originalOccurrenceDay(),
+        )
+
+        // Ни начала, ни исходного слота — дня нет.
+        assertNull(googleJson("id" to "x").originalOccurrenceDay())
     }
 
     @Test
