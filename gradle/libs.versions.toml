@@ -37,7 +37,7 @@ play-services-auth = "21.3.0"
 # Парсеры, которые тянет вендоренный модуль richeditor-compose
 # (см. README.md модуля): разбор HTML и markdown в RichTextState.
 ksoup = "0.6.0"
-jetbrains-markdown = "0.7.9"
+jetbrains-markdown = "0.7.18"
 desugar-jdk-libs = "2.1.5"
 # Разбор iCalendar (VEVENT/RRULE) для CalDAV-синхронизации (Этап 0).
 # Ветка 3.2.x — проверенная на Android; «наполняющая» часть календаря-данных
