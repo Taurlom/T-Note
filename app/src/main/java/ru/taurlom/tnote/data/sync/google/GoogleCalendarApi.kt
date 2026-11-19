@@ -178,11 +178,13 @@ class GoogleCalendarApi @Inject constructor(
         val response = request(method, url, username, json, ifMatch)
         // Коды движения: 2xx — успех; «идентификатор занят» при первой
         // публикации и несовпавший If-Match на обновлении — 412 (движок
-        // перечитает и решит LWW); 5xx — временный сбой, движок отложит
-        // строку до следующего прогона; прочие 4xx — постоянный отказ:
-        // наружу с телом и названием события, карточка аккаунта покажет
-        // причину (молча-деферить 400 нельзя — повторится вечно; так
-        // нашлась и причина 400 — дефисы в id).
+        // перечитает и решит LWW); 404/410 — объекта уже нет, движок
+        // перечитает и при необходимости создаст заново; 5xx и 429 —
+        // временный сбой, движок отложит строку до следующего прогона.
+        // Остальные 4xx — постоянный отказ конкретному телу (400 «Invalid
+        // recurrence rule», 422 и т.п.): [CaldavSyncException.RowRejected]
+        // оставляет строку в очереди, но не рвёт отправку следующих. 401/403
+        // — отказ аккаунту, а не строке: прогон останавливается целиком.
         when {
             response.code in 200..299 -> Unit
 
@@ -191,17 +193,23 @@ class GoogleCalendarApi @Inject constructor(
 
             response.code == 412 -> return CaldavWriteResponse(412, null)
 
-            response.code in 500..599 -> return CaldavWriteResponse(response.code, null)
+            response.code == 404 || response.code == 410 -> return CaldavWriteResponse(404, null)
 
-            else -> throw CaldavSyncException.Server(
-                buildString {
+            response.code in 500..599 || response.code == 429 -> return CaldavWriteResponse(response.code, null)
+
+            else -> {
+                val message = buildString {
                     append("Google не принял событие (").append(method)
                     append(" ").append(response.code).append(")")
                     vevent.properties.byName(Property.SUMMARY)?.value
                         ?.let { append(" «").append(it).append("»") }
                     append(": ").append(response.body.take(160))
-                },
-            )
+                }
+                if (response.code == 401 || response.code == 403) {
+                    throw CaldavSyncException.Server(message)
+                }
+                throw CaldavSyncException.RowRejected(message)
+            }
         }
         val responseEtag = runCatching { JSONObject(response.body).optString("etag") }
             .getOrNull()?.takeIf { it.isNotEmpty() }
@@ -223,16 +231,22 @@ class GoogleCalendarApi @Inject constructor(
             googleIfMatch(etag),
         )
         // 410 Gone («уже отменено») для движка неотличимо от «и так нет»;
-        // 412 — конфликт, его разрешение на движке; 5xx — временный сбой;
-        // прочие 4xx — постоянный отказ с телом наружу.
+        // 412 — конфликт, его разрешение на движке; 5xx/429 — временный сбой;
+        // 401/403 — отказ аккаунту; прочие 4xx — постоянный отказ конкретному
+        // tombstone ([CaldavSyncException.RowRejected]), остальные удаления
+        // продолжаются.
         return when {
             response.code == 410 -> 404
 
             response.code in 200..299 || response.code == 404 || response.code == 412 -> response.code
 
-            response.code in 500..599 -> response.code
+            response.code in 500..599 || response.code == 429 -> response.code
 
-            else -> throw CaldavSyncException.Server(
+            response.code == 401 || response.code == 403 -> throw CaldavSyncException.Server(
+                "Google не удалил событие (HTTP ${response.code}): ${response.body.take(200)}",
+            )
+
+            else -> throw CaldavSyncException.RowRejected(
                 "Google не удалил событие (HTTP ${response.code}): ${response.body.take(200)}",
             )
         }

@@ -87,6 +87,15 @@ sealed class CaldavSyncException(message: String, cause: Throwable? = null) : Ex
 
     /** Сервер отвечает, но протокол нарушен (HTTP != 2xx, битый XML/ICS). */
     class Server(message: String) : CaldavSyncException(message)
+
+    /**
+     * Сервер отверг конкретный объект (HTTP 400 и родня): повтор того же
+     * тела не поможет, но остальные строки очереди должны доехать. Движок
+     * оставляет строку dirty и показывает причину на карточке подписки;
+     * следующий прогон повторит попытку, чтобы исправленная пользователем
+     * строка ушла без отдельной команды.
+     */
+    class RowRejected(message: String) : CaldavSyncException(message)
 }
 
 /**

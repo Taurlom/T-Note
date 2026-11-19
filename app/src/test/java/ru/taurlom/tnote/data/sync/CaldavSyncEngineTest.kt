@@ -771,6 +771,33 @@ class CaldavSyncEngineTest {
     }
 
     @Test
+    fun `permanently rejected row does not block later pushes`() = runBlocking {
+        val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"), remoteEvent("u2"))))
+        engine(api).sync(account, "pwd")
+
+        // Две правки в очереди: первая — «плохая» (Google ответил 400 на
+        // годовое правило), вторая должна уехать этим же прогоном.
+        markDirty(fakeEventDao.rows[0].id, modifiedAt = 500, title = "Плохая")
+        markDirty(fakeEventDao.rows[1].id, modifiedAt = 501, title = "Хорошая")
+        api.putErrors += CaldavSyncException.RowRejected(
+            "Google не принял событие (POST 400) «Плохая»: Invalid recurrence rule.",
+        )
+
+        val result = engine(api).sync(account, "pwd")
+
+        // Оба PUT'а состоялись: постоянный отказ первой строки не оборвал
+        // прогон и не заблокировал вторую (и следующие tombstones).
+        assertEquals(2, api.putCalls.size)
+        assertEquals(1, result.pushed)
+        assertTrue(fakeEventDao.rows.first { it.title == "Плохая" }.dirty)
+        assertFalse(fakeEventDao.rows.first { it.title == "Хорошая" }.dirty)
+        // Причина постоянного отказа — на карточке, а не «сбой сервера».
+        val error = fakeCaldavDao.lastError.orEmpty()
+        assertTrue(error.contains("Отклонено сервером: 1"))
+        assertTrue(error.contains("Invalid recurrence rule"))
+    }
+
+    @Test
     fun `tombstone keeps deleted event away from pull and clears after delete`() = runBlocking {
         val api = FakeApi(CaldavPull(listOf(remoteEvent("u1"))))
         engine(api).sync(account, "pwd")
@@ -1919,6 +1946,9 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
     /** Очередь ответов PUT; когда кончилась — «успех 204 со свежим ETag». */
     val putResults = mutableListOf<CaldavWriteResponse>()
 
+    /** Очередь постоянных отказов PUT: строка отвергнута, очередь не рвётся. */
+    val putErrors = mutableListOf<CaldavSyncException.RowRejected>()
+
     /** Скриптованный ответ точечной вычитки (конфликтный путь 412/404). */
     var cannedPullEvent: CaldavObjectResult = CaldavObjectResult.NotFound
 
@@ -1945,6 +1975,7 @@ private class FakeApi(pull: CaldavPull) : CaldavApi {
         createIfAbsent: Boolean,
     ): CaldavWriteResponse {
         putCalls += PutCall(url, etag, createIfAbsent, ics)
+        putErrors.removeFirstOrNull()?.let { throw it }
         onPut?.invoke()
         return putResults.removeFirstOrNull() ?: CaldavWriteResponse(204, "\"pushed-$etag\"")
     }

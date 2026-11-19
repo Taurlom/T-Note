@@ -675,6 +675,14 @@ class EventIcsMapperTest {
         assertEquals(source.copy(position = 0, id = 0), parsed)
         assertFalse(parsed.occursOn(LocalDate.parse("2026-11-30")))
         assertTrue(parsed.occursOn(LocalDate.parse("2026-12-07")))
+        // VALUE=DATE уже приходит из DateList: параметр не дублируется,
+        // иначе Google отвечает 400 «Invalid recurrence rule».
+        val exdate = eventCalendar(listOf(source.toIcsEvent())).icsText()
+            .lineSequence()
+            .map { it.trim() }
+            .first { it.startsWith("EXDATE") }
+        assertEquals("EXDATE;VALUE=DATE:20261130,20261214", exdate)
+        assertEquals(1, Regex("VALUE=DATE").findAll(exdate).count())
     }
 
     @Test

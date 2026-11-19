@@ -37,13 +37,13 @@ fun interface SyncTransaction {
  * вне модели или исключения серии) — PUT стёр бы их, поэтому правка
  * остаётся локальной и ждёт, пока объект станет простой.
  */
-private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred, Stale, Protected }
+private enum class PushOutcome { Pushed, Overwritten, Skipped, Deferred, Stale, Protected, Rejected }
 
 /** Доехала ли правка до сервера этим прогоном (или сервер принял свою копию). */
 private val PushOutcome.reachedServer: Boolean
     get() = when (this) {
         PushOutcome.Pushed, PushOutcome.Overwritten, PushOutcome.Stale -> true
-        PushOutcome.Skipped, PushOutcome.Deferred, PushOutcome.Protected -> false
+        PushOutcome.Skipped, PushOutcome.Deferred, PushOutcome.Protected, PushOutcome.Rejected -> false
     }
 
 /**
@@ -172,9 +172,10 @@ private val PushOutcome.reachedServer: Boolean
  * уходят с UTF-8 BOM: без него сервер декодирует их как cp1252 и хранит
  * кракозябры (charset=... он игнорирует во всех формах), а имена, уже
  * испорченные таким декодированием (чужие клиенты без BOM, старые наши
- * PUT-ы), чинятся при разборе (repairMojibake). Временные сбои (5xx) не
- * рвут прогон: строка остаётся в очереди, DELETE tombstones всё равно
- * доходят, в настройках остаётся след незавершённого прогона.
+ * PUT-ы), чинятся при разборе (repairMojibake). Временные сбои (5xx) и
+ * постоянные отказы конкретной строке (4xx «invalid») не рвут прогон:
+ * строка остаётся в очереди, остальные PUT и DELETE tombstones доходят,
+ * в настройках остаётся след незавершённого прогона.
  */
 @Singleton
 class CaldavSyncEngine @Inject constructor(
@@ -358,6 +359,15 @@ class CaldavSyncEngine @Inject constructor(
         // в resurrected и доносится снеком, молча это не проходит. На неполной
         // вычитке «нет в списке» значит «мы не прочли», поэтому не отмечаем.
         var resurrected = 0
+        // Постоянные отказы сервера конкретным строкам (HTTP 4xx «invalid»):
+        // строку не бросаем и очередь не рвём — остальные события и удаления
+        // должны доехать этим же прогоном, а причина остаётся на карточке.
+        var rejected = 0
+        val rejectionReasons = mutableListOf<String>()
+        fun recordRejection(error: CaldavSyncException.RowRejected) {
+            rejected++
+            if (rejectionReasons.size < 3) rejectionReasons += error.message.orEmpty()
+        }
         val absentEvents = mutableSetOf<String>()
         val absentNoteDates = mutableSetOf<String>()
         if (pulled.complete) {
@@ -378,7 +388,12 @@ class CaldavSyncEngine @Inject constructor(
             val outcome = if (row.uid in protectedUids || (foreignFrozen && row.remoteImported)) {
                 PushOutcome.Protected
             } else {
-                pushRow(account, row, password, transport)
+                try {
+                    pushRow(account, row, password, transport)
+                } catch (error: CaldavSyncException.RowRejected) {
+                    recordRejection(error)
+                    PushOutcome.Rejected
+                }
             }
             // Deferred/Skipped/Protected — на сервере ничего не оказалось:
             // удаление той же идентичности остаётся законным (оно и было
@@ -403,6 +418,9 @@ class CaldavSyncEngine @Inject constructor(
                 PushOutcome.Deferred -> deferred++
 
                 PushOutcome.Protected -> protectedRows++
+
+                // Счёт и причина уже записаны в catch: строка осталась dirty.
+                PushOutcome.Rejected -> Unit
             }
         }
         for (row in noteDao.getDirtyFor(account.id)) {
@@ -414,7 +432,12 @@ class CaldavSyncEngine @Inject constructor(
             val outcome = if (carrierUid in protectedUids) {
                 PushOutcome.Protected
             } else {
-                pushNoteRow(account, row, password, transport)
+                try {
+                    pushNoteRow(account, row, password, transport)
+                } catch (error: CaldavSyncException.RowRejected) {
+                    recordRejection(error)
+                    PushOutcome.Rejected
+                }
             }
             if (outcome.reachedServer) {
                 published += carrierUid
@@ -434,6 +457,9 @@ class CaldavSyncEngine @Inject constructor(
                 PushOutcome.Deferred -> deferred++
 
                 PushOutcome.Protected -> protectedRows++
+
+                // Счёт и причина уже записаны в catch: строка осталась dirty.
+                PushOutcome.Rejected -> Unit
             }
         }
 
@@ -450,7 +476,14 @@ class CaldavSyncEngine @Inject constructor(
             }
             val href = tombstone.href ?: transport.objectHref(account.collectionUrl, tombstone.uid)
             requireAccountOrigin(account, href)
-            val code = transport.deleteEvent(href, account.username, password, tombstone.etag)
+            val code = try {
+                transport.deleteEvent(href, account.username, password, tombstone.etag)
+            } catch (error: CaldavSyncException.RowRejected) {
+                // Постоянный отказ конкретному tombstone: остальные удаления
+                // продолжаются, запись остаётся до следующего прогона.
+                recordRejection(error)
+                continue
+            }
             when (code) {
                 in 200..299, 404 -> {
                     // 204 — удалено; 404 — «и так нет»: очистка очереди
@@ -492,7 +525,12 @@ class CaldavSyncEngine @Inject constructor(
                             } else {
                                 // Удаление — последняя операция (или метка
                                 // сервера неизвестна): подтверждаем безусловно.
-                                val confirm = transport.deleteEvent(href, account.username, password, etag = null)
+                                val confirm = try {
+                                    transport.deleteEvent(href, account.username, password, etag = null)
+                                } catch (error: CaldavSyncException.RowRejected) {
+                                    recordRejection(error)
+                                    continue
+                                }
                                 when (confirm) {
                                     in 200..299, 404 -> {
                                         tx.inTransaction { tombstoneDao.deleteForIdentity(tombstone.uid, account.id) }
@@ -524,6 +562,10 @@ class CaldavSyncEngine @Inject constructor(
             }
             if (protectedRows > 0) {
                 add("Без отправки: $protectedRows (данные сервера вне модели — правки только локально)")
+            }
+            if (rejected > 0) {
+                val detail = rejectionReasons.firstOrNull()?.let { " — $it" }.orEmpty()
+                add("Отклонено сервером: $rejected (осталось в очереди)$detail")
             }
         }
         caldavDao.markSynced(account.id, clock.millis())

@@ -286,12 +286,37 @@ fun veventToGoogleJson(vevent: VEvent): JSONObject {
     // created/updated — read-only у Google (сами проставит); X-TNOTE-* он
     // не хранит — отделка едет маркером в description, как у Яндекса.
     val recurrence = JSONArray()
+    // Годовое правило дня рождения получает явные селекторы месяца и дня:
+    // голый FREQ=YEARLY Google принимает не во всех формах, а для 29 февраля
+    // документировано «последний день февраля» (BYMONTHDAY=-1) — та же дата,
+    // которую модель показывает в невисокосные годы.
+    val allDayStart = (vevent.properties.byName(Property.DTSTART) as? DtStart)
+        ?.takeIf { it.getDate() !is DateTime }
+        ?.let { googleDayValue(it.value) }
     // Property.toString() рендерится с хвостовым переводом строки —
     // строки recurrence обязаны быть чистыми.
-    vevent.properties.filterIsInstance<RRule>().forEach { recurrence.put(it.toString().trim()) }
+    vevent.properties.filterIsInstance<RRule>().forEach { recurrence.put(googleRule(it, allDayStart)) }
     vevent.properties.filterIsInstance<ExDate>().forEach { recurrence.put(it.toString().trim()) }
     if (recurrence.length() > 0) json.put("recurrence", recurrence)
     return json
+}
+
+/**
+ * RRULE для Google. Наш день рождения — единственное событие с голым
+ * FREQ=YEARLY: у повторений экспорт всегда пишет INTERVAL. Для годового
+ * all-day правила Google получает явные BYMONTH/BYMONTHDAY, а 29 февраля —
+ * BYMONTHDAY=-1 («последний день февраля»), ровно как модель показывает
+ * такой день рождения в невисокосные годы.
+ */
+private fun googleRule(rule: RRule, allDayStart: LocalDate?): String {
+    val value = rule.value.trim()
+    if (value != "FREQ=YEARLY" || allDayStart == null) return "RRULE:$value"
+    val monthDay = if (allDayStart.monthValue == 2 && allDayStart.dayOfMonth == 29) {
+        -1
+    } else {
+        allDayStart.dayOfMonth
+    }
+    return "RRULE:FREQ=YEARLY;BYMONTH=${allDayStart.monthValue};BYMONTHDAY=$monthDay"
 }
 
 /**
@@ -321,9 +346,10 @@ private fun exDateFrom(line: String): ExDate {
             },
         )
     }
-    val exDate = ExDate(list)
-    if (!timed) exDate.parameters.add(net.fortuna.ical4j.model.parameter.Value.DATE)
-    return exDate
+    // VALUE=DATE уже приходит из DateList(Value.DATE): ExDate копирует тип
+    // списка в параметры. Явное добавление дублировало параметр
+    // («VALUE=DATE;VALUE=DATE») и делало EXDATE невалидным.
+    return ExDate(list)
 }
 
 /**

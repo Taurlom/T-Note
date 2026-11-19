@@ -277,6 +277,49 @@ class GoogleEventJsonTest {
     }
 
     @Test
+    fun `own birthday goes to google with explicit yearly selectors`() {
+        val source = ScheduledEvent(
+            uid = "bbbbbbb1-0000-0000-0000-000000000002",
+            date = "1988-08-09",
+            title = "ДР Маши",
+            type = ScheduledEventType.BIRTHDAY,
+        )
+        val vevent = parseIcs(eventCalendar(listOf(source.toIcsEvent())).icsText())
+            ?.vevents()?.single() ?: error("ICS не разобрался")
+        val recurrence = veventToGoogleJson(vevent).getJSONArray("recurrence")
+
+        assertEquals(1, recurrence.length())
+        assertEquals("RRULE:FREQ=YEARLY;BYMONTH=8;BYMONTHDAY=9", recurrence.getString(0))
+    }
+
+    @Test
+    fun `leap day birthday and its exdate are valid google recurrence`() {
+        val source = ScheduledEvent(
+            uid = "bbbbbbb1-0000-0000-0000-000000000003",
+            date = "1984-02-29",
+            title = "Павел",
+            type = ScheduledEventType.BIRTHDAY,
+            exdates = setOf(LocalDate.parse("2025-02-28")),
+        )
+        val vevent = parseIcs(eventCalendar(listOf(source.toIcsEvent())).icsText())
+            ?.vevents()?.single() ?: error("ICS не разобрался")
+        val json = veventToGoogleJson(vevent)
+        val recurrence = json.getJSONArray("recurrence")
+        val lines = (0 until recurrence.length()).map { index -> recurrence.getString(index) }
+
+        // 29 февраля в невисокосные годы — 28-е: правило Google «последний
+        // день февраля» делает наш EXDATE допустимым вхождением.
+        assertTrue(lines.contains("RRULE:FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=-1"))
+        assertTrue(lines.contains("EXDATE;VALUE=DATE:20250228"))
+        assertFalse(lines.any { it.contains("VALUE=DATE;VALUE=DATE") })
+        // Явный маркер типа переживает Google: обратный разбор остаётся ДР.
+        val parsed = googleEventToVEvent(json)?.toScheduledEvent() ?: error("JSON не распознан")
+        assertEquals(ScheduledEventType.BIRTHDAY, parsed.type)
+        assertEquals("1984-02-29", parsed.date)
+        assertEquals(setOf(LocalDate.parse("2025-02-28")), parsed.exdates)
+    }
+
+    @Test
     fun `own event round trips through google json`() {
         val source = ScheduledEvent(
             uid = "11111111-2222-3333-4444-555555555555",

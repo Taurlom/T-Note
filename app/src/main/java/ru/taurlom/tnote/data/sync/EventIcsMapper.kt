@@ -222,10 +222,12 @@ fun ScheduledEvent.toIcsEvent(): VEvent {
                     list.add(Date(day.format(icsDate), "yyyyMMdd"))
                 }
             }
-            val exDateProp = ExDate(list)
-            // DATE-TIME — тип по умолчанию, параметром не пишем; DATE — явный.
-            if (exDateSpan == null) exDateProp.parameters.add(Value.DATE)
-            properties.add(exDateProp)
+            // VALUE=DATE уже переносит сам DateList(Value.DATE): конструктор
+            // ExDate копирует тип списка в параметры. Повторное добавление
+            // давало «EXDATE;VALUE=DATE;VALUE=DATE:…» — невалидное по RFC
+            // свойство, на котором Google отвечает 400 «Invalid recurrence
+            // rule». DATE-TIME — тип по умолчанию, параметром не пишется.
+            properties.add(ExDate(list))
         }
         // Метки времени для разрешения конфликтов: DTSTAMP («когда объект
         // перезаписан») ical4j ставит сам, CREATED и LAST-MODIFIED — наши
