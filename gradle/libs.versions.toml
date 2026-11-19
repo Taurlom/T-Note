@@ -29,7 +29,7 @@ room = "2.8.5"
 work = "2.12.0"
 coil = "2.7.0"
 # Транспорт CalDAV: OkHttp — протокол WebDAV/CalDAV живёт поверх HTTP.
-okhttp = "4.12.0"
+okhttp = "5.5.1"
 # OAuth-токены Google Calendar API: GoogleAuthUtil из Play Services
 # (Android-клиент OAuth, package + SHA-1; токен короткоживущий, кеш
 # и обновление — внутри GoogleAuthUtil).
