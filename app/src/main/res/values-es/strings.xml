@@ -346,6 +346,16 @@
     <string name="crop">Recortar</string>
     <string name="prev_month">Mes anterior</string>
     <string name="next_month">Mes siguiente</string>
+    <string name="prev_period">Período anterior</string>
+    <string name="next_period">Período siguiente</string>
+
+    <!-- Modos de visualización del calendario -->
+    <string name="calendar_mode_month">Mes</string>
+    <string name="calendar_mode_week">Semana</string>
+    <string name="calendar_mode_day">Día</string>
+    <string name="calendar_week_events">Eventos de la semana</string>
+    <string name="calendar_day_events">Eventos del día</string>
+    <string name="calendar_no_events">No hay eventos</string>
     <string name="delete_task_confirm">¿Eliminar «%1$s»?</string>
     <string name="delete_category_confirm">¿Eliminar la lista «%1$s»? También se eliminarán todos sus elementos.</string>
     <string name="delete_document_confirm">¿Eliminar el documento «%1$s»?</string>

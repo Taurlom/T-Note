@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,49 +58,75 @@ class CalendarViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
-    private var monthDataJob: Job? = null
+    private var dataJob: Job? = null
 
     init {
-        loadMonthData()
+        loadData()
     }
 
-    private fun loadMonthData() {
-        monthDataJob?.cancel()
-        val yearMonth = _uiState.value.yearMonth
-        val prefix = yearMonth.monthPrefix()
-        val month = YearMonth.of(yearMonth.year, yearMonth.month)
-        monthDataJob = combine(
-            getNotesByMonthUseCase(prefix),
-            getEventsByMonthUseCase(month),
+    /** Заметки сразу всех месяцев видимого периода, одним словарём. */
+    private fun notesFlow(months: List<YearMonth>): Flow<Map<String, CalendarNote>> = months.map { month ->
+        getNotesByMonthUseCase(month.toMonthPrefix())
+            .map { notes -> notes.associateBy { it.date } }
+    }.reduce { acc, flow -> acc.combine(flow) { left, right -> left + right } }
+
+    /** События всех месяцев видимого периода, одним списком. */
+    private fun eventsFlow(months: List<YearMonth>): Flow<List<ScheduledEvent>> = months.map { getEventsByMonthUseCase(it) }
+        .reduce { acc, flow -> acc.combine(flow) { left, right -> left + right } }
+
+    private fun loadData() {
+        dataJob?.cancel()
+        // Снимок состояния нужен, чтобы перезагрузка данных (в том числе
+        // от Room при сохранении) не сбросила вкладку и опорную дату.
+        val state = _uiState.value
+        val months = state.visibleYearMonths()
+        dataJob = combine(
+            notesFlow(months),
+            eventsFlow(months),
             getBirthdayEventsUseCase(),
             getRepeatingEventsUseCase(),
             getWeekendDatesUseCase(),
         ) { notes, monthEvents, birthdays, repeating, weekendDates ->
-            CalendarUiState(
-                yearMonth = yearMonth,
-                notes = notes.associateBy { it.date },
-                // Разворот вхождений — EventExpander: те же правила живут
-                // и в сводке дня (GetEventsForDateUseCase), двух копий
-                // закона не держим.
-                events = EventExpander.forMonth(
+            val events = months.fold(emptyMap<String, List<ScheduledEvent>>()) { acc, month ->
+                acc + EventExpander.forMonth(
                     monthEvents = monthEvents,
                     birthdays = birthdays,
                     repeating = repeating,
-                    year = yearMonth.year,
-                    month = yearMonth.month,
+                    year = month.year,
+                    month = month.monthValue,
                     today = LocalDate.now(),
-                ),
+                )
+            }
+            state.copy(
+                notes = notes,
+                events = events,
                 weekendDates = weekendDates,
             )
         }
-            .onEach { state -> _uiState.value = state }
+            .onEach { updated ->
+                // Старая подписка может успеть испустить значение между
+                // сменой периода и отменой job — не даём ей вернуть старый
+                // режим/дату.
+                _uiState.update { current ->
+                    if (current.mode == updated.mode &&
+                        current.anchorDate == updated.anchorDate &&
+                        current.yearMonth == updated.yearMonth
+                    ) {
+                        updated
+                    } else {
+                        current
+                    }
+                }
+            }
             .launchIn(viewModelScope)
     }
 
     fun onEvent(event: CalendarEvent) {
         when (event) {
-            CalendarEvent.PreviousMonth -> shiftMonth(-1)
-            CalendarEvent.NextMonth -> shiftMonth(1)
+            CalendarEvent.PreviousMonth -> shiftPeriod(-1)
+            CalendarEvent.NextMonth -> shiftPeriod(1)
+            is CalendarEvent.ChangeMode -> changeMode(event.mode)
+            is CalendarEvent.ShiftPeriod -> shiftPeriod(event.delta)
             is CalendarEvent.SaveNote -> saveNote(event.date, event.text)
             is CalendarEvent.DeleteDay -> deleteDay(event.date)
             is CalendarEvent.AddEvent -> addEvent(event.date, event.event)
@@ -108,9 +135,48 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
-    private fun shiftMonth(delta: Int) {
-        _uiState.update { it.copy(yearMonth = it.yearMonth.plusMonths(delta)) }
-        loadMonthData()
+    private fun changeMode(mode: CalendarViewMode) {
+        val previousMode = _uiState.value.mode
+        if (previousMode == mode) return
+        _uiState.update { state ->
+            when (mode) {
+                CalendarViewMode.MONTH -> state.copy(
+                    mode = mode,
+                    yearMonth = CalendarYearMonth(state.anchorDate.year, state.anchorDate.monthValue),
+                )
+
+                else -> {
+                    // Из месяца в неделю/день всегда попадаем на сегодняшний
+                    // день, а не на первую неделю показанного месяца.
+                    val anchor = if (previousMode == CalendarViewMode.MONTH) {
+                        LocalDate.now()
+                    } else {
+                        state.anchorDate
+                    }
+                    state.copy(mode = mode, anchorDate = anchor)
+                }
+            }
+        }
+        loadData()
+    }
+
+    private fun shiftPeriod(delta: Int) {
+        _uiState.update { state ->
+            when (state.mode) {
+                CalendarViewMode.MONTH -> {
+                    val next = state.yearMonth.plusMonths(delta)
+                    state.copy(
+                        yearMonth = next,
+                        anchorDate = next.toYearMonth().atDay(1),
+                    )
+                }
+
+                CalendarViewMode.WEEK -> state.copy(anchorDate = state.anchorDate.plusWeeks(delta.toLong()))
+
+                CalendarViewMode.DAY -> state.copy(anchorDate = state.anchorDate.plusDays(delta.toLong()))
+            }
+        }
+        loadData()
     }
 
     private fun saveNote(date: String, text: String) {

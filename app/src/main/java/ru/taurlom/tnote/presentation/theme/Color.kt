@@ -42,7 +42,7 @@ internal val LightNav = Color(0xFFFAF9F5) // слегка отличимый ф�
 internal val LightSelected = Color(0xFFE2E5DA) // ненавязчивое выделение
 internal val LightOutline = Color(0xFF92978F) // границы полей и контролов
 internal val LightRed = Color(0xFFB7655A) // приглушённый красный маркер
-internal val LightFab = Color(0xFFE8D19A) // мягкий песочный фон FAB
+internal val LightAccent = Color(0xFF9AA5B0) // мягкий песочный фон FAB
 
 // ─── Примитивы светлой темы «Атлас» ────────────────────────────────
 internal val AtlasPaper = Color(0xFFF3F0E6) // бумажный фон

@@ -5,6 +5,13 @@ import ru.taurlom.tnote.domain.model.ScheduledEvent
 sealed class CalendarEvent {
     data object PreviousMonth : CalendarEvent()
     data object NextMonth : CalendarEvent()
+
+    /** Переключение вкладки «Месяц / Неделя / День». */
+    data class ChangeMode(val mode: CalendarViewMode) : CalendarEvent()
+
+    /** Сдвиг на один период вперёд (+) или назад (−): месяц, неделю или день. */
+    data class ShiftPeriod(val delta: Int) : CalendarEvent()
+
     data class SaveNote(val date: String, val text: String) : CalendarEvent()
     data class DeleteDay(val date: String) : CalendarEvent()
 

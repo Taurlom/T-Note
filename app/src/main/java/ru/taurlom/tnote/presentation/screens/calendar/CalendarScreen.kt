@@ -8,13 +8,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -48,10 +54,13 @@ import ru.taurlom.tnote.domain.model.EventIcon
 import ru.taurlom.tnote.domain.model.ScheduledEvent
 import ru.taurlom.tnote.domain.model.ScheduledEventType
 import ru.taurlom.tnote.domain.repository.CaldavSyncException
+import ru.taurlom.tnote.presentation.components.AppTabs
 import ru.taurlom.tnote.presentation.components.SectionTopBar
 import ru.taurlom.tnote.presentation.theme.AppTheme
+import ru.taurlom.tnote.presentation.util.eventTimeLabel
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,12 +69,14 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
     val caldavAccount by viewModel.caldavAccount.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var selectedDate by remember { mutableStateOf<CalendarDate?>(null) }
+    val scrollState = rememberScrollState()
+    val locale = LocalConfiguration.current.locales[0]
 
     // Итог кнопки ⇄ в шапке — тост, как у «Обновить» в настройках.
     CaldavSyncResultToast(viewModel)
 
-    // Дистанция вертикального свайпа, после которой меняется месяц.
-    val monthSwipeDistancePx = with(LocalDensity.current) { 96.dp.toPx() }
+    // Дистанция вертикального свайпа, после которой меняется период.
+    val swipeDistancePx = with(LocalDensity.current) { 96.dp.toPx() }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -85,44 +96,93 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                // Вертикальный свайп листает месяцы: вверх — следующий, вниз —
-                // предыдущий. Потребляя вертикальные смещения, жест не мешает
-                // горизонтальному свайпу переключения разделов в AppNavigation.
-                .pointerInput(viewModel) {
-                    var draggedPx = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { draggedPx = 0f },
-                        onDragCancel = { draggedPx = 0f },
-                        onDragEnd = {
-                            when {
-                                draggedPx < -monthSwipeDistancePx ->
-                                    viewModel.onEvent(CalendarEvent.NextMonth)
+                // Табы прижаты выше: вертикальные поля меньше горизонтальных.
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                // Свайп листает периоды только в режиме «Месяц». В остальных
+                // режимах под сеткой есть прокручиваемый список событий, и
+                // перехват вертикальных жестов мешал бы ему.
+                .then(
+                    if (uiState.mode == CalendarViewMode.MONTH) {
+                        Modifier.pointerInput(viewModel) {
+                            var draggedPx = 0f
+                            detectVerticalDragGestures(
+                                onDragStart = { draggedPx = 0f },
+                                onDragCancel = { draggedPx = 0f },
+                                onDragEnd = {
+                                    when {
+                                        draggedPx < -swipeDistancePx ->
+                                            viewModel.onEvent(CalendarEvent.ShiftPeriod(1))
 
-                                draggedPx > monthSwipeDistancePx ->
-                                    viewModel.onEvent(CalendarEvent.PreviousMonth)
+                                        draggedPx > swipeDistancePx ->
+                                            viewModel.onEvent(CalendarEvent.ShiftPeriod(-1))
+                                    }
+                                },
+                            ) { change, dragAmount ->
+                                change.consume()
+                                draggedPx += dragAmount
                             }
-                        },
-                    ) { change, dragAmount ->
-                        change.consume()
-                        draggedPx += dragAmount
-                    }
-                },
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        }
+                    } else {
+                        Modifier
+                    },
+                )
+                .then(
+                    if (uiState.mode == CalendarViewMode.MONTH) {
+                        Modifier
+                    } else {
+                        Modifier.verticalScroll(scrollState)
+                    },
+                ),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            CalendarModeTabs(uiState.mode) { mode ->
+                viewModel.onEvent(CalendarEvent.ChangeMode(mode))
+            }
+
             CalendarHeader(
-                yearMonth = uiState.yearMonth,
-                onPrevious = { viewModel.onEvent(CalendarEvent.PreviousMonth) },
-                onNext = { viewModel.onEvent(CalendarEvent.NextMonth) },
+                state = uiState,
+                locale = locale,
+                onPrevious = { viewModel.onEvent(CalendarEvent.ShiftPeriod(-1)) },
+                onNext = { viewModel.onEvent(CalendarEvent.ShiftPeriod(1)) },
             )
-            WeekDayLabels()
-            CalendarGrid(
-                yearMonth = uiState.yearMonth,
-                notes = uiState.notes,
-                events = uiState.events,
-                weekendDates = uiState.weekendDates,
-                onDayClick = { selectedDate = it },
-            )
+
+            when (uiState.mode) {
+                CalendarViewMode.MONTH -> {
+                    WeekDayLabels()
+                    CalendarGrid(
+                        yearMonth = uiState.yearMonth,
+                        notes = uiState.notes,
+                        events = uiState.events,
+                        weekendDates = uiState.weekendDates,
+                        onDayClick = { selectedDate = it },
+                    )
+                }
+
+                CalendarViewMode.WEEK -> {
+                    val dates = visibleDates(uiState)
+                    WeekGrid(
+                        dates = dates,
+                        notes = uiState.notes,
+                        events = uiState.events,
+                        weekendDates = uiState.weekendDates,
+                        onDayClick = { selectedDate = it },
+                    )
+                    EventsSection(
+                        title = stringResource(R.string.calendar_week_events),
+                        days = dates.map { it to uiState.events[it.toString()].orEmpty() },
+                        notes = uiState.notes,
+                    )
+                }
+
+                CalendarViewMode.DAY -> {
+                    val day = uiState.anchorDate
+                    EventsSection(
+                        title = stringResource(R.string.calendar_day_events),
+                        days = listOf(day to uiState.events[day.toString()].orEmpty()),
+                        notes = uiState.notes,
+                    )
+                }
+            }
         }
     }
 
@@ -141,6 +201,14 @@ fun CalendarScreen(showBrandHeader: Boolean, viewModel: CalendarViewModel = hilt
             onDeleteEvent = { viewModel.onEvent(CalendarEvent.DeleteEvent(it)) },
         )
     }
+}
+
+/** Все даты показанного периода — по одной на день недели. */
+private fun visibleDates(state: CalendarUiState): List<LocalDate> {
+    val (start, end) = state.visibleDateRange()
+    return generateSequence(start) { date ->
+        if (date < end) date.plusDays(1) else null
+    }.toList()
 }
 
 /**
@@ -179,30 +247,53 @@ private fun CaldavSyncResultToast(viewModel: CalendarViewModel) {
 }
 
 @Composable
-private fun CalendarHeader(yearMonth: CalendarYearMonth, onPrevious: () -> Unit, onNext: () -> Unit) {
+private fun CalendarModeTabs(mode: CalendarViewMode, onModeChange: (CalendarViewMode) -> Unit) {
+    val modes = CalendarViewMode.values()
+    AppTabs(
+        titles = listOf(
+            stringResource(R.string.calendar_mode_month),
+            stringResource(R.string.calendar_mode_week),
+            stringResource(R.string.calendar_mode_day),
+        ),
+        selectedTab = mode.ordinal,
+        onSelect = { onModeChange(modes[it]) },
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun CalendarHeader(state: CalendarUiState, locale: Locale, onPrevious: () -> Unit, onNext: () -> Unit) {
+    val title = when (state.mode) {
+        CalendarViewMode.MONTH -> state.yearMonth.toDisplayName(locale)
+
+        CalendarViewMode.WEEK -> {
+            val (start, end) = state.visibleDateRange()
+            weekRangeDisplayName(start, end, locale)
+        }
+
+        CalendarViewMode.DAY -> state.anchorDate.toDayMonth(locale)
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        val locale = LocalConfiguration.current.locales[0]
-        IconButton(onClick = onPrevious) {
+        IconButton(onClick = onPrevious, modifier = Modifier.size(40.dp)) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_left),
-                contentDescription = stringResource(R.string.prev_month),
+                contentDescription = stringResource(R.string.prev_period),
                 tint = AppTheme.colors.calendarHeader,
             )
         }
         Text(
-            // Название месяца форматируется один раз за перерисовку заголовка.
-            text = remember(yearMonth, locale) { yearMonth.toDisplayName(locale) },
+            text = title,
             style = MaterialTheme.typography.headlineSmall,
             color = AppTheme.colors.calendarHeader,
         )
-        IconButton(onClick = onNext) {
+        IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
             Icon(
                 painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = stringResource(R.string.next_month),
+                contentDescription = stringResource(R.string.next_period),
                 tint = AppTheme.colors.calendarHeader,
             )
         }
@@ -458,6 +549,310 @@ private fun DayCell(
                     )
                 }
             }
+        }
+    }
+}
+
+// ── Режим «Неделя» ──
+
+@Composable
+private fun WeekGrid(
+    dates: List<LocalDate>,
+    notes: Map<String, CalendarNote>,
+    events: Map<String, List<ScheduledEvent>>,
+    weekendDates: Set<String>,
+    onDayClick: (CalendarDate) -> Unit,
+) {
+    val today = LocalDate.now()
+    val weekDayNames = listOf(
+        stringResource(R.string.weekday_mon),
+        stringResource(R.string.weekday_tue),
+        stringResource(R.string.weekday_wed),
+        stringResource(R.string.weekday_thu),
+        stringResource(R.string.weekday_fri),
+        stringResource(R.string.weekday_sat),
+        stringResource(R.string.weekday_sun),
+    )
+    Row(modifier = Modifier.fillMaxWidth()) {
+        dates.forEachIndexed { index, date ->
+            val key = date.toString()
+            val dayEvents = events[key].orEmpty()
+            val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY ||
+                date.dayOfWeek == DayOfWeek.SUNDAY ||
+                weekendDates.contains(key)
+            WeekDayCell(
+                weekDayName = weekDayNames[index],
+                dayNumber = date.dayOfMonth,
+                isToday = date == today,
+                isWeekend = isWeekend,
+                isPast = date.isBefore(today),
+                hasNote = notes.containsKey(key),
+                eventIcons = dayEvents
+                    .filter { it.type == ScheduledEventType.REGULAR }
+                    .map { it.icon to it.colorArgb },
+                recurringCount = dayEvents.count { it.type == ScheduledEventType.REPEATING },
+                hasBirthday = dayEvents.any { it.type == ScheduledEventType.BIRTHDAY },
+                onClick = { onDayClick(date.toCalendarDate()) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeekDayCell(
+    weekDayName: String,
+    dayNumber: Int,
+    isToday: Boolean,
+    isWeekend: Boolean,
+    isPast: Boolean,
+    hasNote: Boolean,
+    eventIcons: List<Pair<EventIcon, Long>>,
+    recurringCount: Int,
+    hasBirthday: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = AppTheme.colors
+    val background = if (isToday) colors.calendarTodayContainer else colors.calendarCellContainer
+    val numberColor = when {
+        isToday -> colors.calendarTodayNumber
+        isWeekend -> colors.calendarWeekdayLabel
+        else -> colors.calendarDayNumber
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 2.dp),
+    ) {
+        Text(
+            text = weekDayName,
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.calendarWeekdayLabel,
+        )
+        Text(
+            text = dayNumber.toString(),
+            style = MaterialTheme.typography.bodyLarge,
+            color = numberColor,
+        )
+        // Маркеры под числом: день рождения, иконки событий, повторы, заметка.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.height(12.dp),
+        ) {
+            if (hasBirthday) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_event_cake),
+                    contentDescription = stringResource(R.string.event_type_birthday),
+                    tint = colors.calendarEventMarker,
+                    modifier = Modifier.size(10.dp),
+                )
+            }
+            eventIcons.take(3).forEach { (icon, colorArgb) ->
+                Icon(
+                    painter = painterResource(icon.drawableRes),
+                    contentDescription = stringResource(icon.labelRes),
+                    tint = eventIconColor(colorArgb, isPast, colors.calendarEventMarker),
+                    modifier = Modifier.size(12.dp),
+                )
+            }
+            if (recurringCount > 0) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_event_chronic),
+                    contentDescription = stringResource(R.string.event_type_repeating),
+                    tint = eventIconColor(
+                        ScheduledEvent.DEFAULT_COLOR,
+                        isPast,
+                        colors.calendarEventMarker,
+                    ),
+                    modifier = Modifier.size(10.dp),
+                )
+            }
+            if (hasNote) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(
+                            if (isPast) colors.calendarPastMarker else colors.calendarNoteMarker,
+                            CircleShape,
+                        ),
+                )
+            }
+        }
+    }
+}
+
+// ── Карточки событий и заметок (режимы «Неделя» и «День») ──
+
+@Composable
+private fun EventsSection(title: String, days: List<Pair<LocalDate, List<ScheduledEvent>>>, notes: Map<String, CalendarNote>) {
+    val colors = AppTheme.colors
+    val locale = LocalConfiguration.current.locales[0]
+    val today = LocalDate.now()
+    // День показывается, если в нём есть событие или заметка.
+    val daysWithContent = days.filter { (date, events) ->
+        events.isNotEmpty() || notes[date.toString()]?.text?.isNotBlank() == true
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.calendarHeader,
+        )
+        if (daysWithContent.isEmpty()) {
+            Text(
+                text = stringResource(R.string.calendar_no_events),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.calendarPastMarker,
+            )
+        } else {
+            daysWithContent.forEach { (date, events) ->
+                val dateKey = date.toString()
+                val isPast = date.isBefore(today)
+                val note = notes[dateKey]?.text
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = date.toWeekdayDateDisplayName(locale),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = colors.calendarHeader,
+                    )
+                    // Заметка — отдельная карточка, идёт первой: у неё нет времени.
+                    if (!note.isNullOrBlank()) {
+                        NoteCard(text = note, isPast = isPast)
+                    }
+                    sortedDayEvents(events, date).forEach { event ->
+                        EventCard(event = event, day = date, isPast = isPast)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Порядок карточек дня: сначала без времени, затем с временем по возрастанию
+ * времени начала. Внутри одной группы сохраняется исходный порядок.
+ */
+private fun sortedDayEvents(events: List<ScheduledEvent>, day: LocalDate): List<ScheduledEvent> {
+    fun hasTime(event: ScheduledEvent): Boolean {
+        val window = event.windowOn(day) ?: return false
+        return window.first != null || window.second != null
+    }
+
+    fun startTime(event: ScheduledEvent): Int = event.windowOn(day)?.first ?: Int.MAX_VALUE
+
+    return events.sortedWith(
+        compareBy<ScheduledEvent> { hasTime(it) }.thenBy { startTime(it) },
+    )
+}
+
+/** Иконка события над цветной полоской — левая часть карточки. */
+@Composable
+private fun CardAccent(iconRes: Int, iconLabel: String?, color: Color, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.height(56.dp),
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = iconLabel,
+            tint = color,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .weight(1f)
+                .clip(MaterialTheme.shapes.small)
+                .background(color),
+        )
+    }
+}
+
+/** Карточка события: без клика и стрелки — только содержимое. */
+@Composable
+private fun EventCard(event: ScheduledEvent, day: LocalDate, isPast: Boolean) {
+    val colors = AppTheme.colors
+    val time = eventTimeLabel(event.windowOn(day))
+    val accent = eventIconColor(event.colorArgb, isPast, colors.calendarEventMarker)
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .background(colors.calendarWeekendContainer)
+            .padding(12.dp),
+    ) {
+        CardAccent(
+            iconRes = event.icon.drawableRes,
+            iconLabel = stringResource(event.icon.labelRes),
+            color = accent,
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 2.dp),
+        ) {
+            if (time != null) {
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.calendarEventMarker,
+                )
+            }
+            Text(
+                text = event.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.calendarDayNumber,
+            )
+        }
+    }
+}
+
+/** Заметка дня — такая же карточка, но с иконкой заметки. */
+@Composable
+private fun NoteCard(text: String, isPast: Boolean) {
+    val colors = AppTheme.colors
+    val accent = if (isPast) colors.calendarPastMarker else colors.calendarNoteMarker
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .background(colors.calendarWeekendContainer)
+            .padding(12.dp),
+    ) {
+        CardAccent(
+            iconRes = R.drawable.ic_event_note,
+            iconLabel = stringResource(R.string.icon_note),
+            color = accent,
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 2.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.icon_note),
+                style = MaterialTheme.typography.labelMedium,
+                color = accent,
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.calendarDayNumber,
+            )
         }
     }
 }

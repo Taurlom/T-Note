@@ -1,6 +1,8 @@
 package ru.taurlom.tnote.presentation.screens.calendar
 
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.YearMonth
 import java.util.Calendar
 import java.util.Locale
 
@@ -9,6 +11,17 @@ data class CalendarYearMonth(val year: Int, val month: Int)
 data class CalendarDate(val year: Int, val month: Int, val day: Int) {
     fun toIsoString(): String = String.format(Locale.US, "%04d-%02d-%02d", year, month, day)
 }
+
+fun CalendarDate.toLocalDate(): LocalDate = LocalDate.of(year, month, day)
+
+fun LocalDate.toCalendarDate(): CalendarDate = CalendarDate(year, monthValue, dayOfMonth)
+
+fun CalendarYearMonth.toYearMonth(): YearMonth = YearMonth.of(year, month)
+
+fun YearMonth.toCalendarYearMonth(): CalendarYearMonth = CalendarYearMonth(year, monthValue)
+
+/** Префикс ISO-даты для запроса заметок месяца: «2026-11%». */
+fun YearMonth.toMonthPrefix(): String = String.format(Locale.US, "%04d-%02d%%", year, monthValue)
 
 fun CalendarYearMonth.toDisplayName(locale: Locale): String {
     val calendar = Calendar.getInstance().apply {
@@ -68,3 +81,27 @@ fun CalendarYearMonth.firstDayOfWeekOffset(): Int {
 }
 
 fun CalendarYearMonth.monthPrefix(): String = String.format(Locale.US, "%04d-%02d%%", year, month)
+
+/** «22 ноября» — правая часть заголовка недели. */
+fun LocalDate.toDayMonth(locale: Locale): String {
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, monthValue - 1)
+        set(Calendar.DAY_OF_MONTH, dayOfMonth)
+    }
+    return SimpleDateFormat("d MMMM", locale).format(calendar.time)
+}
+
+/** Заголовок недели вроде «16 – 22 ноября». */
+fun weekRangeDisplayName(start: LocalDate, end: LocalDate, locale: Locale): String = "${start.dayOfMonth} – ${end.toDayMonth(locale)}"
+
+/** «Понедельник, 16 ноября» — заголовок группы событий дня. */
+fun LocalDate.toWeekdayDateDisplayName(locale: Locale): String {
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, monthValue - 1)
+        set(Calendar.DAY_OF_MONTH, dayOfMonth)
+    }
+    return String.format(locale, "%1\$tA, %1\$te %1\$tB", calendar)
+        .replaceFirstChar { it.titlecase(locale) }
+}

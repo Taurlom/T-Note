@@ -355,6 +355,16 @@
     <string name="crop">Обрезать</string>
     <string name="prev_month">Предыдущий месяц</string>
     <string name="next_month">Следующий месяц</string>
+    <string name="prev_period">Предыдущий период</string>
+    <string name="next_period">Следующий период</string>
+
+    <!-- Режимы отображения календаря -->
+    <string name="calendar_mode_month">Месяц</string>
+    <string name="calendar_mode_week">Неделя</string>
+    <string name="calendar_mode_day">День</string>
+    <string name="calendar_week_events">События недели</string>
+    <string name="calendar_day_events">События дня</string>
+    <string name="calendar_no_events">Нет событий</string>
     <string name="delete_task_confirm">Удалить пункт «%1$s»?</string>
     <string name="delete_category_confirm">Удалить список «%1$s»? Все задачи внутри него также будут удалены.</string>
     <string name="delete_document_confirm">Удалить документ «%1$s»?</string>

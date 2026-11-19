@@ -345,6 +345,16 @@
     <string name="crop">Crop</string>
     <string name="prev_month">Previous month</string>
     <string name="next_month">Next month</string>
+    <string name="prev_period">Previous period</string>
+    <string name="next_period">Next period</string>
+
+    <!-- Calendar view modes -->
+    <string name="calendar_mode_month">Month</string>
+    <string name="calendar_mode_week">Week</string>
+    <string name="calendar_mode_day">Day</string>
+    <string name="calendar_week_events">Events this week</string>
+    <string name="calendar_day_events">Events this day</string>
+    <string name="calendar_no_events">No events</string>
     <string name="delete_task_confirm">Delete item \"%1$s\"?</string>
     <string name="delete_category_confirm">Delete list \"%1$s\"? All items inside it will be deleted too.</string>
     <string name="delete_document_confirm">Delete document \"%1$s\"?</string>
