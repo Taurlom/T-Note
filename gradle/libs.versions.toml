@@ -33,7 +33,7 @@ okhttp = "4.12.0"
 # OAuth-токены Google Calendar API: GoogleAuthUtil из Play Services
 # (Android-клиент OAuth, package + SHA-1; токен короткоживущий, кеш
 # и обновление — внутри GoogleAuthUtil).
-play-services-auth = "21.3.0"
+play-services-auth = "22.0.0"
 # Парсеры, которые тянет вендоренный модуль richeditor-compose
 # (см. README.md модуля): разбор HTML и markdown в RichTextState.
 ksoup = "0.6.0"
