@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Виджет «Сегодня»: 3×3 по умолчанию, растягивается по горизонтали и
+  вертикали. updatePeriodMillis — минимальные 30 минут: это запасной
+  механизм, точную смену даты в полночь делает TodayWidgetRefreshWorker
+  (WorkManager), а изменения в базе обновляют виджет сразу через
+  TodayWidgetUpdater (InvalidationTracker Room).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_today_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minHeight="180dp"
+    android:minResizeHeight="140dp"
+    android:minResizeWidth="180dp"
+    android:minWidth="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="3"
+    android:targetCellWidth="3"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

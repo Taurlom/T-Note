@@ -10,6 +10,11 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 
+# Полуночное обновление виджета «Сегодня» — тот же механизм WorkManager.
+-keep class ru.taurlom.tnote.presentation.widget.TodayWidgetRefreshWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
 # ical4j ссылается на опциональную зависимость jsonsKema (валидация
 # JSON-схем в StructuredData) — в календаре её нет и не будет: не
 # используемые классы-валидаторы R8 вырежет, предупреждать о них не надо.

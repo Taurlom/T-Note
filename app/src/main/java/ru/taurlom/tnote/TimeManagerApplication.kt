@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import ru.taurlom.tnote.data.update.UpdateCheckScheduler
 import ru.taurlom.tnote.domain.notifications.ReminderScheduler
 import ru.taurlom.tnote.domain.usecase.ScheduleNextDailyDigestUseCase
+import ru.taurlom.tnote.presentation.widget.TodayWidgetUpdater
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -23,6 +24,9 @@ class TimeManagerApplication : Application() {
 
     @Inject
     lateinit var updateCheckScheduler: UpdateCheckScheduler
+
+    @Inject
+    lateinit var todayWidgetUpdater: TodayWidgetUpdater
 
     override fun onCreate() {
         super.onCreate()
@@ -43,5 +47,10 @@ class TimeManagerApplication : Application() {
         applicationScope.launch {
             runCatching { updateCheckScheduler.ensureScheduled() }
         }
+        // Виджет «Сегодня»: первичная отрисовка и наблюдение за таблицей
+        // событий. Наблюдателю нужен процесс приложения — он и так поднят,
+        // раз мы здесь; когда процесс умрёт, виджет дотянется до свежих
+        // данных по updatePeriodMillis или при следующем запуске.
+        todayWidgetUpdater.start()
     }
 }

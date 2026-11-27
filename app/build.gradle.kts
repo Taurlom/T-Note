@@ -20,7 +20,7 @@ val keystoreProperties = Properties().apply {
 // смене версии и не регрессирует на переходе MAJOR (2.0.0 → 20000).
 // Исторический минимум — 241: до 1.14.0 включительно действовала формула
 // MAJOR*100 + MINOR*10 + PATCH (1.14.0 = 240 ушла в RuStore на модерацию).
-val appVersionName = "1.28.0"
+val appVersionName = "1.29.1"
 val appVersionCode = appVersionName.split(".").map(String::toInt)
     .let { (major, minor, patch) -> major * 10000 + minor * 100 + patch }
 
@@ -165,6 +165,11 @@ dependencies {
     // точных будильников (прошлая версия напоминаний на будильниках
     // и не прижилась).
     implementation(libs.work.runtime.ktx)
+
+    // Виджет «Сегодня» на главном экране: Glance рисует RemoteViews
+    // Compose-подобным API; material3 даёт ColorProviders из темы.
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
 
     implementation(libs.coil.compose)
     // WYSIWYG-редактор заметок: форматирование выделения и картинки в тексте,

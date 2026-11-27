@@ -380,4 +380,21 @@
     <!-- Единый snackbar отказа действия (AppErrorBus): без деталей, они в логе. -->
     <string name="action_failed">Не удалось выполнить действие</string>
 
+    <!-- Виджет «Сегодня» -->
+    <string name="widget_today_name">Сегодня</string>
+    <string name="widget_today_description">События на сегодня и быстрые действия</string>
+    <string name="widget_today_title">Сегодня</string>
+    <string name="widget_open_app">Открыть приложение</string>
+    <string name="widget_no_events">На сегодня событий нет</string>
+    <string name="widget_more_events">и ещё %1$d</string>
+    <string name="widget_action_lists">Списки</string>
+    <string name="widget_action_add_note">Добавить заметку</string>
+    <string name="widget_action_calendar">Календарь</string>
+    <plurals name="widget_event_count">
+        <item quantity="one">%1$d событие</item>
+        <item quantity="few">%1$d события</item>
+        <item quantity="many">%1$d событий</item>
+        <item quantity="other">%1$d событий</item>
+    </plurals>
+
 </resources>

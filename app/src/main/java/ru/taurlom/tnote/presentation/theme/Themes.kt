@@ -594,12 +594,11 @@ internal val AtlasTheme = AppThemeSpec(
 )
 
 /**
- * «Как в системе»: тёмная тема, если у системы включён тёмный режим,
- * иначе светлая. Вызывается в composition (Theme.kt).
+ * Тема без Compose: [systemDark] нужен только для [ThemeKind.SYSTEM].
+ * Виджет живёт вне composition, но следует тому же выбору, что и экраны.
  */
-@Composable
-internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = when (kind) {
-    ThemeKind.SYSTEM -> if (isSystemInDarkTheme()) DarkTheme else LightTheme
+internal fun themeSpecFor(kind: ThemeKind, systemDark: Boolean): AppThemeSpec = when (kind) {
+    ThemeKind.SYSTEM -> if (systemDark) DarkTheme else LightTheme
     ThemeKind.DARK -> DarkTheme
     ThemeKind.LIGHT -> LightTheme
     ThemeKind.OCEAN -> OceanTheme
@@ -607,3 +606,10 @@ internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = when (kind) {
     ThemeKind.AUTUMN -> AutumnTheme
     ThemeKind.ATLAS -> AtlasTheme
 }
+
+/**
+ * «Как в системе»: тёмная тема, если у системы включён тёмный режим,
+ * иначе светлая. Вызывается в composition (Theme.kt).
+ */
+@Composable
+internal fun themeSpecOf(kind: ThemeKind): AppThemeSpec = themeSpecFor(kind, isSystemInDarkTheme())

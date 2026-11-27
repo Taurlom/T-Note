@@ -78,6 +78,14 @@ class MainActivity : AppCompatActivity() {
     // маршрутом, что и шэры, — состояние вне composition.
     private val pendingOpenCalendar = mutableStateOf(false)
 
+    // Кнопка «Списки» на виджете «Сегодня»: вернуться из drill-down
+    // и открыть раздел «Списки».
+    private val pendingOpenLists = mutableStateOf(false)
+
+    // Кнопка «Заметка» на виджете: открыть редактор новой заметки поверх
+    // текущего экрана (маршрут тот же, что у FAB в разделе «Заметки»).
+    private val pendingNewNote = mutableStateOf(false)
+
     companion object {
         /**
          * Extra из уведомления-сводки (ставит DailyDigestNotifier в слое
@@ -85,6 +93,18 @@ class MainActivity : AppCompatActivity() {
          * случился открытым.
          */
         const val EXTRA_OPEN_CALENDAR = "open_calendar"
+
+        /**
+         * Extra кнопки «Списки» на виджете «Сегодня»: вернуться из
+         * drill-down и открыть раздел «Списки».
+         */
+        const val EXTRA_OPEN_LISTS = "open_lists"
+
+        /**
+         * Extra кнопки «Заметка» на виджете «Сегодня»: открыть редактор
+         * новой заметки, а не просто раздел «Заметки».
+         */
+        const val EXTRA_NEW_NOTE = "new_note"
 
         /** Минимальное время заставки — «мигнуть брендом» (мс). */
         private const val SPLASH_MIN_MILLIS = 500L
@@ -173,6 +193,10 @@ class MainActivity : AppCompatActivity() {
                             onPendingSharedTextHandled = { pendingSharedText.value = null },
                             pendingOpenCalendar = pendingOpenCalendar.value,
                             onPendingOpenCalendarHandled = { pendingOpenCalendar.value = false },
+                            pendingOpenLists = pendingOpenLists.value,
+                            onPendingOpenListsHandled = { pendingOpenLists.value = false },
+                            pendingNewNote = pendingNewNote.value,
+                            onPendingNewNoteHandled = { pendingNewNote.value = false },
                         )
                         // Единый канал ошибок действий (AppErrorBus): отказ
                         // записи и т.п. — snackbar вместо краша. Действия
@@ -278,6 +302,20 @@ class MainActivity : AppCompatActivity() {
         // Уведомление-сводку тапают без action — только наш extra.
         if (intent?.getBooleanExtra(EXTRA_OPEN_CALENDAR, false) == true) {
             pendingOpenCalendar.value = true
+            // Поворот экрана пересоздаёт Activity с тем же intent: без
+            // удаления extra календарь открывался бы повторно.
+            intent.removeExtra(EXTRA_OPEN_CALENDAR)
+        }
+        if (intent?.getBooleanExtra(EXTRA_OPEN_LISTS, false) == true) {
+            pendingOpenLists.value = true
+            intent.removeExtra(EXTRA_OPEN_LISTS)
+        }
+        if (intent?.getBooleanExtra(EXTRA_NEW_NOTE, false) == true) {
+            pendingNewNote.value = true
+            // Интент виджета не должен сработать ещё раз при повороте
+            // экрана: Activity пересоздаётся с тем же getIntent(), и без
+            // этого флага поверх начатой заметки открылась бы ещё одна.
+            intent.removeExtra(EXTRA_NEW_NOTE)
         }
         when (intent?.action) {
             Intent.ACTION_VIEW ->

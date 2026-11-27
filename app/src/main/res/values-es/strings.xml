@@ -369,4 +369,20 @@
     <string name="weekday_sat">Sá</string>
     <string name="weekday_sun">Do</string>
     <string name="action_failed">No se pudo completar la acción</string>
+
+    <!-- Widget «Hoy» -->
+    <string name="widget_today_name">Hoy</string>
+    <string name="widget_today_description">Eventos de hoy y acciones rápidas</string>
+    <string name="widget_today_title">Hoy</string>
+    <string name="widget_open_app">Abrir aplicación</string>
+    <string name="widget_no_events">No hay eventos hoy</string>
+    <string name="widget_more_events">y %1$d más</string>
+    <string name="widget_action_lists">Listas</string>
+    <string name="widget_action_add_note">Añadir nota</string>
+    <string name="widget_action_calendar">Calendario</string>
+    <plurals name="widget_event_count">
+        <item quantity="one">%1$d evento</item>
+        <item quantity="many">%1$d eventos</item>
+        <item quantity="other">%1$d eventos</item>
+    </plurals>
 </resources>

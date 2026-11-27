@@ -59,6 +59,7 @@ import ru.taurlom.tnote.presentation.screens.categories.ShareFeedback
 import ru.taurlom.tnote.presentation.screens.documents.DocumentDetailScreen
 import ru.taurlom.tnote.presentation.screens.documents.DocumentsScreen
 import ru.taurlom.tnote.presentation.screens.documents.DocumentsViewModel
+import ru.taurlom.tnote.presentation.screens.notes.NEW_NOTE_ID
 import ru.taurlom.tnote.presentation.screens.notes.NoteDetailScreen
 import ru.taurlom.tnote.presentation.screens.notes.NotesEvent
 import ru.taurlom.tnote.presentation.screens.notes.NotesFeedback
@@ -109,8 +110,15 @@ private val mainNoExit: ExitTransition = ExitTransition.None
  * («Открыть в T-Note»): читаем его, показываем диалог подтверждения импорта
  * поверх текущего экрана и гасим интент после обработки.
  *
- * [pendingOpenCalendar] — тап по уведомлению-сводке: вернуться из
- * drill-down к разделам и открыть «Календарь».
+ * [pendingOpenCalendar] — тап по уведомлению-сводке или кнопка
+ * «Календарь» на виджете «Сегодня»: вернуться из drill-down к разделам
+ * и открыть «Календарь».
+ *
+ * [pendingOpenLists] — кнопка «Списки» на виджете «Сегодня»: вернуться
+ * из drill-down к разделам и открыть «Списки».
+ *
+ * [pendingNewNote] — кнопка «Заметка» на виджете «Сегодня»: открыть
+ * редактор новой заметки поверх текущего экрана.
  */
 @Composable
 fun AppNavigation(
@@ -120,6 +128,10 @@ fun AppNavigation(
     onPendingSharedTextHandled: () -> Unit = {},
     pendingOpenCalendar: Boolean = false,
     onPendingOpenCalendarHandled: () -> Unit = {},
+    pendingOpenLists: Boolean = false,
+    onPendingOpenListsHandled: () -> Unit = {},
+    pendingNewNote: Boolean = false,
+    onPendingNewNoteHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -180,16 +192,43 @@ fun AppNavigation(
         }
     }
 
-    // Тап по уведомлению-сводке: возвращаемся из drill-down к разделам
-    // (если ушли) и листаем пейджер на «Календарь». Запрос передаём
-    // счётчиком, а не флагом: повторный тап при уже открытом календаре
-    // должен сработать снова, а флаг бы «застрял» включённым.
-    var openCalendarRequest by remember { mutableIntStateOf(0) }
+    // Внешние запросы к разделам (уведомление-сводка и кнопки виджета):
+    // возвращаемся из drill-down к разделам (если ушли) и листаем пейджер
+    // на нужный раздел. Запрос передаём счётчиком, а не флагом: повторный
+    // тап при уже открытом разделе должен сработать снова, а флаг бы
+    // «застрял» включённым.
+    var openSectionRequest by remember { mutableIntStateOf(0) }
+    var openSectionId by remember { mutableStateOf<String?>(null) }
+
+    fun requestSection(id: String) {
+        openSectionId = id
+        openSectionRequest++
+        navController.popBackStack(Routes.MAIN, inclusive = false)
+    }
+
     LaunchedEffect(pendingOpenCalendar) {
         if (pendingOpenCalendar) {
-            openCalendarRequest++
-            navController.popBackStack(Routes.MAIN, inclusive = false)
+            requestSection(BottomNavItem.Calendar.id)
             onPendingOpenCalendarHandled()
+        }
+    }
+
+    LaunchedEffect(pendingOpenLists) {
+        if (pendingOpenLists) {
+            requestSection(BottomNavItem.Categories.id)
+            onPendingOpenListsHandled()
+        }
+    }
+
+    // Кнопка «Заметка» на виджете: тот же экран, что и FAB в «Заметках».
+    // launchSingleTop не плодит одинаковые редакторы при повторном тапе,
+    // но и не сбрасывает уже открытую заметку из стека.
+    LaunchedEffect(pendingNewNote) {
+        if (pendingNewNote) {
+            navController.navigate(Routes.noteDetail(NEW_NOTE_ID)) {
+                launchSingleTop = true
+            }
+            onPendingNewNoteHandled()
         }
     }
 
@@ -273,7 +312,8 @@ fun AppNavigation(
                 onArchiveClick = {
                     navController.navigate(Routes.ARCHIVE)
                 },
-                openCalendarRequest = openCalendarRequest,
+                openSectionRequest = openSectionRequest,
+                openSectionId = openSectionId,
             )
         }
 
@@ -426,7 +466,8 @@ private fun MainTabsScreen(
     onDocumentClick: (Long) -> Unit,
     onNoteClick: (Long) -> Unit,
     onArchiveClick: () -> Unit,
-    openCalendarRequest: Int = 0,
+    openSectionRequest: Int = 0,
+    openSectionId: String? = null,
 ) {
     // Запасной путь импорта: выбор .tnote-файла вручную — мессенджеры не
     // всегда отдают наш MIME при «Открыть с помощью». Ланчер живёт здесь, а
@@ -468,12 +509,13 @@ private fun MainTabsScreen(
         }
     }
 
-    // Тап по уведомлению-сводке: плавно доезжаем до «Календаря», как при
-    // тапе по нижней панели. Раздел может быть скрыт пользователем — тогда
-    // тихо остаёмся на текущем: настраивать видимость из уведомления нельзя.
-    LaunchedEffect(openCalendarRequest) {
-        if (openCalendarRequest > 0) {
-            val target = items.indexOfFirst { it is BottomNavItem.Calendar }
+    // Внешний запрос (уведомление-сводка или кнопка виджета): плавно
+    // доезжаем до раздела, как при тапе по нижней панели. Раздел может быть
+    // скрыт пользователем — тогда тихо остаёмся на текущем: настраивать
+    // видимость из уведомления или виджета нельзя.
+    LaunchedEffect(openSectionRequest, openSectionId) {
+        if (openSectionRequest > 0 && openSectionId != null) {
+            val target = items.indexOfFirst { it.id == openSectionId }
             if (target >= 0 && pagerState.currentPage != target) {
                 scrollScope.launch { pagerState.animateScrollToPage(target) }
             }

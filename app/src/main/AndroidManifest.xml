@@ -13,6 +13,10 @@
          выдаётся при установке, runtime-запрос не нужен. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Виджет «Сегодня»: после перезагрузки сразу перерисовать дату
+         и события, не дожидаясь updatePeriodMillis. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <queries>
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
@@ -101,6 +105,34 @@
                     android:scheme="file" />
             </intent-filter>
         </activity>
+        <!-- Виджет «Сегодня»: список событий дня и быстрые действия.
+             Система шлёт обновления явно на этот receiver, поэтому
+             exported=false (как рекомендуют для Glance). -->
+        <receiver
+            android:name=".presentation.widget.TodayWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_today_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_widget_info" />
+        </receiver>
+        <!-- Дата и время в виджете не должны отставать: после загрузки,
+             перевода часов/пояса или смены языка перерисовываем сразу.
+             DATE_CHANGED с Android 8 манифестом не принимается — полночь
+             закрывает TodayWidgetRefreshWorker. -->
+        <receiver
+            android:name=".presentation.widget.TodayWidgetRefreshReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
